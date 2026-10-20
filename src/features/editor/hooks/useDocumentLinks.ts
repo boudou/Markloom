@@ -67,7 +67,15 @@ function splitHash(href: string): { path: string; hash: string } {
   return { path: safeDecode(path), hash: safeDecode(hash) };
 }
 
-function safeDecode(value: string): string {
+/**
+ * The open-folder path of an image or link source as it appears in the rendered document:
+ * percent-encoded, possibly with a query or hash. The preview, Rich text and export all use it.
+ */
+export function resolveSourcePath(fromFile: string, src: string): string {
+  return resolveRelativePath(fromFile, splitHash(src).path);
+}
+
+export function safeDecode(value: string): string {
   try {
     return decodeURIComponent(value);
   } catch {
@@ -177,7 +185,7 @@ export function useDocumentLinks(
         return;
       }
 
-      const path = resolveRelativePath(activeFilePath, splitHash(src).path);
+      const path = resolveSourcePath(activeFilePath, src);
       showImage(img, path).catch(() => showMissingImage(img, src));
     });
   }, [containerRef, html, activeFilePath, resolveImages]);

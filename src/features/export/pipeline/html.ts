@@ -2,7 +2,7 @@
 // markup, diagrams as inline SVG, images embedded, the app's fonts included.
 import { parseMarkdown } from '@/lib/markdown';
 import { loadHighlighter } from '@/features/syntax-highlight';
-import { loadDocumentImage, renderDiagram } from './assets';
+import { blobToDataUrl, loadDocumentImage, renderDiagram } from './assets';
 import { EXPORT_STYLES } from './styles';
 
 const EXPORT_FONT_FAMILIES = ['Literata', 'Fraunces', 'IBM Plex Mono'];
@@ -34,12 +34,11 @@ function embeddedFontFaces(): Promise<string> {
         const url = rule.style.getPropertyValue('src').match(/url\(["']?([^"')]+\.woff2)["']?\)/)?.[1];
         if (!url || !FONT_SUBSETS.test(url)) return '';
         try {
-          const blob = await (await fetch(url)).blob();
-          const data = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
+          const response = await fetch(url);
+          if (!response.ok) return '';
+
+          // Rejects on a failed read, so one bad face can't leave the cached promise pending
+          const data = await blobToDataUrl(await response.blob());
           const s = rule.style;
           return `@font-face{font-family:'${s.getPropertyValue('font-family').replace(/['"]/g, '')}';font-style:${s.getPropertyValue('font-style') || 'normal'};font-weight:${s.getPropertyValue('font-weight') || '400'};font-display:block;src:url(${data}) format('woff2');unicode-range:${s.getPropertyValue('unicode-range') || 'U+0-10FFFF'};}`;
         } catch {
