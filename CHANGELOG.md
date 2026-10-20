@@ -4,6 +4,8 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-20
+
 ### Added
 
 - Selection count: while text is selected, in either editor, the status bar shows its words and characters (#10).
@@ -51,6 +53,7 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/boudou/Markloom/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/boudou/Markloom/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/boudou/Markloom/releases/tag/v0.1.0
