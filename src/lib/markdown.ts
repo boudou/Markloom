@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
+import { CALLOUT_MARKER, calloutTitleHtml, type CalloutKind } from './callouts';
 import { highlightCode } from '@/features/syntax-highlight';
 
 // Real HTML element names; anything else in angle brackets is treated as literal text
@@ -123,6 +124,35 @@ export function createMarkdownParser(): MarkdownIt {
       box.content = `<input type="checkbox" class="task-checkbox" disabled${checked ? ' checked' : ''} aria-label="${checked ? 'Done' : 'Not done'}"> `;
       inline.children!.unshift(box);
       tokens[i - 2].attrJoin('class', 'task-list-item');
+    }
+  });
+
+  // GitHub callouts: "> [!NOTE]" on a quote's first line turns the quote into a titled box
+  md.core.ruler.push('callouts', (state) => {
+    const tokens = state.tokens;
+    for (let i = 0; i < tokens.length - 2; i++) {
+      if (tokens[i].type !== 'blockquote_open' || tokens[i + 1].type !== 'paragraph_open') continue;
+      const inline = tokens[i + 2];
+      const match = inline.content.match(CALLOUT_MARKER);
+      if (!match) continue;
+
+      const kind = match[1].toLowerCase() as CalloutKind;
+      tokens[i].attrJoin('class', `callout callout-${kind}`);
+      tokens[i].attrSet('data-callout', kind);
+
+      // Drop the marker line: re-parse what follows it, or drop the paragraph if that was all
+      const rest = inline.content.slice(match[0].length);
+      if (rest.trim()) {
+        inline.content = rest;
+        inline.children = state.md.parseInline(rest, state.env)[0]?.children ?? [];
+      } else {
+        tokens.splice(i + 1, 3);
+      }
+
+      const title = new state.Token('html_block', '', 0);
+      title.content = calloutTitleHtml(kind);
+      title.meta = { calloutTitle: kind };
+      tokens.splice(i + 1, 0, title);
     }
   });
 

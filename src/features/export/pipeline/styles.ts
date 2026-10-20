@@ -47,6 +47,14 @@ blockquote {
   break-inside: avoid;
 }
 blockquote > :last-child { margin-bottom: 0; }
+blockquote.callout { --callout: #0969DA; border-left: 3px solid var(--callout); background: color-mix(in srgb, var(--callout) 5%, #FFFFFF); }
+blockquote.callout-tip { --callout: #1A7F37; }
+blockquote.callout-important { --callout: #8250DF; }
+blockquote.callout-warning { --callout: #9A6700; }
+blockquote.callout-caution { --callout: #CF222E; }
+.callout-title { display: flex; align-items: center; gap: 0.45em; margin: 0 0 0.35em; color: var(--callout); font-weight: 600; font-size: 0.92em; }
+.callout-icon { width: 1.05em; height: 1.05em; flex-shrink: 0; }
+.callout-title + * { margin-top: 0; }
 
 code, pre, kbd { font-family: 'IBM Plex Mono', Consolas, monospace; }
 :not(pre) > code {
