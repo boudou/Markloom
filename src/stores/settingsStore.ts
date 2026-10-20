@@ -55,6 +55,9 @@ interface SettingsState {
   recentFiles: RecentFile[];
   maxRecentFiles: number;
 
+  /** Word-count goals, keyed by document path (or tab id for unsaved documents) */
+  wordGoals: Record<string, number>;
+
   // Panels
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
@@ -78,6 +81,7 @@ interface SettingsState {
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
   removeRecentFile: (path: string) => void;
   clearRecentFiles: () => void;
+  setWordGoal: (key: string, goal: number | null) => void;
   setRecentFiles: (files: RecentFile[]) => void;
 
   // Panels
@@ -111,10 +115,18 @@ export const useSettingsStore = create<SettingsState>()(
       featureSettings: {},
       recentFiles: [],
       maxRecentFiles: 10,
+      wordGoals: {},
       leftPanelOpen: true,
       rightPanelOpen: false,
       leftPanelWidth: 280,
       rightPanelWidth: 280,
+
+      // Word-count goals; null or 0 removes the goal
+      setWordGoal: (key, goal) =>
+        set((state) => {
+          if (goal && goal > 0) state.wordGoals[key] = Math.round(goal);
+          else delete state.wordGoals[key];
+        }),
 
       // Theme
       setTheme: (theme) =>
@@ -241,6 +253,7 @@ export const useSettingsStore = create<SettingsState>()(
         featureSettings: state.featureSettings,
         recentFiles: state.recentFiles,
         maxRecentFiles: state.maxRecentFiles,
+        wordGoals: state.wordGoals,
         leftPanelWidth: state.leftPanelWidth,
         rightPanelWidth: state.rightPanelWidth,
       }),

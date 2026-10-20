@@ -4,6 +4,11 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Added
+
+- Selection count: while text is selected, in either editor, the status bar shows its words and characters (#10).
+- Word goals: set a word count for a document in *Document statistics*; the status bar shows progress and turns green when you reach it. Goals are remembered per document (#10).
+
 ### Changed
 
 - Menus, popovers, context menus, tooltips and dialogs take on [interior.dev](https://interior.dev)'s look and motion: a hairline-ringed surface, a spring-in and quick-out, one highlight that slides between menu items (and command palette rows), light tooltips that rise on first show and swap between neighbours, and buttons that press down.
