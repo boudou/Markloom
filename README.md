@@ -75,7 +75,7 @@ The [user manual](https://github.com/boudou/Markloom/wiki/User-Manual) covers ev
 
 ## Run from source
 
-You need [Node.js](https://nodejs.org/) 18 or newer (20 recommended), which includes npm, and [Git](https://git-scm.com/).
+You need [Node.js](https://nodejs.org/) 22.12 or newer, which includes npm, and [Git](https://git-scm.com/).
 
 ```bash
 git clone https://github.com/boudou/Markloom.git

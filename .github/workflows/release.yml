@@ -21,9 +21,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
+      # Electron 44+ downloads its binary on first use, not on install
+      - run: node node_modules/electron/install.js
       - run: npm run build
       # Installers are not code-signed yet (see issue #30)
       - run: npx electron-builder --publish always
