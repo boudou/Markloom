@@ -211,6 +211,13 @@ ipcMain.handle('read-file', async (event, filePath) => {
   return fs.promises.readFile(await assertTrusted(filePath, canRead));
 });
 
+// Lets the preview check whether an image changed without reading it
+ipcMain.handle('stat-file', async (event, filePath) => {
+  assertFromApp(event);
+  const { mtimeMs, size } = await fs.promises.stat(await assertTrusted(filePath, canRead));
+  return { mtimeMs, size };
+});
+
 ipcMain.handle('write-file', async (event, filePath, data) => {
   assertFromApp(event);
   if (typeof data !== 'string' && !(data instanceof Uint8Array)) throw new Error('Unsupported file contents');

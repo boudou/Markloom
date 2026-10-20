@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('markloomDesktop', {
   },
 
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  statFile: (filePath) => ipcRenderer.invoke('stat-file', filePath),
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
 
   /** Renders static HTML to a PDF with Chromium's print engine */
