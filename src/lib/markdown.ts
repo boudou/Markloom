@@ -15,6 +15,47 @@ const KNOWN_HTML_TAGS = new Set(
   ).split(' ')
 );
 
+type Token = ReturnType<MarkdownIt['parse']>[number];
+
+/**
+ * Whether a fence's info string makes it a Mermaid diagram. Only the first word counts
+ * ("mermaid title" is a diagram), because that is all the rich-text editor keeps as the language.
+ */
+export function isMermaidFence(info: string): boolean {
+  return info.trim().split(/\s+/)[0] === 'mermaid';
+}
+
+/** Number of whole blank lines at the start of text (trimmed away before a diagram renders) */
+export function leadingBlankLines(text: string): number {
+  return (text.match(/^(?:[ \t]*\n)*/)?.[0].match(/\n/g) ?? []).length;
+}
+
+/**
+ * 1-based document line of a fence's first diagram line, so errors can point into the source:
+ * map[0] is the 0-based fence line; the diagram starts on the line after it, after any blank lines.
+ */
+export function diagramFirstLine(token: Token): number | null {
+  return token.map ? token.map[0] + 2 + leadingBlankLines(token.content) : null;
+}
+
+export interface MermaidFence {
+  /** Diagram source as Mermaid receives it (trimmed) */
+  code: string;
+  /** 0-based source lines of the whole fence, end exclusive */
+  range: [number, number];
+  /** 1-based document line of the diagram's first line */
+  firstLine: number;
+}
+
+/** The Mermaid fences of a parsed document, in source order */
+export function mermaidFences(tokens: Token[]): MermaidFence[] {
+  return tokens.flatMap((token) => {
+    const firstLine = token.type === 'fence' && isMermaidFence(token.info) ? diagramFirstLine(token) : null;
+
+    return token.map && firstLine !== null ? [{ code: token.content.trim(), range: token.map, firstLine }] : [];
+  });
+}
+
 // Create and configure markdown-it instance
 export function createMarkdownParser(): MarkdownIt {
   const md = new MarkdownIt({
@@ -22,11 +63,6 @@ export function createMarkdownParser(): MarkdownIt {
     linkify: true,
     typographer: true,
     breaks: false,
-    highlight: (code, lang) => {
-      // Skip mermaid - handled separately
-      if (lang === 'mermaid') return code;
-      return highlightCode(code, lang || '');
-    },
   });
 
   // Custom renderer for mermaid code blocks
@@ -34,13 +70,10 @@ export function createMarkdownParser(): MarkdownIt {
     const token = tokens[idx];
     const info = token.info ? token.info.trim() : '';
 
-    if (info === 'mermaid') {
+    if (isMermaidFence(info)) {
       const code = token.content.trim();
-      // Document line of the diagram's first line, so errors can point into the source
-      // (map[0] is the 0-based fence line; the diagram starts on the line after it, after any blank lines)
-      const blankLines = (token.content.match(/^(?:[ \t]*\n)*/)?.[0].match(/\n/g) ?? []).length;
-      const firstLine = token.map ? token.map[0] + 2 + blankLines : '';
-      return `<div class="mermaid-container" data-line="${firstLine}" data-fence-line="${token.map ? token.map[0] + 1 : ''}" data-mermaid="${encodeURIComponent(code)}"></div>`;
+      const firstLine = diagramFirstLine(token);
+      return `<div class="mermaid-container" data-line="${firstLine ?? ''}" data-fence-line="${token.map ? token.map[0] + 1 : ''}" data-mermaid="${encodeURIComponent(code)}"></div>`;
     }
 
     // Use highlight.js for syntax highlighting
@@ -191,21 +224,4 @@ export function parseMarkdown(content: string): string {
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['style', 'form'],
   });
-}
-
-// Extract mermaid diagrams from markdown
-export function extractMermaidDiagrams(content: string): { code: string; index: number }[] {
-  const diagrams: { code: string; index: number }[] = [];
-  const regex = /```mermaid\n([\s\S]*?)```/g;
-  let match;
-  let index = 0;
-
-  while ((match = regex.exec(content)) !== null) {
-    diagrams.push({
-      code: match[1].trim(),
-      index: index++,
-    });
-  }
-
-  return diagrams;
 }

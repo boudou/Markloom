@@ -11,7 +11,7 @@ import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/ut
 import { readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '../hooks/useDocumentLinks';
 import { useTabsStore } from '@/features/tabs';
-import { getMarkdownParser } from '@/lib/markdown';
+import { getMarkdownParser, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
 
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 const imageUrlCache = new Map<string, string>();
@@ -92,13 +92,7 @@ function lineRange(text: string, line: number): { from: number; to: number; text
 function documentLineOfDiagram(index: number): number | undefined {
   const { tabs, activeTabId } = useTabsStore.getState();
   const markdown = tabs.find((t) => t.id === activeTabId)?.content ?? '';
-  const fences = getMarkdownParser()
-    .parse(markdown, {})
-    .filter((t) => t.type === 'fence' && t.info.trim().split(/\s+/)[0] === 'mermaid' && t.map);
-  const fence = fences[index];
-  if (!fence?.map) return undefined;
-  const blankLines = (fence.content.match(/^(?:[ \t]*\n)*/)?.[0].match(/\n/g) ?? []).length;
-  return fence.map[0] + 2 + blankLines;
+  return mermaidFences(getMarkdownParser().parse(markdown, {}))[index]?.firstLine;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +112,7 @@ class CodeBlockView implements NodeView {
     private view: EditorView,
     private getPos: () => number | undefined
   ) {
-    const isMermaid = node.attrs.language === 'mermaid';
+    const isMermaid = isMermaidFence(node.attrs.language);
     this.dom = document.createElement('div');
     this.dom.className = isMermaid ? 'rt-mermaid' : 'rt-code';
 
@@ -177,7 +171,7 @@ class CodeBlockView implements NodeView {
     let found = -1;
     this.view.state.doc.descendants((node, pos) => {
       if (found !== -1) return false;
-      if (node.type.name === 'code_block' && node.attrs.language === 'mermaid') {
+      if (node.type.name === 'code_block' && isMermaidFence(node.attrs.language)) {
         index++;
         if (pos === own) found = index;
       }
@@ -225,7 +219,7 @@ class CodeBlockView implements NodeView {
       const described = describeDiagramError(message, source, firstLine);
       const lineInDiagram = described.line && firstLine ? described.line - firstLine + 1 : described.line;
       // Leading blank lines were trimmed before rendering; count them back for the source
-      const leading = (this.node.textContent.match(/^(?:[ \t]*\n)*/)?.[0].match(/\n/g) ?? []).length;
+      const leading = leadingBlankLines(this.node.textContent);
       const lineInSource = lineInDiagram ? lineInDiagram + leading : null;
       this.preview.replaceChildren(
         diagramErrorElement(described, lineInSource ? () => this.showLine(lineInSource) : undefined)
@@ -237,7 +231,7 @@ class CodeBlockView implements NodeView {
   update(node: ProseNode) {
     // A language change between mermaid and anything else needs a different view
     if (node.type !== this.node.type) return false;
-    if ((node.attrs.language === 'mermaid') !== (this.node.attrs.language === 'mermaid')) return false;
+    if (isMermaidFence(node.attrs.language) !== isMermaidFence(this.node.attrs.language)) return false;
     this.node = node;
     if (this.preview) this.scheduleRender();
     else {

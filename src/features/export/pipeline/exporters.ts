@@ -1,5 +1,5 @@
 import { saveAs } from 'file-saver';
-import { getMarkdownParser } from '@/lib/markdown';
+import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
 import { buildStandaloneHtml, renderExportBody } from './html';
 import { loadDocumentImage, renderDiagram, svgDataUrl } from './assets';
 import { placedInlines } from './inlineLines';
@@ -87,11 +87,9 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
   }
 
   // Replace each Mermaid fence (bottom-up so line numbers stay valid)
-  const fences = tokens.filter((t) => t.type === 'fence' && t.info.trim() === 'mermaid' && t.map);
-  for (const fence of fences.reverse()) {
-    const [start, end] = fence.map!;
+  for (const { range: [start, end], code } of mermaidFences(tokens).reverse()) {
     try {
-      const { svg } = await renderDiagram(fence.content.trim());
+      const { svg } = await renderDiagram(code);
       lines.splice(start, end - start, `![Diagram](${svgDataUrl(svg)})`);
     } catch {
       // Leave the source in place; it still renders wherever Mermaid is supported
