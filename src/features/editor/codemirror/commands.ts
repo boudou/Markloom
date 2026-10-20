@@ -1,7 +1,7 @@
 // Markdown formatting for the source editor. Every action is a single CodeMirror
 // transaction, so one Ctrl+Z undoes exactly one formatting step.
 import { EditorSelection, Prec, type ChangeSpec } from '@codemirror/state';
-import { keymap, type EditorView } from '@codemirror/view';
+import { keymap, EditorView } from '@codemirror/view';
 import type { MarkdownAction } from '../types';
 import { SHORTCUTS } from '@/lib/shortcuts';
 
@@ -149,6 +149,18 @@ export function runMarkdownAction(view: EditorView, action: MarkdownAction): voi
 /** Inserts a fenced block (e.g. a Mermaid template) on its own lines at the cursor. */
 export function insertSnippet(view: EditorView, text: string): void {
   insertBlock(view, text.trim());
+  view.focus();
+}
+
+/** Puts the cursor on a 1-based document line, scrolled to the top of the pane. */
+export function revealLine(view: EditorView, line: number): void {
+  const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines));
+  // Land after the indentation, where typing actually fixes the line
+  const anchor = target.from + (target.text.match(/^\s*/)?.[0].length ?? 0);
+  view.dispatch({
+    selection: { anchor },
+    effects: EditorView.scrollIntoView(target.from, { y: 'start', yMargin: 24 }),
+  });
   view.focus();
 }
 

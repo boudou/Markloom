@@ -53,6 +53,15 @@ export function rememberFocus() {
 export function restoreFocus(event: Event) {
   const target = focusBeforeDialog;
   focusBeforeDialog = null;
+  // Something outside the dialog took focus while it closed (Export's Show puts the
+  // cursor on a line): leave it there
+  const active = document.activeElement;
+  if (active && active !== document.body) {
+    event.preventDefault();
+
+    return;
+  }
+
   if (target?.isConnected) {
     event.preventDefault();
     target.focus();

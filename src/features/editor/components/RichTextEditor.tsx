@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Editor,
   rootCtx,
@@ -11,24 +11,13 @@ import {
   commonmark,
   headingIdGenerator,
   inlineCodeKeymap,
-  toggleStrongCommand,
-  toggleEmphasisCommand,
-  toggleInlineCodeCommand,
-  wrapInHeadingCommand,
-  wrapInBulletListCommand,
-  wrapInOrderedListCommand,
-  wrapInBlockquoteCommand,
-  insertHrCommand,
-  insertImageCommand,
-  toggleLinkCommand,
-  createCodeBlockCommand,
 } from '@milkdown/kit/preset/commonmark';
-import { gfm, toggleStrikethroughCommand, insertTableCommand } from '@milkdown/kit/preset/gfm';
+import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
 import { trailing } from '@milkdown/kit/plugin/trailing';
-import { $prose, callCommand, getMarkdown, insert, replaceAll } from '@milkdown/kit/utils';
+import { $prose, getMarkdown, insert, replaceAll } from '@milkdown/kit/utils';
 import { Plugin } from '@milkdown/kit/prose/state';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { selectTabContent, useTabsStore } from '@/features/tabs';
@@ -40,8 +29,9 @@ import { useImageDrop } from '@/features/image-drop';
 import { codeBlockView, diagramErrorMarks, htmlView, imageSchemaFix, imageView, inlineCodeSpellcheck, taskToggle } from '../milkdown/plugins';
 import { prosemirrorSearchEngine, searchPlugin } from '../milkdown/search';
 import { preserveUnchangedBlocks } from '../milkdown/preserve';
+import { applyRichLink, insertRichSnippet, runRichAction, type LinkRequest } from '../milkdown/commands';
 import { StartPanel } from './StartPanel';
-import { EMPTY_FORMAT_STATE, sameFormatState, type EditorCommands, type FormatState, type MarkdownAction } from '../types';
+import { EMPTY_FORMAT_STATE, sameFormatState, type EditorCommands, type FormatState } from '../types';
 import { richFormatState } from '../milkdown/formatState';
 import { setSelectedText } from '@/features/word-count';
 
@@ -50,8 +40,6 @@ interface RichTextEditorProps {
   onCommands: (commands: EditorCommands | null) => void;
   onFormatState: (state: FormatState) => void;
 }
-
-type LinkRequest = { kind: 'link' | 'image'; hasSelection: boolean } | null;
 
 function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorProps) {
   const content = useTabsStore((s) => selectTabContent(s, tabId));
@@ -65,7 +53,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   const loadedBaseline = useRef<string | null>(null);
   // The exact source text that baseline came from
   const loadedSource = useRef(content);
-  const [linkRequest, setLinkRequest] = useState<LinkRequest>(null);
+  const [linkRequest, setLinkRequest] = useState<LinkRequest | null>(null);
   const reportFormat = useRef(onFormatState);
   reportFormat.current = onFormatState;
 
@@ -140,17 +128,18 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     [tabId]
   );
 
+  // The editor once created; the same instance for this surface's lifetime
+  const editor = loading ? undefined : get();
+
   // Remember the normalized form of what was loaded, so viewing alone never edits the file
   useEffect(() => {
-    const editor = get();
-    if (loading || !editor || loadedBaseline.current !== null) return;
+    if (!editor || loadedBaseline.current !== null) return;
     loadedBaseline.current = editor.action(getMarkdown());
-  }, [get, loading]);
+  }, [editor]);
 
   // Content changed elsewhere (version restore, template, file reload): show it
   useEffect(() => {
-    const editor = get();
-    if (loading || !editor || content === knownMarkdown.current) return;
+    if (!editor || content === knownMarkdown.current) return;
     knownMarkdown.current = content;
     applyingExternal.current = true;
     try {
@@ -160,100 +149,45 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     } finally {
       applyingExternal.current = false;
     }
-  }, [content, get, loading]);
-
-  const runCommand = useCallback(
-    (action: MarkdownAction) => {
-      const editor = get();
-      if (!editor) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const call = (key: any, payload?: unknown) => editor.action(callCommand(key, payload));
-
-      switch (action) {
-        case 'bold': call(toggleStrongCommand.key); break;
-        case 'italic': call(toggleEmphasisCommand.key); break;
-        case 'strikethrough': call(toggleStrikethroughCommand.key); break;
-        case 'code': call(toggleInlineCodeCommand.key); break;
-        case 'paragraph': call(wrapInHeadingCommand.key, 0); break;
-        case 'h1': call(wrapInHeadingCommand.key, 1); break;
-        case 'h2': call(wrapInHeadingCommand.key, 2); break;
-        case 'h3': call(wrapInHeadingCommand.key, 3); break;
-        case 'ul': call(wrapInBulletListCommand.key); break;
-        case 'ol': call(wrapInOrderedListCommand.key); break;
-        case 'quote': call(wrapInBlockquoteCommand.key); break;
-        case 'hr': call(insertHrCommand.key); break;
-        case 'codeblock': call(createCodeBlockCommand.key); break;
-        case 'table': call(insertTableCommand.key, { row: 3, col: 3 }); break;
-        case 'checkbox':
-          editor.action(insert('- [ ] '));
-          break;
-        case 'link':
-        case 'image': {
-          const view = editor.action((ctx) => ctx.get(editorViewCtx));
-          setLinkRequest({ kind: action, hasSelection: !view.state.selection.empty });
-          return;
-        }
-      }
-      editor.action((ctx) => ctx.get(editorViewCtx).focus());
-    },
-    [get]
-  );
+  }, [content, editor]);
 
   const applyLink = (url: string, text: string) => {
-    const editor = get();
     const request = linkRequest;
     setLinkRequest(null);
-    if (!editor || !request || !url) return;
-    editor.action((ctx) => ctx.get(editorViewCtx).focus());
-    if (request.kind === 'image') {
-      editor.action(callCommand(insertImageCommand.key, { src: url, alt: text }));
-    } else if (request.hasSelection) {
-      editor.action(callCommand(toggleLinkCommand.key, { href: url }));
-    } else {
-      const label = (text || url).replace(/[[\]]/g, '');
-      editor.action(insert(`[${label}](${url})`, true));
-    }
+    if (editor && request && url) applyRichLink(editor, request, url, text);
   };
 
-  // Expose commands to the shared toolbar. Built once per editor: `get` and the command
-  // callbacks change identity on re-render, and a new object each time would make the
-  // Find bar re-run (and re-select its input) on every keystroke.
-  const getRef = useRef(get);
-  getRef.current = get;
-  const runRef = useRef(runCommand);
-  runRef.current = runCommand;
+  // Expose commands to the shared toolbar, once per editor: a new object on every
+  // render would make the Find bar re-run (and re-select its input) on every keystroke
   useEffect(() => {
-    if (loading) return;
-    const view = getRef.current()?.action((ctx) => ctx.get(editorViewCtx));
-    if (!view) return;
+    if (!editor) return;
+    const view = editor.action((ctx) => ctx.get(editorViewCtx));
     onCommands({
-      run: (action) => runRef.current(action),
+      run: (action) => runRichAction(editor, action, setLinkRequest),
       search: prosemirrorSearchEngine(view),
-      insert: (markdown) => {
-        const editor = getRef.current();
-        if (!editor) return;
-        editor.action(insert(`\n${markdown.trim()}\n`));
-        editor.action((ctx) => ctx.get(editorViewCtx).focus());
-      },
+      insert: (markdown) => insertRichSnippet(editor, markdown),
     });
+
     return () => onCommands(null);
-  }, [loading, onCommands]);
+  }, [editor, onCommands]);
 
   // Dropped or pasted images are stored beside the document, then inserted as Markdown
   const imageDrop = useImageDrop({
-    onInsert: (markdown) => get()?.action(insert(markdown, true)),
+    onInsert: (markdown) => editor?.action(insert(markdown, true)),
   });
   const hasImageFiles = (items: DataTransferItemList) =>
     Array.from(items).some((item) => item.kind === 'file' && item.type.startsWith('image/'));
 
   // Ctrl+K opens the link dialog (Milkdown has no binding for it)
   const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (!editor) return;
+
     if (matchesCombo(event.nativeEvent, SHORTCUTS.link.combo)) {
       event.preventDefault();
-      runCommand('link');
+      runRichAction(editor, 'link', setLinkRequest);
     } else if (matchesCombo(event.nativeEvent, SHORTCUTS.taskList.combo)) {
       event.preventDefault();
-      runCommand('checkbox');
+      runRichAction(editor, 'checkbox', setLinkRequest);
     }
   };
 
@@ -307,7 +241,7 @@ function LinkDialog({
   onCancel,
   onSubmit,
 }: {
-  request: LinkRequest;
+  request: LinkRequest | null;
   onCancel: () => void;
   onSubmit: (url: string, text: string) => void;
 }) {
