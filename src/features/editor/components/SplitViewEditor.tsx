@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
@@ -9,13 +9,14 @@ import { cn } from '@/lib/utils';
 import { useResizeDrag } from '@/lib/useResizeDrag';
 import { useActiveContent, useActivePath, useSetActiveContent } from '@/features/tabs';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useUiStore } from '@/stores/uiStore';
 import { MarkdownPreview } from './MarkdownPreview';
 import { StartPanel } from './StartPanel';
 import { codemirrorSearchEngine, findHighlights } from '@/features/find-replace';
 import { useImageDrop } from '@/features/image-drop';
 import { useSyncScroll } from '@/features/sync-scroll';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
-import { markdownKeymap, runMarkdownAction, insertSnippet } from '../codemirror/commands';
+import { markdownKeymap, runMarkdownAction, insertSnippet, revealLine } from '../codemirror/commands';
 import { diagramErrorLines, diagramErrorTheme, setDiagramErrorLines } from '../codemirror/diagramErrors';
 import type { EditorCommands, FormatState } from '../types';
 import { formatStateReporter, selectionReporter } from '../codemirror/formatState';
@@ -109,34 +110,28 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
 
   useSyncScroll({ editorView: view, previewRef, previewReady: !isBlank });
 
-  // Outline panel asks to jump to a line
-  useEffect(() => {
-    if (!view) return;
-    const handleNavigate = (event: Event) => {
-      const { line } = (event as CustomEvent<{ line: number }>).detail;
-      const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines));
-      // Land after the indentation, where typing actually fixes the line
-      const anchor = target.from + (target.text.match(/^\s*/)?.[0].length ?? 0);
-      view.dispatch({
-        selection: { anchor },
-        effects: EditorView.scrollIntoView(target.from, { y: 'start', yMargin: 24 }),
-      });
-      view.focus();
-    };
-    window.addEventListener('outline-navigate', handleNavigate);
-    return () => window.removeEventListener('outline-navigate', handleNavigate);
-  }, [view]);
+  // The preview's "Show line N" and its diagram error lines; stable per view, because
+  // the preview re-renders its diagrams whenever these change
+  const showLine = useCallback(
+    (line: number) => {
+      if (view) revealLine(view, line);
+    },
+    [view]
+  );
+  const markDiagramErrors = useCallback(
+    (lines: number[]) => {
+      view?.dispatch({ effects: setDiagramErrorLines.of(lines) });
+    },
+    [view]
+  );
 
-  // The preview reports diagrams that failed to parse; mark those lines here
+  // A line asked for from outside (Export's "Show"), taken once this editor exists
+  const lineRequest = useUiStore((s) => s.lineRequest);
   useEffect(() => {
-    if (!view) return;
-    const handleErrors = (event: Event) => {
-      const { lines } = (event as CustomEvent<{ lines: number[] }>).detail;
-      view.dispatch({ effects: setDiagramErrorLines.of(lines) });
-    };
-    window.addEventListener('diagram-errors', handleErrors);
-    return () => window.removeEventListener('diagram-errors', handleErrors);
-  }, [view]);
+    if (!view || lineRequest === null) return;
+    revealLine(view, lineRequest);
+    useUiStore.getState().clearLineRequest();
+  }, [view, lineRequest]);
 
   const split = useResizeDrag({
     stored: splitRatio,
@@ -239,7 +234,12 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
               <StartPanel writeHint="Type Markdown in the left pane; the formatted document appears here as you write." />
             </div>
           ) : (
-            <MarkdownPreview content={content} ref={previewRef} />
+            <MarkdownPreview
+              content={content}
+              surfaceRef={previewRef}
+              onShowLine={showLine}
+              onDiagramErrors={markDiagramErrors}
+            />
           )}
         </div>
       </div>

@@ -27,6 +27,12 @@ interface UiState {
   editorCommands: EditorCommands | null;
   setEditorCommands: (commands: EditorCommands | null) => void;
 
+  // A 1-based source line asked for from outside the editor (Export's "Show");
+  // the Markdown view takes it once its editor exists, then clears it
+  lineRequest: number | null;
+  navigateToLine: (line: number) => void;
+  clearLineRequest: () => void;
+
   // Tabs waiting on a "save changes?" decision before they close
   pendingClose: string[] | null;
   setPendingClose: (tabIds: string[] | null) => void;
@@ -53,6 +59,10 @@ export const useUiStore = create<UiState>()((set, get) => ({
 
   editorCommands: null,
   setEditorCommands: (editorCommands) => set({ editorCommands }),
+
+  lineRequest: null,
+  navigateToLine: (lineRequest) => set({ lineRequest }),
+  clearLineRequest: () => set({ lineRequest: null }),
 
   pendingClose: null,
   setPendingClose: (pendingClose) => set({ pendingClose }),

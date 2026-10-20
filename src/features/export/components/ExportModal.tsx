@@ -5,7 +5,7 @@ import { Button, Input, Modal, ModalFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { selectActiveContent, useActivePath, useTabsStore } from '@/features/tabs';
 import { documentName } from '@/features/file-tree/api/fileSystem';
-import { notify } from '@/stores/uiStore';
+import { notify, useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
 import type { ExportIssue } from '../pipeline/preflight';
 
@@ -168,10 +168,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const review = (issue: ExportIssue) => {
     onOpenChange(false);
     useAppStore.getState().setEditorMode('split');
-    window.setTimeout(
-      () => window.dispatchEvent(new CustomEvent('outline-navigate', { detail: { line: issue.line } })),
-      250
-    );
+    useUiStore.getState().navigateToLine(issue.line);
   };
   const diagramCount = issues.filter((i) => i.kind === 'diagram').length;
   const imageCount = issues.length - diagramCount;
