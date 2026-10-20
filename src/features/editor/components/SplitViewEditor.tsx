@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
-import { search, highlightSelectionMatches } from '@codemirror/search';
+import { highlightSelectionMatches } from '@codemirror/search';
 import { AnimatePresence, m } from 'framer-motion';
 import { ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -76,7 +76,6 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       markloomEditorTheme,
       markloomHighlight,
       markdownKeymap,
-      search(),
       highlightSelectionMatches(),
       sourceAttributes,
       diagramErrorLines,

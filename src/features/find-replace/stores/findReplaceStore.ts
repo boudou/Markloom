@@ -9,22 +9,17 @@ interface FindReplaceState {
   caseSensitive: boolean;
   useRegex: boolean;
   wholeWord: boolean;
-  matchCount: number;
-  currentMatch: number;
 }
 
 interface FindReplaceActions {
   open: (showReplace?: boolean) => void;
   close: () => void;
-  toggle: () => void;
   toggleReplace: () => void;
   setSearchQuery: (query: string) => void;
   setReplaceQuery: (query: string) => void;
   toggleCaseSensitive: () => void;
   toggleRegex: () => void;
   toggleWholeWord: () => void;
-  setMatchCount: (count: number) => void;
-  setCurrentMatch: (current: number) => void;
 }
 
 export const useFindReplaceStore = create<FindReplaceState & FindReplaceActions>()(
@@ -36,8 +31,6 @@ export const useFindReplaceStore = create<FindReplaceState & FindReplaceActions>
     caseSensitive: false,
     useRegex: false,
     wholeWord: false,
-    matchCount: 0,
-    currentMatch: 0,
 
     open: (showReplace = false) =>
       set((state) => {
@@ -48,11 +41,6 @@ export const useFindReplaceStore = create<FindReplaceState & FindReplaceActions>
     close: () =>
       set((state) => {
         state.isOpen = false;
-      }),
-
-    toggle: () =>
-      set((state) => {
-        state.isOpen = !state.isOpen;
       }),
 
     toggleReplace: () =>
@@ -83,16 +71,6 @@ export const useFindReplaceStore = create<FindReplaceState & FindReplaceActions>
     toggleWholeWord: () =>
       set((state) => {
         state.wholeWord = !state.wholeWord;
-      }),
-
-    setMatchCount: (count) =>
-      set((state) => {
-        state.matchCount = count;
-      }),
-
-    setCurrentMatch: (current) =>
-      set((state) => {
-        state.currentMatch = current;
       }),
   }))
 );

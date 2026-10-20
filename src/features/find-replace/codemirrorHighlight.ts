@@ -1,14 +1,16 @@
-// Match highlights for the shared Find bar in the source editor. CodeMirror's built-in
-// highlighting only runs while its own search panel is open, which we don't use.
-import { StateEffect, StateField } from '@codemirror/state';
+// Match highlights for the shared Find bar in the source editor, plus the doc-change hook the
+// search engine recounts from. Both are static extensions: @uiw/react-codemirror reconfigures
+// the editor whenever its extension list changes, which would drop anything added later.
+import { StateEffect, StateField, type Extension } from '@codemirror/state';
 import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
+import { createDocChangeListeners } from './engine';
 
 export const setFindMatches = StateEffect.define<{ ranges: { from: number; to: number }[]; current: number }>();
 
 const match = Decoration.mark({ class: 'cm-searchMatch' });
 const currentMatch = Decoration.mark({ class: 'cm-searchMatch cm-searchMatch-selected' });
 
-export const findHighlights = StateField.define<DecorationSet>({
+const highlightField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
   update(decorations, tr) {
     for (const effect of tr.effects) {
@@ -23,3 +25,15 @@ export const findHighlights = StateField.define<DecorationSet>({
   },
   provide: (field) => EditorView.decorations.from(field),
 });
+
+const docChanges = createDocChangeListeners<EditorView>();
+
+/** Calls `listener` after each edit in `view` (it must not dispatch: it runs inside an update) */
+export const onFindDocChange = docChanges.listen;
+
+export const findHighlights: Extension = [
+  highlightField,
+  EditorView.updateListener.of((update) => {
+    if (update.docChanged) docChanges.notify(update.view);
+  }),
+];

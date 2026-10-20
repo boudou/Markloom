@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { X, ChevronDown, ChevronUp, Search, Replace, CaseSensitive, Regex, WholeWord } from 'lucide-react';
 import { IconButton, Tooltip } from '@/components/ui';
 import { useFindReplaceStore } from '../stores';
@@ -12,6 +12,11 @@ interface FindReplaceBarProps {
 const inputBox =
   'flex-1 min-w-0 flex items-center gap-1 bg-canvas rounded-md border border-rule focus-within:border-accent-primary transition-colors';
 const inputField = 'flex-1 min-w-0 bg-transparent py-1.5 px-2 text-sm text-text-primary placeholder:text-text-muted outline-none';
+// Stand-ins for useSyncExternalStore while no editor is mounted
+const NO_RESULT: SearchResult = { count: 0, current: -1, invalid: false };
+const subscribeNothing = () => () => {};
+const noResult = () => NO_RESULT;
+
 const textButton =
   'h-7 px-2.5 rounded-md text-xs font-medium text-text-secondary hover:bg-wash hover:text-text-primary disabled:opacity-40 disabled:pointer-events-none outline-none focus-visible:ring-2 focus-visible:ring-accent-primary';
 
@@ -32,7 +37,8 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
     toggleRegex,
     toggleWholeWord,
   } = useFindReplaceStore();
-  const [result, setResult] = useState<SearchResult>({ count: 0, current: -1 });
+  // The engine pushes recounts (after edits in the editor too), so the status stays live
+  const result = useSyncExternalStore(engine?.subscribe ?? subscribeNothing, engine?.getResult ?? noResult);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Focus and select the query when the bar opens (only then, never while typing)
@@ -48,19 +54,17 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
   // Re-run the search when the query, options or editor change; the query survives mode switches
   useEffect(() => {
     if (!isOpen || !engine) return;
-    setResult(
-      engine.update({ query: searchQuery, replacement: replaceQuery, caseSensitive, wholeWord, regex: useRegex })
-    );
+    engine.update({ query: searchQuery, replacement: replaceQuery, caseSensitive, wholeWord, regex: useRegex });
   }, [isOpen, engine, searchQuery, replaceQuery, caseSensitive, wholeWord, useRegex]);
 
-  // Clear highlights when closing
+  // Clear highlights when closing, and on the old editor when the editor is swapped
   useEffect(() => {
-    if (!isOpen) engine?.clear();
+    if (!isOpen || !engine) return;
+    return () => engine.clear();
   }, [isOpen, engine]);
 
   if (!isOpen) return null;
 
-  const run = (fn: (e: SearchEngine) => SearchResult) => engine && setResult(fn(engine));
   const dismiss = () => {
     close();
     engine?.focusEditor();
@@ -69,7 +73,8 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
   const onFindKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      run((en) => (e.shiftKey ? en.previous() : en.next()));
+      if (e.shiftKey) engine?.previous();
+      else engine?.next();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       dismiss();
@@ -126,12 +131,12 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
             </Tooltip>
             <div className="w-px h-4 bg-rule mx-1" aria-hidden />
             <Tooltip content="Previous match (Shift+Enter)">
-              <IconButton variant="ghost" size="sm" onClick={() => run((en) => en.previous())} disabled={!result.count}>
+              <IconButton variant="ghost" size="sm" onClick={() => engine?.previous()} disabled={!result.count}>
                 <ChevronUp className="w-4 h-4" />
               </IconButton>
             </Tooltip>
             <Tooltip content="Next match (Enter)">
-              <IconButton variant="ghost" size="sm" onClick={() => run((en) => en.next())} disabled={!result.count}>
+              <IconButton variant="ghost" size="sm" onClick={() => engine?.next()} disabled={!result.count}>
                 <ChevronDown className="w-4 h-4" />
               </IconButton>
             </Tooltip>
@@ -161,7 +166,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    run((en) => en.replace());
+                    engine?.replace();
                   } else if (e.key === 'Escape') {
                     e.preventDefault();
                     dismiss();
@@ -175,18 +180,14 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
               />
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
-              <button type="button" className={textButton} disabled={!result.count} onClick={() => run((en) => en.replace())}>
+              <button type="button" className={textButton} disabled={!result.count} onClick={() => engine?.replace()}>
                 Replace
               </button>
               <button
                 type="button"
                 className={textButton}
                 disabled={!result.count}
-                onClick={() => {
-                  if (!engine) return;
-                  engine.replaceAll();
-                  setResult(engine.update({ query: searchQuery, replacement: replaceQuery, caseSensitive, wholeWord, regex: useRegex }));
-                }}
+                onClick={() => engine?.replaceAll()}
               >
                 Replace all
               </button>
