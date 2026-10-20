@@ -3,7 +3,14 @@ import { nanoid } from 'nanoid';
 import type { FileNode } from '../types';
 import { ROOT_KEY, ensurePermission, recallHandle, rememberHandle } from './handleStore';
 
-// Store for directory handles - maps path to handle
+// The three kinds of document path. Only this file tells them apart (see storeFor):
+// - "desktop:C:/Users/me/notes/plan.md": a file the OS handed to the desktop app, read through the Electron bridge
+// - "file://<id>/plan.md": a file opened on its own with Open file (see standalonePathFor)
+// - "<open folder name>/sub/plan.md": a file inside the open folder
+const DESKTOP_PREFIX = 'desktop:';
+const STANDALONE_PREFIX = 'file://';
+
+// The open folder, and the handles of folders inside it, keyed by path ("notes/sub")
 let rootDirectoryHandle: FileSystemDirectoryHandle | null = null;
 const handleCache = new Map<string, FileSystemDirectoryHandle>();
 
@@ -15,15 +22,19 @@ export function isFileSystemSupported(): boolean {
   return 'showOpenFilePicker' in window && 'showDirectoryPicker' in window;
 }
 
+function openRoot(handle: FileSystemDirectoryHandle): void {
+  rootDirectoryHandle = handle;
+  handleCache.clear();
+  handleCache.set(handle.name, handle);
+}
+
 // Open folder dialog using File System Access API
 export async function openFolderDialog(): Promise<string | null> {
   try {
     const handle = await window.showDirectoryPicker({
       mode: 'readwrite',
     });
-    rootDirectoryHandle = handle;
-    handleCache.clear();
-    handleCache.set(handle.name, handle);
+    openRoot(handle);
     void rememberHandle(ROOT_KEY, handle);
     return handle.name;
   } catch (error) {
@@ -99,9 +110,7 @@ export async function saveFileDialog(
       ],
     });
 
-    const writable = await handle.createWritable();
-    await writable.write(content);
-    await writable.close();
+    await writeHandle(handle, content);
 
     const filePath = await standalonePathFor(handle);
     fileHandleCache.set(filePath, handle);
@@ -118,51 +127,33 @@ export async function saveFileDialog(
  * Throws when no folder is open or the directory can't be read, so a failure never looks like an empty folder.
  */
 export async function readDirectory(path: string): Promise<FileNode[]> {
-  if (!rootDirectoryHandle) {
-    throw new Error('No folder is open');
-  }
+  const dirParts = partsBelowRoot(path);
 
   try {
-    const nodes: FileNode[] = [];
+    const nodes = await inFolder(dirParts, false, async (dir) => {
+      const entries: FileNode[] = [];
 
-    // Get the handle for this path
-    let handle: FileSystemDirectoryHandle;
+      for await (const entry of dir.values()) {
+        // Skip hidden files
+        if (entry.name.startsWith('.')) continue;
 
-    if (path === rootDirectoryHandle.name) {
-      handle = rootDirectoryHandle;
-    } else {
-      // Check cache first
-      const cachedHandle = handleCache.get(path);
-      if (cachedHandle) {
-        handle = cachedHandle;
-      } else {
-        // Navigate to the directory
-        const resolvedHandle = await getDirectoryHandle(path);
-        if (!resolvedHandle) {
-          throw new Error(`Folder not found: ${path}`);
+        const childPath = `${path}/${entry.name}`;
+
+        // Cache directory handles as we find them, under the keys resolveDir looks up
+        if (entry.kind === 'directory') {
+          // SAFETY: an entry whose kind is 'directory' is a FileSystemDirectoryHandle
+          handleCache.set(childPath, entry as FileSystemDirectoryHandle);
         }
-        handle = resolvedHandle;
-        handleCache.set(path, handle);
-      }
-    }
 
-    for await (const entry of handle.values()) {
-      // Skip hidden files
-      if (entry.name.startsWith('.')) continue;
-
-      const childPath = `${path}/${entry.name}`;
-
-      // Cache directory handles as we find them
-      if (entry.kind === 'directory') {
-        handleCache.set(childPath, entry as FileSystemDirectoryHandle);
+        entries.push({
+          name: entry.name,
+          path: childPath,
+          isDirectory: entry.kind === 'directory',
+        });
       }
 
-      nodes.push({
-        name: entry.name,
-        path: childPath,
-        isDirectory: entry.kind === 'directory',
-      });
-    }
+      return entries;
+    });
 
     // Sort: directories first, then alphabetically
     nodes.sort((a, b) => {
@@ -175,70 +166,7 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
     return nodes;
   } catch (error) {
     console.error('Error reading directory:', error);
-    // A cached handle may point at a folder that was deleted or replaced: re-resolve from the root next time
-    handleCache.delete(path);
     throw error;
-  }
-}
-
-// Helper to get nested directory handle by navigating from root
-async function getDirectoryHandle(path: string): Promise<FileSystemDirectoryHandle | null> {
-  if (!rootDirectoryHandle) return null;
-
-  const parts = path.split('/').filter(Boolean);
-
-  // Skip the root name if present
-  if (parts[0] === rootDirectoryHandle.name) {
-    parts.shift();
-  }
-
-  // If no parts left, return root
-  if (parts.length === 0) {
-    return rootDirectoryHandle;
-  }
-
-  let current = rootDirectoryHandle;
-
-  for (const part of parts) {
-    try {
-      current = await current.getDirectoryHandle(part);
-    } catch (error) {
-      console.error(`Failed to get directory handle for "${part}":`, error);
-      return null;
-    }
-  }
-
-  return current;
-}
-
-// Helper to get file handle
-async function getFileHandle(path: string): Promise<FileSystemFileHandle | null> {
-  if (!rootDirectoryHandle) return null;
-
-  const parts = path.split('/').filter(Boolean);
-  const fileName = parts.pop();
-
-  if (!fileName) return null;
-
-  // Skip the root name if present
-  if (parts[0] === rootDirectoryHandle.name) {
-    parts.shift();
-  }
-
-  let current = rootDirectoryHandle;
-
-  for (const part of parts) {
-    try {
-      current = await current.getDirectoryHandle(part);
-    } catch {
-      return null;
-    }
-  }
-
-  try {
-    return await current.getFileHandle(fileName);
-  } catch {
-    return null;
   }
 }
 
@@ -251,22 +179,12 @@ async function standalonePathFor(handle: FileSystemFileHandle): Promise<string> 
   for (const [path, known] of fileHandleCache) {
     if (await known.isSameEntry(handle)) return path;
   }
-  return `file://${nanoid(8)}/${handle.name}`;
+  return `${STANDALONE_PREFIX}${nanoid(8)}/${handle.name}`;
 }
 
 /** Display name for any document path (folder path, standalone file, or desktop file) */
 export function documentName(path: string): string {
   return path.split(/[\\/]/).pop() || path;
-}
-
-// ---------------------------------------------------------------------------
-// Files the OS handed to the desktop app (double-click, "Open with"). Their paths
-// look like "desktop:C:/Users/me/notes/plan.md" and go through the Electron bridge.
-
-const DESKTOP_PREFIX = 'desktop:';
-
-export function isDesktopPath(path: string): boolean {
-  return path.startsWith(DESKTOP_PREFIX);
 }
 
 export function desktopPathFor(osPath: string): string {
@@ -307,12 +225,22 @@ function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n?/g, '\n');
 }
 
+async function writeHandle(handle: FileSystemFileHandle, content: string | Blob): Promise<void> {
+  const writable = await handle.createWritable();
+  await writable.write(content);
+  await writable.close();
+}
+
 // A file opened on its own (not via a folder): from this session, or remembered from a past one
-async function getStandaloneHandle(path: string): Promise<FileSystemFileHandle | null> {
+async function standaloneHandle(path: string): Promise<FileSystemFileHandle> {
   const cached = fileHandleCache.get(path);
   if (cached) return cached;
+
   const remembered = await recallHandle<FileSystemFileHandle>(path);
-  if (!remembered || !(await ensurePermission(remembered))) return null;
+  if (!remembered || !(await ensurePermission(remembered))) {
+    throw new Error(`No access to ${documentName(path)}; open it again with Open file`);
+  }
+
   fileHandleCache.set(path, remembered);
   return remembered;
 }
@@ -324,59 +252,172 @@ async function getStandaloneHandle(path: string): Promise<FileSystemFileHandle |
 export async function restoreRememberedFolder(): Promise<string | null> {
   const handle = await recallHandle<FileSystemDirectoryHandle>(ROOT_KEY);
   if (!handle || !(await ensurePermission(handle))) return null;
-  setRootHandle(handle);
+  openRoot(handle);
   return handle.name;
 }
 
-// Resolve a path inside the open folder to its File object
-export async function readFileBlob(path: string): Promise<File> {
-  if (isDesktopPath(path)) {
+// ---------------------------------------------------------------------------
+// Walking the open folder
+
+function currentFolder(): FileSystemDirectoryHandle {
+  if (!rootDirectoryHandle) throw new Error('No folder is open');
+  return rootDirectoryHandle;
+}
+
+// The segments below the open folder: "notes/sub/b.md" → ["sub", "b.md"]. A path from another folder is refused.
+function partsBelowRoot(path: string): string[] {
+  const [first, ...rest] = path.split('/').filter(Boolean);
+  if (first !== currentFolder().name) throw new Error(`Not in the open folder: ${path}`);
+  return rest;
+}
+
+function folderPartsOf(path: string): { dirParts: string[]; name: string } {
+  const dirParts = partsBelowRoot(path);
+  const name = dirParts.pop();
+  if (!name) throw new Error(`Invalid path: ${path}`);
+  return { dirParts, name };
+}
+
+// Drops the cached handles on the way to a folder, so the next walk starts from the open folder again
+function forgetFolders(rootName: string, dirParts: string[]): void {
+  let key = rootName;
+  for (const part of dirParts) {
+    key = `${key}/${part}`;
+    handleCache.delete(key);
+  }
+}
+
+/** The folder at `dirParts` below the open folder, creating missing folders when `create` is set */
+async function resolveDir(dirParts: string[], { create }: { create: boolean }): Promise<FileSystemDirectoryHandle> {
+  const root = currentFolder();
+  let dir = root;
+  let key = root.name;
+
+  try {
+    for (const part of dirParts) {
+      key = `${key}/${part}`;
+      dir = handleCache.get(key) ?? (await dir.getDirectoryHandle(part, { create }));
+      handleCache.set(key, dir);
+    }
+  } catch {
+    throw new Error(`Folder not found: ${key}`);
+  }
+
+  return dir;
+}
+
+/**
+ * Runs `use` on a folder below the open folder. When the walk or `use` fails, a cached handle on
+ * the way may point at a folder deleted or replaced outside Markloom, so they are all dropped.
+ */
+async function inFolder<T>(
+  dirParts: string[],
+  create: boolean,
+  use: (dir: FileSystemDirectoryHandle) => Promise<T>
+): Promise<T> {
+  const rootName = currentFolder().name;
+
+  try {
+    return await use(await resolveDir(dirParts, { create }));
+  } catch (error) {
+    forgetFolders(rootName, dirParts);
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// One store per kind of path
+
+interface DocumentStore {
+  /** False for a file opened on its own: there is no folder to resolve `assets/x.png` or `../b.md` against */
+  readonly canResolveRelative: boolean;
+  read(path: string): Promise<File>;
+  /** Creates the file, and any missing folders on the way, when it doesn't exist */
+  write(path: string, content: string | Blob): Promise<void>;
+  /** The file's version (see fileVersion) without loading its contents; rejects when the file can't be reached */
+  version(path: string): Promise<string>;
+}
+
+const desktopStore: DocumentStore = {
+  canResolveRelative: true,
+
+  async read(path) {
     const bridge = desktopBridge();
     const osPath = osPathOf(path);
     const [bytes, { mtimeMs }] = await Promise.all([bridge.readFile(osPath), bridge.statFile(osPath)]);
     const name = documentName(path);
 
     return new File([new Uint8Array(bytes)], name, { type: mimeTypeFor(name), lastModified: Math.trunc(mtimeMs) });
-  }
-  if (path.startsWith('file://')) {
-    const handle = await getStandaloneHandle(path);
-    if (!handle) throw new Error(`No access to ${documentName(path)}; open it again with Open file`);
-    return handle.getFile();
-  }
+  },
 
-  // First check if we have a cached directory handle for the parent
-  const parts = path.split('/').filter(Boolean);
-  const fileName = parts.pop();
+  async write(path, content) {
+    const data = typeof content === 'string' ? content : new Uint8Array(await content.arrayBuffer());
+    await desktopBridge().writeFile(osPathOf(path), data);
+  },
 
-  if (!fileName) {
-    throw new Error(`Invalid path: ${path}`);
-  }
+  async version(path) {
+    const { mtimeMs, size } = await desktopBridge().statFile(osPathOf(path));
 
-  const parentPath = parts.join('/');
-  let parentHandle = handleCache.get(parentPath);
+    return versionOf(mtimeMs, size);
+  },
+};
 
-  if (!parentHandle && rootDirectoryHandle) {
-    if (parentPath === rootDirectoryHandle.name || parentPath === '') {
-      parentHandle = rootDirectoryHandle;
-    } else {
-      const resolvedHandle = await getDirectoryHandle(parentPath);
-      if (resolvedHandle) {
-        parentHandle = resolvedHandle;
-        handleCache.set(parentPath, resolvedHandle);
+// Handles return a File that reads its bytes only when asked, so its metadata is the version
+const standaloneStore: DocumentStore = {
+  canResolveRelative: false,
+
+  async read(path) {
+    return (await standaloneHandle(path)).getFile();
+  },
+
+  async write(path, content) {
+    await writeHandle(await standaloneHandle(path), content);
+  },
+
+  async version(path) {
+    return fileVersion(await standaloneStore.read(path));
+  },
+};
+
+const folderStore: DocumentStore = {
+  canResolveRelative: true,
+
+  async read(path) {
+    const { dirParts, name } = folderPartsOf(path);
+
+    return inFolder(dirParts, false, async (dir) => {
+      try {
+        return await (await dir.getFileHandle(name)).getFile();
+      } catch {
+        throw new Error(`File not found: ${path}`);
       }
-    }
-  }
+    });
+  },
 
-  if (!parentHandle) {
-    throw new Error(`Could not find parent directory for: ${path}`);
-  }
+  async write(path, content) {
+    const { dirParts, name } = folderPartsOf(path);
 
-  try {
-    const fileHandle = await parentHandle.getFileHandle(fileName);
-    return await fileHandle.getFile();
-  } catch (error) {
-    throw new Error(`File not found: ${path}`);
-  }
+    await inFolder(dirParts, true, async (dir) => writeHandle(await dir.getFileHandle(name, { create: true }), content));
+  },
+
+  async version(path) {
+    return fileVersion(await folderStore.read(path));
+  },
+};
+
+function storeFor(path: string): DocumentStore {
+  if (path.startsWith(DESKTOP_PREFIX)) return desktopStore;
+  if (path.startsWith(STANDALONE_PREFIX)) return standaloneStore;
+  return folderStore;
+}
+
+/** Whether relative links and images in the document at `path` can be resolved (false for a file opened on its own) */
+export function canResolveRelative(path: string | null): path is string {
+  return !!path && storeFor(path).canResolveRelative;
+}
+
+export function readFileBlob(path: string): Promise<File> {
+  return storeFor(path).read(path);
 }
 
 // A file's modified time (whole milliseconds) and size: when either changes, its contents did
@@ -389,15 +430,8 @@ export function fileVersion(file: File): string {
 }
 
 /** The version of the file at `path`, read without loading its contents. */
-export async function readFileVersion(path: string): Promise<string> {
-  if (isDesktopPath(path)) {
-    const { mtimeMs, size } = await desktopBridge().statFile(osPathOf(path));
-
-    return versionOf(mtimeMs, size);
-  }
-
-  // Folder handles return a File that reads its bytes only when asked
-  return fileVersion(await readFileBlob(path));
+export function readFileVersion(path: string): Promise<string> {
+  return storeFor(path).version(path);
 }
 
 // Read file contents
@@ -406,150 +440,17 @@ export async function readFile(path: string): Promise<string> {
   return normalizeLineEndings(await file.text());
 }
 
-// Write file contents
-export async function writeFile(path: string, content: string | Blob): Promise<void> {
-  if (isDesktopPath(path)) {
-    const data = typeof content === 'string' ? content : new Uint8Array(await content.arrayBuffer());
-    await desktopBridge().writeFile(osPathOf(path), data);
-    return;
-  }
-
-  let handle: FileSystemFileHandle | null = null;
-
-  // Check if this is a standalone file (opened via Open File dialog)
-  if (path.startsWith('file://')) {
-    handle = await getStandaloneHandle(path);
-  } else {
-    // Try to get handle from folder structure
-    handle = await getFileHandle(path);
-  }
-
-  if (!handle) {
-    throw new Error(`File not found: ${path}`);
-  }
-
-  const writable = await handle.createWritable();
-  await writable.write(content);
-  await writable.close();
+/** Writes the file, creating it (and any missing folders) when it doesn't exist */
+export function writeFile(path: string, content: string | Blob): Promise<void> {
+  return storeFor(path).write(path, content);
 }
 
-// Create directory
-export async function createDirectory(path: string): Promise<void> {
-  if (!rootDirectoryHandle) {
-    throw new Error('No root directory open');
-  }
-
-  const parts = path.split('/').filter(Boolean);
-  const dirName = parts.pop();
-
-  if (!dirName) return;
-
-  // Skip the root name
-  if (parts[0] === rootDirectoryHandle.name) {
-    parts.shift();
-  }
-
-  let current = rootDirectoryHandle;
-
-  for (const part of parts) {
-    current = await current.getDirectoryHandle(part, { create: true });
-  }
-
-  const newDir = await current.getDirectoryHandle(dirName, { create: true });
-  handleCache.set(path, newDir);
-}
-
-// Create file
-export async function createFile(path: string, content: string | Blob = ''): Promise<void> {
-  if (!rootDirectoryHandle) {
-    throw new Error('No root directory open');
-  }
-
-  const parts = path.split('/').filter(Boolean);
-  const fileName = parts.pop();
-
-  if (!fileName) return;
-
-  // Skip the root name
-  if (parts[0] === rootDirectoryHandle.name) {
-    parts.shift();
-  }
-
-  let current = rootDirectoryHandle;
-
-  for (const part of parts) {
-    current = await current.getDirectoryHandle(part, { create: true });
-  }
-
-  const fileHandle = await current.getFileHandle(fileName, { create: true });
-  const writable = await fileHandle.createWritable();
-  await writable.write(content);
-  await writable.close();
-}
-
-// Delete file or directory
-export async function deleteFileOrDirectory(path: string): Promise<void> {
-  if (!rootDirectoryHandle) {
-    throw new Error('No root directory open');
-  }
-
-  const parts = path.split('/').filter(Boolean);
-  const name = parts.pop();
-
-  if (!name) return;
-
-  // Skip the root name
-  if (parts[0] === rootDirectoryHandle.name) {
-    parts.shift();
-  }
-
-  let current = rootDirectoryHandle;
-
-  for (const part of parts) {
-    current = await current.getDirectoryHandle(part);
-  }
-
-  await current.removeEntry(name, { recursive: true });
-  handleCache.delete(path);
-}
-
-// Rename file or directory
-export async function renameFileOrDirectory(
-  oldPath: string,
-  newPath: string
-): Promise<void> {
-  // File System Access API doesn't have a direct rename method
-  // We need to copy and delete
-  const content = await readFile(oldPath);
-  await createFile(newPath, content);
-  await deleteFileOrDirectory(oldPath);
-}
-
-// Check if file exists
+/** Whether the file can be reached; checks its version, so no contents are loaded */
 export async function fileExists(path: string): Promise<boolean> {
   try {
-    const handle = await getFileHandle(path);
-    return handle !== null;
+    await readFileVersion(path);
+    return true;
   } catch {
     return false;
   }
-}
-
-// Get root directory handle (for external use)
-export function getRootHandle(): FileSystemDirectoryHandle | null {
-  return rootDirectoryHandle;
-}
-
-// Set root directory handle
-export function setRootHandle(handle: FileSystemDirectoryHandle | null): void {
-  rootDirectoryHandle = handle;
-  handleCache.clear();
-  if (handle) {
-    handleCache.set(handle.name, handle);
-  }
-}
-
-// Clear handle cache
-export function clearHandleCache(): void {
-  handleCache.clear();
 }

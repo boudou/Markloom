@@ -2,13 +2,7 @@
 // relative path. Only documents without a folder fall back to embedding the image inline.
 import { useTabsStore } from '@/features/tabs';
 import { notify } from '@/stores/uiStore';
-import {
-  createFile,
-  fileExists,
-  isDesktopPath,
-  readFileBlob,
-  writeFile,
-} from '@/features/file-tree/api/fileSystem';
+import { canResolveRelative, fileExists, writeFile } from '@/features/file-tree/api/fileSystem';
 import { fileToBase64, getAltTextFromFilename, getExtensionFromMimeType } from './utils';
 
 const ASSETS_DIR = 'assets';
@@ -25,16 +19,6 @@ function extensionOf(file: File): string {
   return file.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() ?? getExtensionFromMimeType(file.type);
 }
 
-async function exists(path: string): Promise<boolean> {
-  if (!isDesktopPath(path)) return fileExists(path);
-  try {
-    await readFileBlob(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** Returns the markdown for the image, having saved it beside the document when possible. */
 export async function storeImageForDocument(file: File): Promise<string> {
   const isClipboardImage = /^image\.\w+$/i.test(file.name);
@@ -43,17 +27,16 @@ export async function storeImageForDocument(file: File): Promise<string> {
   const docPath = tabs.find((t) => t.id === activeTabId)?.path ?? null;
 
   // Folder documents and desktop-opened documents have a real directory we can write to
-  if (docPath && !docPath.startsWith('file://')) {
+  if (canResolveRelative(docPath)) {
     const docDir = docPath.slice(0, docPath.lastIndexOf('/'));
     const base = safeBaseName(file);
     const ext = extensionOf(file);
     let name = `${base}.${ext}`;
-    for (let n = 2; await exists(`${docDir}/${ASSETS_DIR}/${name}`); n++) name = `${base}-${n}.${ext}`;
+    for (let n = 2; await fileExists(`${docDir}/${ASSETS_DIR}/${name}`); n++) name = `${base}-${n}.${ext}`;
 
     const target = `${docDir}/${ASSETS_DIR}/${name}`;
     try {
-      if (isDesktopPath(target)) await writeFile(target, file);
-      else await createFile(target, file);
+      await writeFile(target, file);
       return `![${alt}](${ASSETS_DIR}/${encodeURI(name)})`;
     } catch (error) {
       notify({

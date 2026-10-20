@@ -8,7 +8,7 @@ import type { Node as ProseNode } from '@milkdown/kit/prose/model';
 import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
-import { readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '../hooks/useDocumentLinks';
 import { useTabsStore } from '@/features/tabs';
 import { getMarkdownParser, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
@@ -25,7 +25,7 @@ function activeDocumentPath(): string | null {
 /** Turns a markdown image src into something the browser can display */
 async function resolveImageSrc(src: string): Promise<string> {
   const docPath = activeDocumentPath();
-  if (!src || ABSOLUTE_URL.test(src) || !docPath || docPath.startsWith('file://')) return src;
+  if (!src || ABSOLUTE_URL.test(src) || !canResolveRelative(docPath)) return src;
   const path = resolveSourcePath(docPath, src);
   const cached = imageUrlCache.get(path);
   if (cached) return cached;
