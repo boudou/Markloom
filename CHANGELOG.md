@@ -4,6 +4,8 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-20
+
 ### Added
 
 - Callouts: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]` and `[!CAUTION]` quotes show as coloured, titled boxes in the preview and in Word, PDF and HTML exports (#13).
@@ -15,13 +17,13 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 - Toolbar tooltips open straight away once one is showing, instead of waiting each time.
 - Dependencies updated, including TypeScript 7 and Vite 8 (builds are about three times faster). Building from source needs Node.js 22.12 or newer.
 
-### Security
-
-- Resolved all open Dependabot alerts: KaTeX 0.19 for Mermaid's math labels, and newer postcss-selector-parser and global-agent in the build tooling.
-
 ### Fixed
 
 - `Ctrl+Shift+M` now switches between Markdown and Rich text while the Markdown editor has focus.
+
+### Security
+
+- Resolved all open Dependabot alerts: KaTeX 0.19 for Mermaid's math labels, and newer postcss-selector-parser and global-agent in the build tooling.
 
 ## [0.1.0] - 2026-10-20
 
@@ -40,5 +42,6 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/boudou/Markloom/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/boudou/Markloom/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
 {
   "name": "markloom",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Markdown editor with live preview, Mermaid diagrams, rich-text mode and export to Word, PDF and HTML",
   "keywords": [
     "markdown",
