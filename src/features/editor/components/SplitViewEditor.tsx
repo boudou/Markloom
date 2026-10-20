@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorView } from '@codemirror/view';
@@ -6,6 +6,7 @@ import { highlightSelectionMatches } from '@codemirror/search';
 import { AnimatePresence, m } from 'framer-motion';
 import { ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useResizeDrag } from '@/lib/useResizeDrag';
 import { useActiveContent, useActivePath, useSetActiveContent } from '@/features/tabs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { MarkdownPreview } from './MarkdownPreview';
@@ -20,6 +21,9 @@ import type { EditorCommands, FormatState } from '../types';
 import { formatStateReporter, selectionReporter } from '../codemirror/formatState';
 import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
+
+const MIN_SPLIT = 25;
+const MAX_SPLIT = 75;
 
 interface SplitViewEditorProps {
   onCommands: (commands: EditorCommands | null) => void;
@@ -103,7 +107,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     return () => onCommands(null);
   }, [view, onCommands]);
 
-  useSyncScroll({ editorView: view, previewRef, content, previewReady: !isBlank });
+  useSyncScroll({ editorView: view, previewRef, previewReady: !isBlank });
 
   // Outline panel asks to jump to a line
   useEffect(() => {
@@ -134,36 +138,21 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     return () => window.removeEventListener('diagram-errors', handleErrors);
   }, [view]);
 
-  const ratioFromPointer = useCallback(
-    (clientX: number) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) setSplitRatio(((clientX - rect.left) / rect.width) * 100);
-    },
-    [setSplitRatio]
-  );
-
-  const handleResizeStart = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      const move = (ev: PointerEvent) => ratioFromPointer(ev.clientX);
-      const up = () => {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
-        document.body.style.cursor = '';
-      };
-      document.body.style.cursor = 'col-resize';
-      document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
-    },
-    [ratioFromPointer]
-  );
+  const split = useResizeDrag({
+    stored: splitRatio,
+    min: MIN_SPLIT,
+    max: MAX_SPLIT,
+    anchorRef: containerRef,
+    toValue: (x, rect) => ((x - rect.left) / rect.width) * 100,
+    commit: setSplitRatio,
+  });
 
   const handleResizeKey = (e: React.KeyboardEvent) => {
     const step = e.shiftKey ? 10 : 2;
     if (e.key === 'ArrowLeft') setSplitRatio(splitRatio - step);
     else if (e.key === 'ArrowRight') setSplitRatio(splitRatio + step);
-    else if (e.key === 'Home') setSplitRatio(25);
-    else if (e.key === 'End') setSplitRatio(75);
+    else if (e.key === 'Home') setSplitRatio(MIN_SPLIT);
+    else if (e.key === 'End') setSplitRatio(MAX_SPLIT);
     else return;
     e.preventDefault();
   };
@@ -185,7 +174,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
         {/* Source pane */}
         <div
           className="h-full overflow-hidden bg-canvas relative"
-          style={{ width: `${splitRatio}%` }}
+          style={{ width: `${split.value}%` }}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
@@ -229,22 +218,22 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize source and preview"
-          aria-valuenow={Math.round(splitRatio)}
-          aria-valuemin={25}
-          aria-valuemax={75}
+          aria-valuenow={Math.round(split.value)}
+          aria-valuemin={MIN_SPLIT}
+          aria-valuemax={MAX_SPLIT}
           tabIndex={0}
-          onPointerDown={handleResizeStart}
+          onPointerDown={split.onPointerDown}
           onKeyDown={handleResizeKey}
           onDoubleClick={() => setSplitRatio(50)}
           className={cn(
-            'relative w-px flex-shrink-0 bg-rule cursor-col-resize outline-none',
+            'relative w-px flex-shrink-0 bg-rule cursor-col-resize outline-none touch-none',
             'before:absolute before:inset-y-0 before:-left-1.5 before:-right-1.5 before:content-[""]',
             'hover:bg-accent-primary focus-visible:bg-accent-primary transition-colors'
           )}
         />
 
         {/* Preview pane */}
-        <div className="h-full overflow-hidden bg-canvas" style={{ width: `${100 - splitRatio}%` }}>
+        <div className="h-full overflow-hidden bg-canvas" style={{ width: `${100 - split.value}%` }}>
           {isBlank ? (
             <div className="h-full overflow-auto flex items-center justify-center p-8 bg-panel">
               <StartPanel writeHint="Type Markdown in the left pane; the formatted document appears here as you write." />
