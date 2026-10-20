@@ -4,7 +4,6 @@ export interface Template {
   description: string;
   category: 'general' | 'development' | 'documentation' | 'personal';
   content: string;
-  icon?: string;
 }
 
 const currentDate = () => {
@@ -24,7 +23,7 @@ export const builtInTemplates: Template[] = [
     category: 'general',
     content: `# Meeting Notes
 
-**Date:** ${currentDate()}
+**Date:** {{date}}
 **Attendees:**
 
 ## Agenda
@@ -63,7 +62,7 @@ export const builtInTemplates: Template[] = [
 ## Overview
 
 **Project Name:**
-**Start Date:** ${currentDate()}
+**Start Date:** {{date}}
 **Target Completion:**
 
 ## Objectives
@@ -262,7 +261,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 -
 
-## [1.0.0] - ${currentDate()}
+## [1.0.0] - {{date}}
 
 ### Added
 - Initial release
@@ -282,7 +281,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | Field | Value |
 |-------|-------|
 | Version | 1.0 |
-| Date | ${currentDate()} |
+| Date | {{date}} |
 | Author | |
 | Status | Draft |
 
@@ -411,7 +410,7 @@ For additional help:
     name: 'Daily journal',
     description: 'Daily reflection and planning',
     category: 'personal',
-    content: `# Daily Journal - ${currentDate()}
+    content: `# Daily Journal - {{date}}
 
 ## Morning Reflection
 
@@ -461,7 +460,7 @@ For additional help:
 
 ![Cover Image](url)
 
-**Published:** ${currentDate()}
+**Published:** {{date}}
 **Tags:** tag1, tag2, tag3
 
 ## Introduction
@@ -496,11 +495,6 @@ Wrap up your post and include a call to action.
   },
 ];
 
-// Get templates by category
-export function getTemplatesByCategory(category: Template['category']): Template[] {
-  return builtInTemplates.filter(t => t.category === category);
-}
-
 // Search templates
 export function searchTemplates(query: string): Template[] {
   const lowerQuery = query.toLowerCase();
@@ -511,17 +505,7 @@ export function searchTemplates(query: string): Template[] {
   );
 }
 
-// Process template variables
-export function processTemplate(content: string, variables: Record<string, string> = {}): string {
-  let processed = content;
-
-  // Replace {{date}} with current date
-  processed = processed.replace(/\{\{date\}\}/g, currentDate());
-
-  // Replace custom variables
-  for (const [key, value] of Object.entries(variables)) {
-    processed = processed.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-  }
-
-  return processed;
+// Fill {{date}} when the template is used, so a long-running app never inserts a stale date
+export function processTemplate(content: string): string {
+  return content.replace(/\{\{date\}\}/g, currentDate());
 }

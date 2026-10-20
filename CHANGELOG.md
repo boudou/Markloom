@@ -4,6 +4,10 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Fixed
+
+- Templates insert today's date even when the app has been open since an earlier day (#83).
+
 ## [0.3.0] - 2026-10-20
 
 ### Added

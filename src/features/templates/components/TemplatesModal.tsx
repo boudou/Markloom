@@ -41,8 +41,12 @@ export function TemplatesModal({ open, onOpenChange }: TemplatesModalProps) {
     listRef.current?.querySelector(`[data-index="${activeIndex}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
-  // Show templates as they'll read, not as raw Markdown
-  const previewHtml = useMemo(() => (selected ? parseMarkdown(processTemplate(selected.content)) : ''), [selected]);
+  // Show templates as they'll read, not as raw Markdown. `open` is a dependency so each
+  // opening fills in today's date: the modal stays mounted and `selected` keeps its identity.
+  const previewHtml = useMemo(
+    () => (selected ? parseMarkdown(processTemplate(selected.content)) : ''),
+    [selected, open],
+  );
 
   const applyTemplate = (template: Template | null) => {
     if (!template) return;
