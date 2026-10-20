@@ -3,10 +3,10 @@ import { m } from 'framer-motion';
 import { FileDown, Loader2, FileType, FileText, Globe, FileCode2, AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, ModalFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { useTabsStore } from '@/features/tabs';
+import { selectActiveTab, useActivePath, useTabsStore } from '@/features/tabs';
 import { documentName } from '@/features/file-tree/api/fileSystem';
 import { notify } from '@/stores/uiStore';
-import { useAppStoreBase } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
 import type { ExportIssue } from '../pipeline/preflight';
 
 interface ExportModalProps {
@@ -91,10 +91,12 @@ function toFileName(title: string): string {
   );
 }
 
+// The dialog stays mounted: read the text when it's needed rather than re-rendering on every keystroke
+const readContent = () => selectActiveTab(useTabsStore.getState())?.content ?? '';
+
 export function ExportModal({ open, onOpenChange }: ExportModalProps) {
-  const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
-  const content = activeTab?.content ?? '';
-  const docPath = activeTab?.path ?? null;
+  const hasContent = useTabsStore((s) => /\S/.test(selectActiveTab(s)?.content ?? ''));
+  const docPath = useActivePath();
 
   const [format, setFormat] = useState<ExportFormat>('docx');
   const [title, setTitle] = useState('');
@@ -106,6 +108,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   // Suggest a title each time the dialog opens: the first heading, else the file name
   useEffect(() => {
     if (!open) return;
+    const content = readContent();
     const heading = content.match(/^#\s+(.+?)\s*#*\s*$/m)?.[1];
     const fileName = docPath ? documentName(docPath).replace(/\.(md|markdown|mdx)$/i, '') : null;
     setTitle(toFileName(heading ?? fileName ?? 'Untitled document'));
@@ -127,7 +130,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const handleExport = async () => {
     setExporting(true);
     setError(null);
-    const request = { markdown: content, docPath, title: toFileName(title), author: author.trim() || undefined };
+    const request = { markdown: readContent(), docPath, title: toFileName(title), author: author.trim() || undefined };
 
     try {
       // Exporters pull in large libraries; load them only when used
@@ -159,12 +162,12 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
 
   const current = FORMATS.find((f) => f.id === format)!;
   // Problems are shown on their source line, which lives in the Markdown view
-  const inRichText = useAppStoreBase((s) => s.editorMode) === 'wysiwyg';
+  const inRichText = useAppStore((s) => s.editorMode) === 'wysiwyg';
 
   // Jump to the problem in the Markdown view, where the line is visible and marked
   const review = (issue: ExportIssue) => {
     onOpenChange(false);
-    useAppStoreBase.getState().setEditorMode('split');
+    useAppStore.getState().setEditorMode('split');
     window.setTimeout(
       () => window.dispatchEvent(new CustomEvent('outline-navigate', { detail: { line: issue.line } })),
       250
@@ -255,7 +258,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={exporting}>
           Cancel
         </Button>
-        <Button onClick={() => void handleExport()} disabled={exporting || !content.trim()} aria-busy={exporting || undefined}>
+        <Button onClick={() => void handleExport()} disabled={exporting || !hasContent} aria-busy={exporting || undefined}>
           <ExportButtonLabel active={exporting ? 'exporting' : format} />
         </Button>
       </ModalFooter>

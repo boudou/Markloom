@@ -1,1 +1,0 @@
-export { TocPanel } from './TocPanel';

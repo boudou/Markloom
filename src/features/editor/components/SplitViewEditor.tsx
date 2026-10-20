@@ -6,7 +6,7 @@ import { search, highlightSelectionMatches } from '@codemirror/search';
 import { AnimatePresence, m } from 'framer-motion';
 import { ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppStore } from '@/stores/appStore';
+import { useActiveContent, useActivePath, useSetActiveContent } from '@/features/tabs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { MarkdownPreview } from './MarkdownPreview';
 import { StartPanel } from './StartPanel';
@@ -35,9 +35,35 @@ const sourceAttributes = EditorView.contentAttributes.of({
   autocapitalize: 'off',
 });
 
+// Kept stable: @uiw/react-codemirror reconfigures the whole editor whenever this object changes
+const basicSetupFor = (lineNumbers: boolean) => ({
+  lineNumbers,
+  highlightActiveLineGutter: true,
+  highlightActiveLine: true,
+  foldGutter: false,
+  dropCursor: true,
+  allowMultipleSelections: true,
+  indentOnInput: true,
+  bracketMatching: true,
+  closeBrackets: false,
+  autocompletion: false,
+  rectangularSelection: true,
+  crosshairCursor: false,
+  highlightSelectionMatches: false,
+  searchKeymap: false,
+  // Its Mod-Shift-m (lint panel) would swallow the Markdown / Rich text toggle
+  lintKeymap: false,
+});
+
 export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorProps) {
-  const { content, setContent, activeFilePath } = useAppStore();
-  const { splitRatio, setSplitRatio, editor: editorSettings } = useSettingsStore();
+  const content = useActiveContent();
+  const setContent = useSetActiveContent();
+  const activeFilePath = useActivePath();
+  const splitRatio = useSettingsStore((s) => s.splitRatio);
+  const setSplitRatio = useSettingsStore((s) => s.setSplitRatio);
+  const wordWrap = useSettingsStore((s) => s.editor.wordWrap);
+  const lineNumbers = useSettingsStore((s) => s.editor.lineNumbers);
+  const basicSetup = useMemo(() => basicSetupFor(lineNumbers), [lineNumbers]);
   const [view, setView] = useState<EditorView | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -59,9 +85,9 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       diagramErrorTheme,
       formatStateReporter(onFormatState),
       selectionReporter(setSelectedText),
-      ...(editorSettings.wordWrap ? [EditorView.lineWrapping] : []),
+      ...(wordWrap ? [EditorView.lineWrapping] : []),
     ],
-    [editorSettings.wordWrap, onFormatState]
+    [wordWrap, onFormatState]
   );
 
   // A selection in this editor means nothing once it is gone (mode or tab switch)
@@ -202,24 +228,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
             autoFocus={isBlank}
             placeholder="Start writing in Markdown…"
             className="h-full"
-            basicSetup={{
-              lineNumbers: editorSettings.lineNumbers,
-              highlightActiveLineGutter: true,
-              highlightActiveLine: true,
-              foldGutter: false,
-              dropCursor: true,
-              allowMultipleSelections: true,
-              indentOnInput: true,
-              bracketMatching: true,
-              closeBrackets: false,
-              autocompletion: false,
-              rectangularSelection: true,
-              crosshairCursor: false,
-              highlightSelectionMatches: false,
-              searchKeymap: false,
-              // Its Mod-Shift-m (lint panel) would swallow the Markdown / Rich text toggle
-              lintKeymap: false,
-            }}
+            basicSetup={basicSetup}
           />
         </div>
 

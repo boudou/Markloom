@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { cn, isMarkdownFile, isMermaidFile } from '@/lib/utils';
@@ -13,13 +13,14 @@ interface TreeNodeProps {
   onFileSelect: (path: string) => void;
 }
 
-export function TreeNode({ node, depth, onFileSelect }: TreeNodeProps) {
-  const { expandedPaths, selectedPath, toggleExpanded, setSelected, updateNode } =
-    useFileTreeStore();
+// Memoized with narrow selections: expanding one folder or selecting one file re-renders only the nodes it changes
+export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: TreeNodeProps) {
+  const isExpanded = useFileTreeStore((s) => s.expandedPaths.has(node.path));
+  const isSelected = useFileTreeStore((s) => s.selectedPath === node.path);
+  const toggleExpanded = useFileTreeStore((s) => s.toggleExpanded);
+  const setSelected = useFileTreeStore((s) => s.setSelected);
+  const updateNode = useFileTreeStore((s) => s.updateNode);
   const [isLoading, setIsLoading] = useState(false);
-
-  const isExpanded = expandedPaths.has(node.path);
-  const isSelected = selectedPath === node.path;
 
   const handleClick = useCallback(async () => {
     if (node.isDirectory) {
@@ -139,4 +140,4 @@ export function TreeNode({ node, depth, onFileSelect }: TreeNodeProps) {
       </AnimatePresence>
     </div>
   );
-}
+});

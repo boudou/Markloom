@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { m } from 'framer-motion';
 import { Columns2, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppStoreBase, type EditorMode } from '@/stores/appStore';
+import { useAppStore, type EditorMode } from '@/stores/appStore';
 
 const modes: { value: EditorMode; icon: React.ElementType; label: string; description: string }[] = [
   { value: 'split', icon: Columns2, label: 'Markdown', description: 'Markdown source with live preview' },
@@ -23,8 +23,8 @@ function Face({ icon: Icon, label, className }: { icon: React.ElementType; label
 }
 
 export function ModeToggle() {
-  const editorMode = useAppStoreBase((s) => s.editorMode);
-  const setEditorMode = useAppStoreBase((s) => s.setEditorMode);
+  const editorMode = useAppStore((s) => s.editorMode);
+  const setEditorMode = useAppStore((s) => s.setEditorMode);
   const [hovered, setHovered] = useState(-1);
   const index = Math.max(0, modes.findIndex((mode) => mode.value === editorMode));
 

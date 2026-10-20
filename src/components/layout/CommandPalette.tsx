@@ -4,7 +4,7 @@ import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Kbd, rememberFocus, restoreFocus } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
-import { useAppStoreBase } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTabsStore } from '@/features/tabs';
 import { useFindReplaceStore } from '@/features/find-replace';
@@ -25,14 +25,14 @@ interface Command {
 
 function useCommands(): Command[] {
   const editorCommands = useUiStore((s) => s.editorCommands);
-  const editorMode = useAppStoreBase((s) => s.editorMode);
-  const outlineOpen = useAppStoreBase((s) => s.sidebarOpen && s.sidebarView === 'outline');
-  const rootPath = useAppStoreBase((s) => s.rootPath);
+  const editorMode = useAppStore((s) => s.editorMode);
+  const outlineOpen = useAppStore((s) => s.sidebarOpen && s.sidebarView === 'outline');
+  const rootPath = useAppStore((s) => s.rootPath);
   const recentFiles = useSettingsStore((s) => s.recentFiles);
 
   return useMemo(() => {
     const ui = useUiStore.getState();
-    const app = useAppStoreBase.getState();
+    const app = useAppStore.getState();
     const commands: Command[] = [
       { id: 'new', label: 'New document', group: 'File', shortcut: 'newDocument', run: newDocument },
       { id: 'open', label: 'Open file…', group: 'File', shortcut: 'openFile', run: () => void openFile() },

@@ -1,2 +1,9 @@
 export { TabBar } from './components';
-export { useTabsStore, type Tab } from './stores';
+export {
+  useTabsStore,
+  selectActiveTab,
+  useActiveContent,
+  useActivePath,
+  useSetActiveContent,
+  type Tab,
+} from './stores';

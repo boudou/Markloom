@@ -3,10 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  /* Light theme */
-  :root,
-  :root.light,
-  :root[data-theme="light"] {
+  :root {
     --canvas: #FFFFFF;
     --panel: #F8F9FA;
     --wash: #F1F3F5;

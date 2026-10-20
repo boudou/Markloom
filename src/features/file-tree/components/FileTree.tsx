@@ -4,6 +4,7 @@ import { m } from 'framer-motion';
 import { IconButton, Tooltip } from '@/components/ui';
 import { useFileTreeStore } from '../stores/fileTreeStore';
 import { useAppStore } from '@/stores/appStore';
+import { useTabsStore } from '@/features/tabs';
 import { readDirectory, readFile, isFileSystemSupported, documentName } from '../api/fileSystem';
 import { openFolder } from '@/lib/documentActions';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -12,8 +13,12 @@ import { TreeNode } from './TreeNode';
 import { getFileName } from '@/lib/utils';
 
 export function FileTree() {
-  const { nodes, setNodes, setLoading, isLoading } = useFileTreeStore();
-  const { rootPath, loadFile } = useAppStore();
+  const nodes = useFileTreeStore((s) => s.nodes);
+  const isLoading = useFileTreeStore((s) => s.isLoading);
+  const setNodes = useFileTreeStore((s) => s.setNodes);
+  const setLoading = useFileTreeStore((s) => s.setLoading);
+  const rootPath = useAppStore((s) => s.rootPath);
+  const openDocument = useTabsStore((s) => s.openDocument);
   const addRecentFile = useSettingsStore((s) => s.addRecentFile);
 
   const isSupported = isFileSystemSupported();
@@ -48,7 +53,7 @@ export function FileTree() {
     async (path: string) => {
       try {
         const content = await readFile(path);
-        loadFile(path, content);
+        openDocument(path, content);
         addRecentFile({ path, name: documentName(path) });
       } catch (error) {
         notify({
@@ -58,7 +63,7 @@ export function FileTree() {
         });
       }
     },
-    [loadFile, addRecentFile]
+    [openDocument, addRecentFile]
   );
 
   // Show browser compatibility warning

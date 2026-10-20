@@ -1,1 +1,8 @@
-export { useTabsStore, type Tab } from './tabsStore';
+export {
+  useTabsStore,
+  selectActiveTab,
+  useActiveContent,
+  useActivePath,
+  useSetActiveContent,
+  type Tab,
+} from './tabsStore';

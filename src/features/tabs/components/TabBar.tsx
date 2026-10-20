@@ -1,8 +1,9 @@
 import { useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { X, Plus } from 'lucide-react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { cn } from '@/lib/utils';
-import { useTabsStore, type Tab } from '../stores';
+import { useTabsStore } from '../stores';
 import { IconButton, Tooltip } from '@/components/ui';
 import { useMenuHighlight } from '@/components/ui/useMenuHighlight';
 import { newDocument, requestCloseTabs } from '@/lib/documentActions';
@@ -12,15 +13,16 @@ const menuItemClass =
   'relative flex items-center px-2 py-1.5 text-sm text-text-primary rounded-[7px] cursor-default outline-none';
 
 export function TabBar() {
-  const tabs = useTabsStore((s) => s.tabs);
+  // Ids only: typing changes a tab's content, which must not re-render the bar
+  const tabIds = useTabsStore(useShallow((s) => s.tabs.map((t) => t.id)));
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const setActiveTab = useTabsStore((s) => s.setActiveTab);
   const listRef = useRef<HTMLDivElement>(null);
 
   const focusTab = (index: number) => {
-    const tab = tabs[(index + tabs.length) % tabs.length];
-    setActiveTab(tab.id);
-    listRef.current?.querySelector<HTMLElement>(`[data-tab-id="${tab.id}"]`)?.focus();
+    const id = tabIds[(index + tabIds.length) % tabIds.length];
+    setActiveTab(id);
+    listRef.current?.querySelector<HTMLElement>(`[data-tab-id="${id}"]`)?.focus();
   };
 
   // Arrow keys move between tabs; Delete closes the focused one
@@ -28,8 +30,8 @@ export function TabBar() {
     if (e.key === 'ArrowRight') focusTab(index + 1);
     else if (e.key === 'ArrowLeft') focusTab(index - 1);
     else if (e.key === 'Home') focusTab(0);
-    else if (e.key === 'End') focusTab(tabs.length - 1);
-    else if (e.key === 'Delete') requestCloseTabs([tabs[index].id]);
+    else if (e.key === 'End') focusTab(tabIds.length - 1);
+    else if (e.key === 'Delete') requestCloseTabs([tabIds[index]]);
     else return;
     e.preventDefault();
   };
@@ -42,16 +44,16 @@ export function TabBar() {
         aria-label="Open documents"
         className="flex items-stretch min-w-0 overflow-x-auto [scrollbar-width:none]"
       >
-        {tabs.map((tab, index) => (
+        {tabIds.map((id, index) => (
           <TabItem
-            key={tab.id}
-            tab={tab}
-            isActive={tab.id === activeTabId}
-            onSelect={() => setActiveTab(tab.id)}
+            key={id}
+            id={id}
+            isActive={id === activeTabId}
+            onSelect={() => setActiveTab(id)}
             onKeyDown={(e) => handleKeyDown(e, index)}
-            onClose={() => requestCloseTabs([tab.id])}
-            onCloseOthers={() => requestCloseTabs(tabs.filter((t) => t.id !== tab.id).map((t) => t.id))}
-            onCloseAll={() => requestCloseTabs(tabs.map((t) => t.id))}
+            onClose={() => requestCloseTabs([id])}
+            onCloseOthers={() => requestCloseTabs(tabIds.filter((other) => other !== id))}
+            onCloseAll={() => requestCloseTabs(tabIds)}
           />
         ))}
       </div>
@@ -68,7 +70,7 @@ export function TabBar() {
 }
 
 interface TabItemProps {
-  tab: Tab;
+  id: string;
   isActive: boolean;
   onSelect: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
@@ -77,7 +79,13 @@ interface TabItemProps {
   onCloseAll: () => void;
 }
 
-function TabItem({ tab, isActive, onSelect, onKeyDown, onClose, onCloseOthers, onCloseAll }: TabItemProps) {
+function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, onCloseAll }: TabItemProps) {
+  const { name, path, isDirty } = useTabsStore(
+    useShallow((s) => {
+      const tab = s.tabs.find((t) => t.id === id);
+      return { name: tab?.name ?? '', path: tab?.path ?? null, isDirty: !!tab?.isDirty };
+    })
+  );
   const { onFocusCapture, highlight } = useMenuHighlight();
   return (
     <ContextMenu.Root>
@@ -100,16 +108,16 @@ function TabItem({ tab, isActive, onSelect, onKeyDown, onClose, onCloseOthers, o
           <button
             type="button"
             role="tab"
-            data-tab-id={tab.id}
+            data-tab-id={id}
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
-            title={tab.path && !tab.path.startsWith('file://') ? tab.path : tab.name}
+            title={path && !path.startsWith('file://') ? path : name}
             onClick={onSelect}
             onKeyDown={onKeyDown}
             className="flex items-center gap-1.5 h-full text-sm outline-none focus-visible:underline decoration-accent-primary decoration-2 underline-offset-4"
           >
-            <span className="truncate max-w-[200px]">{tab.name}</span>
-            {tab.isDirty && (
+            <span className="truncate max-w-[200px]">{name}</span>
+            {isDirty && (
               <span className="w-1.5 h-1.5 rounded-full bg-accent-primary flex-shrink-0">
                 <span className="sr-only">(unsaved changes)</span>
               </span>
@@ -119,7 +127,7 @@ function TabItem({ tab, isActive, onSelect, onKeyDown, onClose, onCloseOthers, o
           <button
             type="button"
             tabIndex={-1}
-            aria-label={`Close ${tab.name}`}
+            aria-label={`Close ${name}`}
             onClick={(e) => {
               e.stopPropagation();
               onClose();

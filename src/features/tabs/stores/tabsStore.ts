@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
@@ -186,3 +187,22 @@ export const useTabsStore = create<TabsState>()(
 useTabsStore.setState((state) => ({
   activeTabId: state.tabs[0]?.id || null,
 }));
+
+/** The tab being edited. Select fields from it, not the tab itself: its object changes on every keystroke. */
+export const selectActiveTab = (s: TabsState): Tab | undefined => s.tabs.find((t) => t.id === s.activeTabId);
+
+export const useActiveContent = () => useTabsStore((s) => selectActiveTab(s)?.content ?? '');
+
+/** Where the active document lives; null until it is saved */
+export const useActivePath = () => useTabsStore((s) => selectActiveTab(s)?.path ?? null);
+
+/** Editor onChange: writes into the tab that was active when the editor rendered */
+export function useSetActiveContent() {
+  const tabId = useTabsStore((s) => s.activeTabId);
+  return useCallback(
+    (content: string) => {
+      if (tabId) useTabsStore.getState().updateTabContent(tabId, content);
+    },
+    [tabId]
+  );
+}

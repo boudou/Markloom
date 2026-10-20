@@ -3,6 +3,7 @@ import { m } from 'framer-motion';
 import { parseMarkdown } from '@/lib/markdown';
 import { isHighlighterReady, onHighlighterReady } from '@/features/syntax-highlight';
 import { cn } from '@/lib/utils';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
@@ -23,15 +24,6 @@ function rememberSvg(code: string, svg: string) {
   if (mermaidSvgCache.size > MAX_CACHED_DIAGRAMS) {
     mermaidSvgCache.delete(mermaidSvgCache.keys().next().value!);
   }
-}
-
-function useDebouncedValue<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
 }
 
 interface MarkdownPreviewProps {

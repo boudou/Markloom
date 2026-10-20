@@ -2,8 +2,8 @@ import { FileText, FolderOpen, Save, FileDown, LayoutTemplate, Keyboard, PanelLe
 import { IconButton, Tooltip } from '@/components/ui';
 import { RecentFilesMenu } from '@/features/recent-files';
 import { HistoryPanel } from '@/features/version-history';
-import { useTabsStore } from '@/features/tabs';
-import { useAppStoreBase } from '@/stores/appStore';
+import { selectActiveTab, useTabsStore } from '@/features/tabs';
+import { useAppStore } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
 import { openFile, openFolder, saveActiveTab } from '@/lib/documentActions';
 import { shortcutHint, shortcutKeys } from '@/lib/shortcuts';
@@ -24,11 +24,15 @@ function Separator() {
  * On desktop it is also the window's drag handle.
  */
 export function TitleBar() {
-  const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
-  const sidebarOpen = useAppStoreBase((s) => s.sidebarOpen);
-  const toggleSidebarView = useAppStoreBase((s) => s.toggleSidebarView);
-  const sidebarView = useAppStoreBase((s) => s.sidebarView);
-  const rootPath = useAppStoreBase((s) => s.rootPath);
+  // Primitives only: the tab object itself changes on every keystroke
+  const hasContent = useTabsStore((s) => /\S/.test(selectActiveTab(s)?.content ?? ''));
+  const isDirty = useTabsStore((s) => !!selectActiveTab(s)?.isDirty);
+  const docName = useTabsStore((s) => selectActiveTab(s)?.name ?? 'Untitled');
+  const docPath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const toggleSidebarView = useAppStore((s) => s.toggleSidebarView);
+  const sidebarView = useAppStore((s) => s.sidebarView);
+  const rootPath = useAppStore((s) => s.rootPath);
   const filesVisible = sidebarOpen && sidebarView === 'files' && !!rootPath;
   const outlineOpen = sidebarOpen && sidebarView === 'outline';
   const openDialog = useUiStore((s) => s.openDialog);
@@ -36,9 +40,6 @@ export function TitleBar() {
   const barRef = useRef<HTMLElement>(null);
   useRovingToolbar(barRef);
 
-  const hasContent = !!activeTab?.content.trim();
-  const isDirty = !!activeTab?.isDirty;
-  const docName = activeTab?.name ?? 'Untitled';
 
   return (
     <header
@@ -109,11 +110,11 @@ export function TitleBar() {
 
       {/* Centre: which document, and whether it's saved */}
       <div className="flex-1 min-w-0 flex items-center justify-center gap-2 px-3">
-        <span className="truncate text-sm text-text-primary" title={activeTab?.path ?? docName}>
+        <span className="truncate text-sm text-text-primary" title={docPath ?? docName}>
           {docName}
         </span>
         <span className={cn('flex-shrink-0 text-xs', isDirty ? 'text-accent-hover' : 'text-text-muted')}>
-          {isDirty ? 'Edited' : activeTab?.path ? 'Saved' : ''}
+          {isDirty ? 'Edited' : docPath ? 'Saved' : ''}
         </span>
       </div>
 
