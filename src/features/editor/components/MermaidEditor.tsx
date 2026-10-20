@@ -154,6 +154,7 @@ export function MermaidEditor() {
                 rectangularSelection: true,
                 crosshairCursor: false,
                 highlightSelectionMatches: true,
+                lintKeymap: false,
               }}
               className="h-full"
               ref={editorRef as any}

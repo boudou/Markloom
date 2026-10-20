@@ -212,6 +212,8 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
               crosshairCursor: false,
               highlightSelectionMatches: false,
               searchKeymap: false,
+              // Its Mod-Shift-m (lint panel) would swallow the Markdown / Rich text toggle
+              lintKeymap: false,
             }}
           />
         </div>
