@@ -329,9 +329,12 @@ export async function restoreRememberedFolder(): Promise<string | null> {
 // Resolve a path inside the open folder to its File object
 export async function readFileBlob(path: string): Promise<File> {
   if (isDesktopPath(path)) {
-    const bytes = await desktopBridge().readFile(osPathOf(path));
+    const bridge = desktopBridge();
+    const osPath = osPathOf(path);
+    const [bytes, { mtimeMs }] = await Promise.all([bridge.readFile(osPath), bridge.statFile(osPath)]);
     const name = documentName(path);
-    return new File([new Uint8Array(bytes)], name, { type: mimeTypeFor(name) });
+
+    return new File([new Uint8Array(bytes)], name, { type: mimeTypeFor(name), lastModified: Math.trunc(mtimeMs) });
   }
   if (path.startsWith('file://')) {
     const handle = await getStandaloneHandle(path);
@@ -372,6 +375,27 @@ export async function readFileBlob(path: string): Promise<File> {
   } catch (error) {
     throw new Error(`File not found: ${path}`);
   }
+}
+
+// A file's modified time (whole milliseconds) and size: when either changes, its contents did
+function versionOf(modifiedMs: number, size: number): string {
+  return `${Math.trunc(modifiedMs)}:${size}`;
+}
+
+export function fileVersion(file: File): string {
+  return versionOf(file.lastModified, file.size);
+}
+
+/** The version of the file at `path`, read without loading its contents. */
+export async function readFileVersion(path: string): Promise<string> {
+  if (isDesktopPath(path)) {
+    const { mtimeMs, size } = await desktopBridge().statFile(osPathOf(path));
+
+    return versionOf(mtimeMs, size);
+  }
+
+  // Folder handles return a File that reads its bytes only when asked
+  return fileVersion(await readFileBlob(path));
 }
 
 // Read file contents

@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { useActivePath, useTabsStore } from '@/features/tabs';
 import { readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { refreshImages, showImage } from '../utils/previewImages';
 
 // Matches URLs with a scheme (http:, mailto:, data:, blob:, ...) or protocol-relative URLs
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
@@ -26,9 +27,6 @@ const VIEWABLE_TYPES = new Map<string, string>([
   ['yaml', 'text/plain;charset=utf-8'],
   ['yml', 'text/plain;charset=utf-8'],
 ]);
-
-// Object URLs for images loaded from the open folder, keyed by resolved path
-const imageUrlCache = new Map<string, { url: string; lastModified: number }>();
 
 function showMissingImage(img: HTMLImageElement, src: string, hint?: string) {
   if (!img.isConnected) return;
@@ -168,7 +166,6 @@ export function useDocumentLinks(
     const container = containerRef.current;
     if (!container || !resolveImages) return;
 
-    let cancelled = false;
     container.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
       const src = img.getAttribute('src') ?? '';
       // Any image that fails to load (remote 404, bad data URL) gets a readable placeholder
@@ -181,28 +178,23 @@ export function useDocumentLinks(
       }
 
       const path = resolveRelativePath(activeFilePath, splitHash(src).path);
-      const cached = imageUrlCache.get(path);
-      if (cached) img.src = cached.url;
-
-      // Re-check the file each time so an image edited on disk shows its new version
-      readFileBlob(path)
-        .then((file) => {
-          const current = imageUrlCache.get(path);
-          if (current && current.lastModified === file.lastModified) return;
-          if (current) URL.revokeObjectURL(current.url);
-          const url = URL.createObjectURL(file);
-          imageUrlCache.set(path, { url, lastModified: file.lastModified });
-          if (!cancelled) img.src = url;
-        })
-        .catch(() => {
-          if (!cancelled) showMissingImage(img, src);
-        });
+      showImage(img, path).catch(() => showMissingImage(img, src));
     });
-
-    return () => {
-      cancelled = true;
-    };
   }, [containerRef, html, activeFilePath, resolveImages]);
+
+  // An image edited in another app shows its new version when the user comes back
+  useEffect(() => {
+    if (!resolveImages) return;
+
+    const handleFocus = () => {
+      const container = containerRef.current;
+      if (container) refreshImages(container);
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [containerRef, resolveImages]);
 
   // Intercept link clicks
   useEffect(() => {
