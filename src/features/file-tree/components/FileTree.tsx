@@ -14,6 +14,7 @@ import { getFileName } from '@/lib/utils';
 
 export function FileTree() {
   const nodes = useFileTreeStore((s) => s.nodes);
+  const nodesRoot = useFileTreeStore((s) => s.nodesRoot);
   const isLoading = useFileTreeStore((s) => s.isLoading);
   const setNodes = useFileTreeStore((s) => s.setNodes);
   const setLoading = useFileTreeStore((s) => s.setLoading);
@@ -27,21 +28,32 @@ export function FileTree() {
     async (path: string) => {
       setLoading(true);
       try {
-        const children = await readDirectory(path);
-        setNodes(children);
+        setNodes(await readDirectory(path), path);
       } catch (error) {
-        console.error('Failed to load directory:', error);
+        // A failed Refresh keeps the tree; a folder that failed to open must not show the previous folder's files
+        if (useFileTreeStore.getState().nodesRoot !== path) {
+          setNodes([], null);
+        }
+
+        notify({
+          tone: 'error',
+          title: `Couldn't read ${getFileName(path)}`,
+          detail: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     },
     [setNodes, setLoading]
   );
 
+  // Reads the folder only when the store doesn't hold it yet, so the tree (and its expanded folders)
+  // survives the sidebar switching to Outline and back; Refresh is the way to re-read it
   useEffect(() => {
-    if (rootPath) {
+    if (rootPath && nodesRoot !== rootPath) {
       loadDirectory(rootPath);
     }
-  }, [rootPath, loadDirectory]);
+  }, [rootPath, nodesRoot, loadDirectory]);
 
   const handleRefresh = useCallback(() => {
     if (rootPath) {

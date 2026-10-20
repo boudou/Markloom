@@ -4,12 +4,14 @@ import type { FileNode } from '../types';
 
 interface FileTreeState {
   nodes: FileNode[];
+  /** The folder `nodes` were read from; null when they belong to no folder */
+  nodesRoot: string | null;
   expandedPaths: Set<string>;
   selectedPath: string | null;
   isLoading: boolean;
 
   // Actions
-  setNodes: (nodes: FileNode[]) => void;
+  setNodes: (nodes: FileNode[], root: string | null) => void;
   toggleExpanded: (path: string) => void;
   setExpanded: (path: string, expanded: boolean) => void;
   setSelected: (path: string | null) => void;
@@ -22,13 +24,15 @@ interface FileTreeState {
 export const useFileTreeStore = create<FileTreeState>()(
   immer((set) => ({
     nodes: [],
+    nodesRoot: null,
     expandedPaths: new Set<string>(),
     selectedPath: null,
     isLoading: false,
 
-    setNodes: (nodes) =>
+    setNodes: (nodes, root) =>
       set((state) => {
         state.nodes = nodes;
+        state.nodesRoot = root;
       }),
 
     toggleExpanded: (path) =>
@@ -81,7 +85,9 @@ export const useFileTreeStore = create<FileTreeState>()(
         const addNodeRecursive = (nodes: FileNode[]): boolean => {
           for (const node of nodes) {
             if (node.path === parentPath && node.isDirectory) {
-              if (!node.children) node.children = [];
+              // Not loaded yet: the folder lists the new node when it loads
+              if (!node.children) return true;
+
               node.children.push(newNode);
               node.children.sort((a, b) => {
                 if (a.isDirectory !== b.isDirectory) {
