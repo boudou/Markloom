@@ -5,9 +5,15 @@
 **A Markdown editor with first-class Mermaid diagrams and clean export to Word, PDF and HTML.**
 Runs in the browser or as a desktop app. Your documents never leave your machine.
 
-[![CI](https://github.com/boudou/Markloom/actions/workflows/ci.yml/badge.svg)](https://github.com/boudou/Markloom/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/boudou/Markloom)](https://github.com/boudou/Markloom/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/boudou/Markloom/total)](https://github.com/boudou/Markloom/releases)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-informational)](#download)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<br>
+[![CI](https://github.com/boudou/Markloom/actions/workflows/ci.yml/badge.svg)](https://github.com/boudou/Markloom/actions/workflows/ci.yml)
+[![Release build](https://github.com/boudou/Markloom/actions/workflows/release.yml/badge.svg)](https://github.com/boudou/Markloom/actions/workflows/release.yml)
+[![Last commit](https://img.shields.io/github/last-commit/boudou/Markloom)](https://github.com/boudou/Markloom/commits/main)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 [Download](#download) · [User manual](https://github.com/boudou/Markloom/wiki/User-Manual) · [Run from source](#run-from-source) · [Contributing](CONTRIBUTING.md)
 
