@@ -54,7 +54,7 @@ export function ShortcutsModal({ open, onOpenChange }: ShortcutsModalProps) {
                 <div key={id} className="flex items-center justify-between gap-4 py-1.5">
                   <dt className="text-sm text-text-primary">{SHORTCUTS[id].label}</dt>
                   <dd>
-                    <Kbd>{shortcutKeys(id)}</Kbd>
+                    <Kbd id={id} />
                   </dd>
                 </div>
               ))}
