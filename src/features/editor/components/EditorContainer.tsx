@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { ArrowDownUp } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useTabsStore } from '@/features/tabs';
+import { selectActiveTab, useTabsStore } from '@/features/tabs';
 import { FindReplaceBar, useFindReplaceStore } from '@/features/find-replace';
 import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
 import { useUiStore } from '@/stores/uiStore';
@@ -33,7 +33,8 @@ function SyncScrollToggle() {
 export function EditorContainer() {
   const editorMode = useAppStore((s) => s.editorMode);
   const activeTabId = useTabsStore((s) => s.activeTabId);
-  const activePath = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.path ?? null);
+  const activePath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);
+  const loadId = useTabsStore((s) => selectActiveTab(s)?.loadId);
   const [commands, setCommands] = useState<EditorCommands | null>(null);
   const handleCommands = useCallback((next: EditorCommands | null) => {
     setCommands(() => next);
@@ -67,7 +68,7 @@ export function EditorContainer() {
   if (activePath && isMermaidFile(activePath)) {
     return (
       <div className="h-full bg-canvas">
-        <MermaidEditor />
+        <MermaidEditor key={loadId} />
       </div>
     );
   }
@@ -87,14 +88,14 @@ export function EditorContainer() {
 
       <FindReplaceBar engine={commands?.search ?? null} />
 
-      {/* Each tab gets its own editor instance, so undo history never crosses documents */}
+      {/* Each loaded document gets its own editor instance, so undo history never crosses documents */}
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0">
         {editorMode === 'split' ? (
-          <SplitViewEditor key={activeTabId} onCommands={handleCommands} onFormatState={setFormatState} />
+          <SplitViewEditor key={loadId} onCommands={handleCommands} onFormatState={setFormatState} />
         ) : (
           <Suspense fallback={<div className="h-full bg-canvas" />}>
-            <RichTextEditor key={activeTabId} tabId={activeTabId} onCommands={handleCommands} onFormatState={setFormatState} />
+            <RichTextEditor key={loadId} tabId={activeTabId} onCommands={handleCommands} onFormatState={setFormatState} />
           </Suspense>
         )}
         </div>

@@ -104,13 +104,6 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     return () => onCommands(null);
   }, [view, onCommands]);
 
-  // New file in this tab: start at the very top (scrollIntoView would skip the top padding,
-  // and scroll sync would then carry that offset into the preview)
-  useEffect(() => {
-    if (view) view.scrollDOM.scrollTop = 0;
-    if (previewRef.current) previewRef.current.scrollTop = 0;
-  }, [activeFilePath, view]);
-
   useSyncScroll({ editorView: view, previewRef, content, previewReady: !isBlank });
 
   // Outline panel asks to jump to a line
