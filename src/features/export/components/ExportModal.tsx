@@ -3,7 +3,7 @@ import { m } from 'framer-motion';
 import { FileDown, Loader2, FileType, FileText, Globe, FileCode2, AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, ModalFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { selectActiveTab, useActivePath, useTabsStore } from '@/features/tabs';
+import { selectActiveContent, useActivePath, useTabsStore } from '@/features/tabs';
 import { documentName } from '@/features/file-tree/api/fileSystem';
 import { notify } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
@@ -92,10 +92,10 @@ function toFileName(title: string): string {
 }
 
 // The dialog stays mounted: read the text when it's needed rather than re-rendering on every keystroke
-const readContent = () => selectActiveTab(useTabsStore.getState())?.content ?? '';
+const readContent = () => selectActiveContent(useTabsStore.getState());
 
 export function ExportModal({ open, onOpenChange }: ExportModalProps) {
-  const hasContent = useTabsStore((s) => /\S/.test(selectActiveTab(s)?.content ?? ''));
+  const hasContent = useTabsStore((s) => /\S/.test(selectActiveContent(s)));
   const docPath = useActivePath();
 
   const [format, setFormat] = useState<ExportFormat>('docx');
