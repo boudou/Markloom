@@ -8,6 +8,7 @@ import {
   openFileDialog,
   openFolderDialog,
   saveFileDialog,
+  readFile,
   writeFile,
   documentName,
 } from '@/features/file-tree/api/fileSystem';
@@ -27,9 +28,26 @@ export function newDocument(): void {
 export async function openFile(): Promise<void> {
   const result = await openFileDialog();
   if (!result) return;
-  useTabsStore.getState().openDocument(result.path, result.content);
-  const name = result.path.split(/[/\\]/).pop() || result.path;
-  useSettingsStore.getState().addRecentFile({ path: result.path, name });
+
+  showDocument(result.path, result.content);
+}
+
+/** Opens a document by path in a tab and adds it to Recent files. Says why when it can't; returns whether it opened. */
+export async function openPath(path: string): Promise<boolean> {
+  try {
+    showDocument(path, await readFile(path));
+
+    return true;
+  } catch (error) {
+    notify({ tone: 'error', title: `Couldn't open ${documentName(path)}`, detail: errorMessage(error) });
+
+    return false;
+  }
+}
+
+function showDocument(path: string, content: string): void {
+  useTabsStore.getState().openDocument(path, content);
+  useSettingsStore.getState().addRecentFile({ path, name: documentName(path) });
 }
 
 export async function openFolder(): Promise<void> {

@@ -4,16 +4,11 @@ import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Kbd, rememberFocus, restoreFocus } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
-import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useTabsStore } from '@/features/tabs';
-import { useFindReplaceStore } from '@/features/find-replace';
-import { toggleAutoSave } from '@/features/auto-save';
 import { mermaidTemplates } from '@/features/mermaid-toolbar';
-import { readFile, documentName } from '@/features/file-tree/api/fileSystem';
-import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from '@/lib/documentActions';
+import { openPath } from '@/lib/documentActions';
+import { APP_COMMANDS, isOffered } from '@/lib/appCommands';
 import { type ShortcutId } from '@/lib/shortcuts';
-import { notify } from '@/stores/uiStore';
 import type { MarkdownAction } from '@/features/editor/types';
 
 interface Command {
@@ -24,59 +19,18 @@ interface Command {
   run: () => void;
 }
 
-function useCommands(): Command[] {
+function useCommands(open: boolean): Command[] {
   const editorCommands = useUiStore((s) => s.editorCommands);
-  const editorMode = useAppStore((s) => s.editorMode);
-  const outlineOpen = useAppStore((s) => s.sidebarOpen && s.sidebarView === 'outline');
-  const rootPath = useAppStore((s) => s.rootPath);
   const recentFiles = useSettingsStore((s) => s.recentFiles);
-  const autoSave = useSettingsStore((s) => s.autoSave);
 
+  // Rebuilt whenever the palette opens or closes, so toggle labels and `when` read the state of
+  // that moment. Not emptied while closed: the list stays on screen during the closing animation.
   return useMemo(() => {
-    const ui = useUiStore.getState();
-    const app = useAppStore.getState();
-    const commands: Command[] = [
-      { id: 'new', label: 'New document', group: 'File', shortcut: 'newDocument', run: newDocument },
-      { id: 'open', label: 'Open file…', group: 'File', shortcut: 'openFile', run: () => void openFile() },
-      { id: 'open-folder', label: 'Open folder…', group: 'File', shortcut: 'openFolder', run: () => void openFolder() },
-      { id: 'save', label: 'Save', group: 'File', shortcut: 'save', run: () => void saveActiveTab() },
-      { id: 'save-as', label: 'Save as…', group: 'File', shortcut: 'saveAs', run: () => void saveActiveTab({ saveAs: true }) },
-      { id: 'auto-save', label: autoSave ? 'Turn off auto-save' : 'Turn on auto-save', group: 'File', run: toggleAutoSave },
-      { id: 'export', label: 'Export…', group: 'File', shortcut: 'export', run: () => ui.openDialog('export') },
-      { id: 'templates', label: 'New from template…', group: 'File', run: () => ui.openDialog('templates') },
-      {
-        id: 'close-tab',
-        label: 'Close tab',
-        group: 'File',
-        shortcut: 'closeTab',
-        run: () => {
-          const { activeTabId } = useTabsStore.getState();
-          if (activeTabId) requestCloseTabs([activeTabId]);
-        },
-      },
-      {
-        id: 'mode',
-        label: editorMode === 'split' ? 'Switch to Rich text' : 'Switch to Markdown',
-        group: 'View',
-        shortcut: 'toggleMode',
-        run: () => app.setEditorMode(editorMode === 'split' ? 'wysiwyg' : 'split'),
-      },
-      {
-        id: 'outline',
-        label: outlineOpen ? 'Hide contents' : 'Show contents (outline)',
-        group: 'View',
-        shortcut: 'toggleOutline',
-        run: () => app.toggleSidebarView('outline'),
-      },
-      { id: 'history', label: 'Version history', group: 'View', shortcut: 'versionHistory', run: () => ui.setHistoryOpen(true) },
-      { id: 'find', label: 'Find', group: 'Edit', shortcut: 'find', run: () => useFindReplaceStore.getState().open(false) },
-      { id: 'replace', label: 'Find and replace', group: 'Edit', shortcut: 'replace', run: () => useFindReplaceStore.getState().open(true) },
-      { id: 'shortcuts', label: 'Keyboard shortcuts', group: 'Help', shortcut: 'showShortcuts', run: () => ui.openDialog('shortcuts') },
-    ];
-
-    if (rootPath) {
-      commands.push({ id: 'files', label: 'Show or hide files', group: 'View', run: () => app.toggleSidebarView('files') });
-    }
+    const commands: Command[] = APP_COMMANDS.flatMap((c) =>
+      c.keyOnly || !isOffered(c)
+        ? []
+        : [{ id: c.id, label: c.stateLabel?.() ?? c.label, group: c.group, shortcut: c.shortcut, run: c.run }]
+    );
 
     if (editorCommands) {
       const format = (id: MarkdownAction, label: string, shortcut?: ShortcutId): Command => ({
@@ -118,21 +72,11 @@ function useCommands(): Command[] {
         id: `recent-${file.path}`,
         label: `Open recent: ${file.name}`,
         group: 'Recent',
-        run: async () => {
-          try {
-            useTabsStore.getState().openDocument(file.path, await readFile(file.path));
-          } catch (error) {
-            notify({
-              tone: 'error',
-              title: `Couldn't open ${documentName(file.path)}`,
-              detail: error instanceof Error ? error.message : String(error),
-            });
-          }
-        },
+        run: () => void openPath(file.path),
       });
     }
     return commands;
-  }, [editorCommands, editorMode, outlineOpen, rootPath, recentFiles, autoSave]);
+  }, [open, editorCommands, recentFiles]);
 }
 
 /** Every words of the query must appear; labels starting with the query rank first. */
@@ -150,7 +94,7 @@ function filterCommands(commands: Command[], query: string): Command[] {
 export function CommandPalette() {
   const open = useUiStore((s) => s.dialog === 'palette');
   const closeDialog = useUiStore((s) => s.closeDialog);
-  const commands = useCommands();
+  const commands = useCommands(open);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLUListElement | null>(null);
