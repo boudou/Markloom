@@ -88,12 +88,14 @@ export function createMarkdownParser(): MarkdownIt {
     return `<pre${langLabel}${sourceLine}><code class="hljs${langClass}">${highlighted}</code></pre>`;
   };
 
-  // Give headings GitHub-style ids so in-document links (#section) have a target
-  md.core.ruler.push('heading_ids', (state) => {
+  // Give headings GitHub-style ids so in-document links (#section) have a target. Runs right
+  // after inline parsing, before the typographer turns "--" into a dash or "(c)" into ©:
+  // ids come from the text as written, like GitHub's and the rich-text editor's.
+  md.core.ruler.after('inline', 'heading_ids', (state) => {
     const used = new Map<string, number>();
     state.tokens.forEach((token, i) => {
       if (token.type !== 'heading_open' || token.attrGet('id')) return;
-      const base = slugify(state.tokens[i + 1]?.content ?? '');
+      const base = slugify(headingText(state.tokens[i + 1]));
       const count = used.get(base) ?? 0;
       used.set(base, count + 1);
       token.attrSet('id', count === 0 ? base : `${base}-${count}`);
@@ -192,13 +194,29 @@ export function createMarkdownParser(): MarkdownIt {
   return md;
 }
 
-// GitHub-compatible heading slug: lowercase, drop punctuation, spaces to hyphens.
-// Keeps Unicode letters so non-Latin headings (e.g. Greek) still get usable ids.
+/**
+ * The visible text of a heading's inline token: text and inline code, with line breaks kept.
+ * Link URLs, emphasis markers, raw HTML and images add nothing, as on GitHub.
+ * Works at any core stage: before text_join, escapes and entities are still text_special
+ * tokens whose content is the decoded character.
+ */
+export function headingText(inline: Token | undefined): string {
+  const parts = (inline?.children ?? []).map((child) => {
+    if (child.type === 'text' || child.type === 'text_special' || child.type === 'code_inline') return child.content;
+
+    return child.type === 'softbreak' || child.type === 'hardbreak' ? '\n' : '';
+  });
+
+  return parts.join('').trim();
+}
+
+// GitHub-compatible heading slug of a heading's visible text (see headingText): lowercase,
+// drop punctuation, spaces to hyphens. Keeps Unicode letters so non-Latin headings
+// (e.g. Greek) still get usable ids.
 export function slugify(text: string): string {
   return text
     .trim()
     .toLowerCase()
-    .replace(/<[^>]*>/g, '')
     .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, '')
     .replace(/\s/g, '-');
 }

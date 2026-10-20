@@ -9,6 +9,7 @@ import {
 } from '@milkdown/kit/core';
 import {
   commonmark,
+  headingIdGenerator,
   inlineCodeKeymap,
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -33,6 +34,7 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { selectTabContent, useTabsStore } from '@/features/tabs';
 import { Modal, ModalFooter, Button, Input } from '@/components/ui';
 import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
+import { slugify } from '@/lib/markdown';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { useImageDrop } from '@/features/image-drop';
 import { codeBlockView, diagramErrorMarks, htmlView, imageSchemaFix, imageView, inlineCodeSpellcheck, taskToggle } from '../milkdown/plugins';
@@ -75,6 +77,8 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
           ctx.set(defaultValueCtx, knownMarkdown.current);
           // Ctrl+E is Export everywhere else in the app; inline code uses Ctrl+` like the source editor
           ctx.set(inlineCodeKeymap.key, { ToggleInlineCode: { shortcuts: SHORTCUTS.inlineCode.combo } });
+          // Same heading ids as the preview, so #section links resolve in both modes
+          ctx.set(headingIdGenerator.key, (node) => slugify(node.textContent));
           ctx.update(editorViewOptionsCtx, (prev) => ({
             ...prev,
             attributes: {
@@ -255,18 +259,6 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
 
   // Ctrl/Cmd+click follows links; a plain click just places the cursor
   useDocumentLinks(containerRef, content, { requireModifier: true, resolveImages: false });
-
-  // Outline panel: jump to the nth heading with matching text
-  useEffect(() => {
-    const handleNavigate = (event: Event) => {
-      const { text } = (event as CustomEvent<{ line: number; text?: string }>).detail;
-      const headings = containerRef.current?.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
-      const target = Array.from(headings ?? []).find((h) => h.textContent?.trim() === text?.trim());
-      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-    window.addEventListener('outline-navigate', handleNavigate);
-    return () => window.removeEventListener('outline-navigate', handleNavigate);
-  }, []);
 
   const isBlank = !hasPath && content === '';
 
