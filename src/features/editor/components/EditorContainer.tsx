@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import { ArrowDownUp } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -10,7 +10,6 @@ import { SplitViewEditor } from './SplitViewEditor';
 import { MermaidEditor } from './MermaidEditor';
 import { EditorToolbar } from './EditorToolbar';
 import { ModeToggle } from './ModeToggle';
-import { initMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { isMermaidFile } from '@/lib/utils';
 import { EMPTY_FORMAT_STATE, type EditorCommands, type FormatState } from '../types';
 
@@ -40,10 +39,6 @@ export function EditorContainer() {
     useUiStore.getState().setEditorCommands(next);
   }, []);
   const [formatState, setFormatState] = useState<FormatState>(EMPTY_FORMAT_STATE);
-
-  useEffect(() => {
-    initMermaid();
-  }, []);
 
   if (!activeTabId) return null;
 

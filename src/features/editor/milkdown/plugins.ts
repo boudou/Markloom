@@ -15,7 +15,6 @@ import { getMarkdownParser, isMermaidFence, leadingBlankLines, mermaidFences } f
 
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 const imageUrlCache = new Map<string, string>();
-let mermaidCounter = 0;
 
 function activeDocumentPath(): string | null {
   const { tabs, activeTabId } = useTabsStore.getState();
@@ -207,25 +206,27 @@ class CodeBlockView implements NodeView {
       this.markLine(null);
       return;
     }
-    try {
-      const { svg } = await renderMermaid(source, `rt-mermaid-${++mermaidCounter}`);
-      if (source !== this.lastRendered) return;
-      this.preview.innerHTML = svg;
+    const result = await renderMermaid(source, 'preview');
+    if (source !== this.lastRendered) return;
+
+    if (result.ok) {
+      this.preview.innerHTML = result.svg;
       this.markLine(null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // Same numbering as the Markdown view: lines of the document, not of the diagram
-      const firstLine = documentLineOfDiagram(this.diagramIndex());
-      const described = describeDiagramError(message, source, firstLine);
-      const lineInDiagram = described.line && firstLine ? described.line - firstLine + 1 : described.line;
-      // Leading blank lines were trimmed before rendering; count them back for the source
-      const leading = leadingBlankLines(this.node.textContent);
-      const lineInSource = lineInDiagram ? lineInDiagram + leading : null;
-      this.preview.replaceChildren(
-        diagramErrorElement(described, lineInSource ? () => this.showLine(lineInSource) : undefined)
-      );
-      this.markLine(lineInSource);
+
+      return;
     }
+
+    // Same numbering as the Markdown view: lines of the document, not of the diagram
+    const firstLine = documentLineOfDiagram(this.diagramIndex());
+    const described = describeDiagramError(result.error, source, firstLine);
+    const lineInDiagram = described.line && firstLine ? described.line - firstLine + 1 : described.line;
+    // Leading blank lines were trimmed before rendering; count them back for the source
+    const leading = leadingBlankLines(this.node.textContent);
+    const lineInSource = lineInDiagram ? lineInDiagram + leading : null;
+    this.preview.replaceChildren(
+      diagramErrorElement(described, lineInSource ? () => this.showLine(lineInSource) : undefined)
+    );
+    this.markLine(lineInSource);
   }
 
   update(node: ProseNode) {
