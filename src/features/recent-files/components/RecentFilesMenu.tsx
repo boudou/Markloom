@@ -5,6 +5,7 @@ import { useMenuHighlight } from '@/components/ui/useMenuHighlight';
 import { cn } from '@/lib/utils';
 import { useRecentFiles } from '../hooks';
 import { notify } from '@/stores/uiStore';
+import { documentName } from '@/features/file-tree/api/fileSystem';
 
 export function RecentFilesMenu() {
   const { recentFiles, openRecentFile, removeRecentFile, clearRecentFiles } =
@@ -31,7 +32,7 @@ export function RecentFilesMenu() {
 
   const handleOpen = (path: string) => {
     openRecentFile(path).catch((error) => {
-      const name = path.replace('file://', '').split('/').pop();
+      const name = documentName(path);
       notify({
         tone: 'error',
         title: `Couldn't open ${name}`,

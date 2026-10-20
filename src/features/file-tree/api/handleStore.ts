@@ -49,14 +49,6 @@ export async function recallHandle<T extends FileSystemHandle>(key: string): Pro
   }
 }
 
-export async function forgetHandle(key: string): Promise<void> {
-  try {
-    await (await getDb()).delete(STORE, key);
-  } catch {
-    // ignore
-  }
-}
-
 /**
  * Checks (and if needed asks for) access to a remembered handle.
  * Asking only works during a user gesture such as a click.

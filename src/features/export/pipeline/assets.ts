@@ -1,5 +1,5 @@
 // Images and diagrams for exports, resolved to self-contained data.
-import { readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '@/features/editor/hooks/useDocumentLinks';
 import { renderMermaidForExport } from '@/features/mermaid/utils/mermaidConfig';
 
@@ -57,7 +57,7 @@ export async function loadDocumentImage(src: string, docPath: string | null): Pr
       if (!response.ok) return null;
       return await fromBlob(await response.blob());
     }
-    if (ABSOLUTE_URL.test(src) || !docPath || docPath.startsWith('file://')) return null;
+    if (ABSOLUTE_URL.test(src) || !canResolveRelative(docPath)) return null;
     const path = resolveSourcePath(docPath, src);
     return await fromBlob(await readFileBlob(path));
   } catch {

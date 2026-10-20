@@ -2,7 +2,7 @@
 import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
 import { diagramSyntaxError } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError } from '@/features/mermaid/utils/errors';
-import { readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath, safeDecode } from '@/features/editor/hooks/useDocumentLinks';
 import { placedInlines } from './inlineLines';
 
@@ -44,7 +44,7 @@ export async function checkDocument(markdown: string, docPath: string | null): P
 
       // markdown-it stores the source percent-encoded; show it as the user typed it
       const typed = safeDecode(src);
-      if (!docPath || docPath.startsWith('file://')) {
+      if (!canResolveRelative(docPath)) {
         checks.push(
           Promise.resolve({
             kind: 'image',

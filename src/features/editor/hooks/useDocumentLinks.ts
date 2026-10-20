@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { useActivePath, useTabsStore } from '@/features/tabs';
-import { readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { canResolveRelative, readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { refreshImages, showImage } from '../utils/previewImages';
 
 // Matches URLs with a scheme (http:, mailto:, data:, blob:, ...) or protocol-relative URLs
@@ -81,11 +81,6 @@ export function safeDecode(value: string): string {
   } catch {
     return value;
   }
-}
-
-// Files opened standalone (not from a folder) have no folder to resolve against
-function canResolve(filePath: string | null): filePath is string {
-  return !!filePath && !filePath.startsWith('file://');
 }
 
 function scrollToAnchor(container: HTMLElement, id: string): void {
@@ -180,7 +175,7 @@ export function useDocumentLinks(
       img.addEventListener('error', () => showMissingImage(img, src), { once: true });
       if (!src || ABSOLUTE_URL.test(src) || src.startsWith('#')) return;
 
-      if (!canResolve(activeFilePath)) {
+      if (!canResolveRelative(activeFilePath)) {
         showMissingImage(img, src, 'open the document from its folder to show it');
         return;
       }
@@ -229,7 +224,7 @@ export function useDocumentLinks(
         return;
       }
 
-      if (!canResolve(activeFilePath)) {
+      if (!canResolveRelative(activeFilePath)) {
         console.warn(`Cannot follow relative link without an open folder: ${href}`);
         return;
       }
