@@ -11,7 +11,7 @@ import { useFindReplaceStore } from '@/features/find-replace';
 import { mermaidTemplates } from '@/features/mermaid-toolbar';
 import { readFile, documentName } from '@/features/file-tree/api/fileSystem';
 import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from '@/lib/documentActions';
-import { shortcutKeys, type ShortcutId } from '@/lib/shortcuts';
+import { type ShortcutId } from '@/lib/shortcuts';
 import { notify } from '@/stores/uiStore';
 import type { MarkdownAction } from '@/features/editor/types';
 
@@ -266,7 +266,7 @@ export function CommandPalette() {
                     <span className="truncate">{command.label}</span>
                     <span className="flex items-center gap-3 flex-shrink-0">
                       {query && <span className="text-xs text-text-muted">{command.group}</span>}
-                      {command.shortcut && <Kbd>{shortcutKeys(command.shortcut)}</Kbd>}
+                      {command.shortcut && <Kbd id={command.shortcut} />}
                     </span>
                   </div>
                 </li>

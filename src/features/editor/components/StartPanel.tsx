@@ -89,7 +89,7 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
       </div>
 
       <p className="mt-4 text-xs text-text-muted">
-        Every command is a keystroke away: <Kbd>{shortcutKeys('commandPalette')}</Kbd>
+        Every command is a keystroke away: <Kbd id="commandPalette" />
       </p>
     </div>
   );

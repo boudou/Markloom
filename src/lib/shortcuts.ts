@@ -88,16 +88,18 @@ const KEY_NAMES: Record<string, string> = {
   Mod: isMac ? '⌘' : 'Ctrl',
   Alt: isMac ? '⌥' : 'Alt',
   Shift: isMac ? '⇧' : 'Shift',
+  Enter: isMac ? '↩' : 'Enter',
 };
 
-/** Human-readable keys, e.g. "Ctrl+Shift+O" or "⌘⇧O" */
-export function formatCombo(combo: string): string {
-  const parts = combo.split('-').map((part) => KEY_NAMES[part] ?? part.toUpperCase());
-  return parts.join(isMac ? '' : '+');
+// One name per key, e.g. ["Ctrl", "Shift", "O"] or ["⌘", "⇧", "O"]. Splitting on "-" holds
+// while no combo uses "-" as its key; a "Mod--" combo would need a different split.
+export function shortcutParts(id: ShortcutId): string[] {
+  return SHORTCUTS[id].combo.split('-').map((part) => KEY_NAMES[part] ?? part.toUpperCase());
 }
 
+/** Human-readable keys, e.g. "Ctrl+Shift+O" or "⌘⇧O" */
 export function shortcutKeys(id: ShortcutId): string {
-  return formatCombo(SHORTCUTS[id].combo);
+  return shortcutParts(id).join(isMac ? '' : '+');
 }
 
 /** "Bold (Ctrl+B)" for tooltips */

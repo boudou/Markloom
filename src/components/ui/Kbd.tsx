@@ -1,64 +1,15 @@
 import { cn } from '@/lib/utils';
+import { shortcutParts, type ShortcutId } from '@/lib/shortcuts';
 
 interface KbdProps {
-  children: string;
+  id: ShortcutId;
   className?: string;
 }
 
-// Format shortcut for display
-function formatShortcut(shortcut: string): string[] {
-  const isMac = navigator.platform.includes('Mac');
-
-  return shortcut
-    .split('+')
-    .map((key) => {
-      const k = key.trim().toLowerCase();
-      switch (k) {
-        case 'ctrl':
-        case 'control':
-          return isMac ? '\u2303' : 'Ctrl';
-        case 'alt':
-          return isMac ? '\u2325' : 'Alt';
-        case 'shift':
-          return isMac ? '\u21E7' : 'Shift';
-        case 'meta':
-        case 'cmd':
-        case 'command':
-          return isMac ? '\u2318' : 'Win';
-        case 'enter':
-          return '\u21B5';
-        case 'escape':
-        case 'esc':
-          return 'Esc';
-        case 'backspace':
-          return '\u232B';
-        case 'delete':
-          return 'Del';
-        case 'tab':
-          return '\u21B9';
-        case 'arrowup':
-          return '\u2191';
-        case 'arrowdown':
-          return '\u2193';
-        case 'arrowleft':
-          return '\u2190';
-        case 'arrowright':
-          return '\u2192';
-        case ' ':
-        case 'space':
-          return 'Space';
-        default:
-          return key.length === 1 ? key.toUpperCase() : key.charAt(0).toUpperCase() + key.slice(1);
-      }
-    });
-}
-
-export function Kbd({ children, className }: KbdProps) {
-  const keys = formatShortcut(children);
-
+export function Kbd({ id, className }: KbdProps) {
   return (
     <span className={cn('inline-flex items-center gap-1', className)}>
-      {keys.map((key, index) => (
+      {shortcutParts(id).map((key, index) => (
         <kbd
           key={index}
           className={cn(
