@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
+import { addCopyButtons, handleCopyClick } from '../utils/codeCopy';
 
 // Jumps the source editor to a document line (handled by SplitViewEditor)
 function showSourceLine(line: number) {
@@ -52,6 +53,23 @@ export const MarkdownPreview = forwardRef<HTMLDivElement, MarkdownPreviewProps>(
 
     // Resolve relative images and make links navigable
     useDocumentLinks(containerRef, html);
+
+    // Copy buttons on code blocks; one listener serves all of them
+    const articleRef = useRef<HTMLElement>(null);
+    const statusRef = useRef<HTMLSpanElement>(null);
+    useEffect(() => {
+      if (articleRef.current) addCopyButtons(articleRef.current);
+    }, [html]);
+    useEffect(() => {
+      const article = articleRef.current;
+      if (!article) return;
+      const announce = (message: string) => {
+        if (statusRef.current) statusRef.current.textContent = message;
+      };
+      const onClick = (event: MouseEvent) => void handleCopyClick(event, announce);
+      article.addEventListener('click', onClick);
+      return () => article.removeEventListener('click', onClick);
+    }, []);
 
     // Fill Mermaid placeholders; unchanged diagrams come straight from the cache.
     // Failures become an error card and are reported so the source pane can mark the line.
@@ -113,9 +131,11 @@ export const MarkdownPreview = forwardRef<HTMLDivElement, MarkdownPreviewProps>(
         className={cn('h-full overflow-auto px-8 py-8', className)}
       >
         <article
+          ref={articleRef}
           className="prose-markloom reading-column font-editor text-base leading-relaxed"
           dangerouslySetInnerHTML={{ __html: html }}
         />
+        <span ref={statusRef} role="status" aria-live="polite" className="sr-only" />
       </m.div>
     );
   }

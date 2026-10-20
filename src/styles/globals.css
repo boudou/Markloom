@@ -209,6 +209,129 @@
     color: var(--text-muted);
   }
 
+  /* Copy button on code blocks (preview): shows on hover or focus, in the language label's place */
+  .prose-markloom pre {
+    position: relative;
+  }
+
+  .prose-markloom pre:has(> .code-copy):hover::before,
+  .prose-markloom pre:has(> .code-copy):focus-within::before,
+  .prose-markloom pre:has(> .code-copy:not([data-state='idle']))::before {
+    opacity: 0;
+  }
+
+  .prose-markloom pre[data-lang]::before {
+    transition: opacity 150ms ease;
+  }
+
+  .code-copy {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 1.6rem;
+    padding: 0 0.55rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--rule);
+    background: var(--canvas);
+    color: var(--text-secondary);
+    font: 500 0.7rem/1 'Outfit', system-ui, sans-serif;
+    box-shadow: 0 1px 2px rgba(26, 26, 26, 0.06);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 150ms ease, color 150ms ease, transform 120ms ease;
+  }
+
+  pre:hover > .code-copy,
+  .code-copy:focus-visible,
+  .code-copy:not([data-state='idle']) {
+    opacity: 1;
+  }
+
+  .code-copy:hover {
+    color: var(--text-primary);
+  }
+
+  .code-copy:active {
+    transform: translateY(1px);
+  }
+
+  .code-copy:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  .code-copy[data-state='copied'] {
+    color: #15803D;
+  }
+
+  .code-copy[data-state='error'] {
+    color: #B91C1C;
+  }
+
+  /* Touch screens have no hover, so the button is always there */
+  @media (hover: none) {
+    .code-copy {
+      opacity: 1;
+    }
+  }
+
+  .code-copy-icons,
+  .code-copy-labels {
+    display: grid;
+  }
+
+  .code-copy-icon {
+    grid-area: 1 / 1;
+    width: 0.8rem;
+    height: 0.8rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .code-copy-labels > span {
+    grid-area: 1 / 1;
+    white-space: nowrap;
+  }
+
+  /* Only the face for the current state shows; the others wait, slightly shrunk and blurred */
+  .code-copy-icon,
+  .code-copy-labels > span {
+    opacity: 0;
+    transform: scale(0.92);
+    transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1), transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .code-copy-labels > span {
+    transform: translateY(3px);
+    filter: blur(2px);
+    transition-property: opacity, transform, filter;
+  }
+
+  .code-copy[data-state='idle'] [data-for='idle'],
+  .code-copy[data-state='copied'] [data-for='copied'],
+  .code-copy[data-state='error'] [data-for='error'] {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  /* The check draws itself */
+  .code-copy-check {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 260ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .code-copy[data-state='copied'] .code-copy-check {
+    stroke-dashoffset: 0;
+  }
+
   /* H4 needs to read as a heading, not bold body text */
   .prose-markloom h4 {
     font-size: 1.08em;

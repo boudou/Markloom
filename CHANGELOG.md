@@ -4,6 +4,20 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Added
+
+- Copy button on code blocks in the preview.
+
+### Changed
+
+- The Markdown / Rich text switch slides between modes, and the export button no longer changes width while it works (both after [interior.dev](https://interior.dev)).
+- Toolbar tooltips open straight away once one is showing, instead of waiting each time.
+- Dependencies updated, including TypeScript 7 and Vite 8 (builds are about three times faster). Building from source needs Node.js 22.12 or newer.
+
+### Fixed
+
+- `Ctrl+Shift+M` now switches between Markdown and Rich text while the Markdown editor has focus.
+
 ## [0.1.0] - 2026-10-20
 
 First public release.
