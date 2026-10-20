@@ -1,6 +1,19 @@
+<div align="center">
+
+<img src="public/markloom.svg" alt="" width="72" height="72">
+
 # Markloom
 
-A Markdown editor with first-class Mermaid diagrams and clean document export. Runs in the browser or as a desktop app.
+**A Markdown editor with first-class Mermaid diagrams and clean export to Word, PDF and HTML.**
+Runs in the browser or as a desktop app. Your documents never leave your machine.
+
+[![CI](https://github.com/boudou/Markloom/actions/workflows/ci.yml/badge.svg)](https://github.com/boudou/Markloom/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/boudou/Markloom)](https://github.com/boudou/Markloom/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+[Download](#download) · [User manual](https://github.com/boudou/Markloom/wiki/User-Manual) · [Run from source](#run-from-source) · [Contributing](CONTRIBUTING.md)
+
+</div>
 
 ![Markloom split view: Markdown source on the left, live preview with a Mermaid diagram on the right](docs/screenshots/split-view.png)
 
@@ -10,13 +23,35 @@ A Markdown editor with first-class Mermaid diagrams and clean document export. R
 - **Mermaid diagrams**: rendered live, with errors reported as "Line N: …" against your document
 - **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore
-- **Find & replace** that works in both editors, plus a command palette (Ctrl+Shift+P)
+- **Find & replace** that works in both editors, plus a command palette (`Ctrl+Shift+P`)
 - **Image drop and paste**: images are saved to `assets/` beside the document
 - **Syntax highlighting**, templates, version history, native spell check
 - **Synced scrolling** between source and preview
-- **Private by design**: documents stay on your machine; Markdown is sanitized and Mermaid runs in strict mode
+- **Private by design**: no accounts, no uploads; Markdown is sanitized and Mermaid runs in strict mode
 
-## How to use
+| Rich text editing | Export | Command palette |
+| :---: | :---: | :---: |
+| ![Rich text editor](docs/screenshots/rich-text.png) | ![Export dialog](docs/screenshots/export.png) | ![Command palette](docs/screenshots/command-palette.png) |
+
+## Download
+
+Get the desktop app for your system from the [latest release](https://github.com/boudou/Markloom/releases/latest):
+
+| System | File |
+| --- | --- |
+| Windows | `Markloom Setup <version>.exe` (installer) or `Markloom <version>.exe` (portable, no install) |
+| macOS (Apple silicon) | `Markloom-<version>-arm64.dmg` |
+| Linux | `Markloom-<version>.AppImage` |
+
+The installers are not code-signed yet, so your system may warn you the first time:
+
+- **Windows**: on the SmartScreen prompt, choose **More info → Run anyway**.
+- **macOS**: right-click the app in Applications, choose **Open**, then **Open** again.
+- **Linux**: make the AppImage executable (`chmod +x Markloom-*.AppImage`), then run it.
+
+Prefer not to install anything? [Run the web version from source](#run-from-source).
+
+## Quick tour
 
 1. **Open a folder** (`Ctrl+Shift+O`) to browse your Markdown files in the sidebar, or **open a single file** (`Ctrl+O`). **New document** and **New from template** start from scratch.
 2. **Write** in the Markdown editor with the live preview beside it. Switch to **Rich text** (`Ctrl+Shift+M`) to edit visually; only the parts you touch are rewritten, so your diffs stay small.
@@ -30,51 +65,93 @@ A Markdown editor with first-class Mermaid diagrams and clean document export. R
    ````
 
 4. **Add images** by dropping or pasting them. They are saved to an `assets/` folder next to the document.
-5. **Find your way around**: `Ctrl+F` finds, `Ctrl+H` replaces, `Ctrl+Shift+L` shows the document outline, and `Ctrl+Shift+H` opens version history.
+5. **Find your way around**: `Ctrl+F` finds, `Ctrl+H` replaces, `Ctrl+Shift+L` shows the outline, and `Ctrl+Shift+H` opens version history.
 6. **Export** (`Ctrl+E`) to Word, PDF, a standalone web page or portable Markdown.
-7. **Do anything from the keyboard**: `Ctrl+Shift+P` opens the command palette (commands and recent files), and `Ctrl+/` lists every shortcut. On macOS, use `⌘` instead of `Ctrl`.
+7. **Do anything from the keyboard**: `Ctrl+Shift+P` opens the command palette, and `Ctrl+/` lists every shortcut. On macOS, use `⌘` instead of `Ctrl`.
 
-In the browser, new-document and close-tab use `Alt+N` and `Alt+W`, because the browser keeps `Ctrl+N` and `Ctrl+W`.
+In the browser, new document and close tab are `Alt+N` and `Alt+W`, because the browser keeps `Ctrl+N` and `Ctrl+W` for itself.
 
-| Rich text editing | Export | Command palette |
-| :---: | :---: | :---: |
-| ![Rich text editor](docs/screenshots/rich-text.png) | ![Export dialog](docs/screenshots/export.png) | ![Command palette](docs/screenshots/command-palette.png) |
+The [user manual](https://github.com/boudou/Markloom/wiki/User-Manual) covers everything in more detail, and the [shortcut reference](https://github.com/boudou/Markloom/wiki/Keyboard-Shortcuts) lists every key.
 
-> **Browser support:** opening folders needs the File System Access API, so use Chrome, Edge or another Chromium-based browser. The desktop app has no such limit.
+## Run from source
 
-## Getting started
-
-Requires Node.js 18+ and npm.
+You need [Node.js](https://nodejs.org/) 18 or newer (20 recommended), which includes npm, and [Git](https://git-scm.com/).
 
 ```bash
+git clone https://github.com/boudou/Markloom.git
+cd Markloom
 npm install
-npm run dev             # web app on http://localhost:1420
 ```
+
+### Web app
+
+```bash
+npm run dev             # opens http://localhost:1420
+```
+
+On Windows you can also double-click `start.bat`.
+
+> **Browser support:** opening and saving files uses the File System Access API, so use Chrome, Edge or another Chromium-based browser. Firefox and Safari can write and export, but cannot open or save files. The desktop app has no such limit.
+
+For an optimised production build:
+
+```bash
+npm run build           # type-check and build into dist/
+npm run preview         # serve dist/ on http://localhost:4173
+```
+
+`dist/` is a static site, so you can host it on any static web server.
 
 ### Desktop app
 
 ```bash
-npm run electron:dev    # live-reload desktop window
-npm run electron:build  # installers in release/
+npm run electron:dev    # desktop window with live reload
+npm run electron:start  # build once, then run the desktop app
+npm run electron:build  # build installers for your OS into release/
 ```
 
-On Windows, `start-desktop.bat` launches the packaged app (`start-desktop.bat rebuild` builds it first).
+`electron:build` produces the installer for the system you run it on (an `.exe` on Windows, a `.dmg` on macOS, an `.AppImage` on Linux). On Windows, `start-desktop.bat` launches the packaged app, and `start-desktop.bat rebuild` rebuilds it first.
 
-### Production build (web)
+### Command reference
 
-```bash
-npm run build
-npm run preview
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Web app with hot reload on port 1420 |
+| `npm run build` | Type-check and production build into `dist/` |
+| `npm run preview` | Serve the production build |
+| `npm run electron:dev` | Desktop app with live reload |
+| `npm run electron:start` | Build, then run the desktop app |
+| `npm run electron:build` | Desktop installers in `release/` |
+
+## Project structure
+
 ```
+electron/          Desktop shell: app:// scheme, file access, PDF printing
+src/
+  components/      App shell, title bar, sidebar, status bar, UI primitives
+  features/        One folder per feature: editor, export, mermaid, tabs, find-replace, …
+  lib/             Markdown parser, document actions, shortcut table, session restore
+  stores/          App, settings and UI state (Zustand)
+docs/screenshots/  Images used in this README
+```
+
+[CONTRIBUTING.md](CONTRIBUTING.md) explains the conventions to follow.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and please follow the [code of conduct](CODE_OF_CONDUCT.md).
+
+- **Found a bug?** [Open a bug report](https://github.com/boudou/Markloom/issues/new?template=bug_report.md).
+- **Have an idea?** [Suggest a feature](https://github.com/boudou/Markloom/issues/new?template=feature_request.md).
+- **Want to help?** Planned work is tracked as [enhancement issues](https://github.com/boudou/Markloom/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement); comment on one to claim it.
+- **Security issue?** Report it privately, as described in [SECURITY.md](SECURITY.md).
+
+Changes are listed in the [changelog](CHANGELOG.md).
 
 ## Tech stack
 
 React 18, TypeScript, Vite, Tailwind CSS with Radix UI, Zustand, CodeMirror 6, Milkdown, markdown-it, Mermaid, docx, Electron.
 
-## Roadmap
-
-Planned work is tracked as [enhancement issues](https://github.com/boudou/Markloom/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement). Pick one, comment that you're on it, and see [CONTRIBUTING.md](CONTRIBUTING.md).
-
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © [boudou](https://github.com/boudou)

@@ -1,7 +1,17 @@
 {
   "name": "markloom",
   "version": "0.1.0",
-  "description": "A beautiful Markdown editor with Mermaid diagram support and Word export",
+  "description": "Markdown editor with live preview, Mermaid diagrams, rich-text mode and export to Word, PDF and HTML",
+  "keywords": [
+    "markdown",
+    "markdown-editor",
+    "mermaid",
+    "wysiwyg",
+    "docx",
+    "pdf",
+    "electron",
+    "react"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite --open",
@@ -69,7 +79,7 @@
     "zustand": "^5.0.0"
   },
   "main": "electron/main.cjs",
-  "author": "Markloom contributors",
+  "author": "boudou (https://github.com/boudou)",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -83,6 +93,12 @@
     "appId": "com.markloom.editor",
     "productName": "Markloom",
     "electronDist": "node_modules/electron/dist",
+    "publish": {
+      "provider": "github",
+      "owner": "boudou",
+      "repo": "Markloom",
+      "releaseType": "draft"
+    },
     "electronLanguages": [
       "en-US",
       "el"
