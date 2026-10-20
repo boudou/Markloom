@@ -10,7 +10,7 @@ npm run dev            # web app on http://localhost:1420
 npm run electron:dev   # desktop app with live reload
 ```
 
-Node.js 18+ is required.
+Node.js 22.12+ is required.
 
 ## Before opening a pull request
 
