@@ -5,6 +5,28 @@ import { readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
 // Matches URLs with a scheme (http:, mailto:, data:, blob:, ...) or protocol-relative URLs
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 
+// Linked files that open in a window, by extension, with the type they open as. The type never
+// comes from the file: a folder's .html would otherwise run as a page of this app's origin.
+// Anything else is downloaded; SVG is shown through imagePage().
+const VIEWABLE_TYPES = new Map<string, string>([
+  ['png', 'image/png'],
+  ['jpg', 'image/jpeg'],
+  ['jpeg', 'image/jpeg'],
+  ['gif', 'image/gif'],
+  ['webp', 'image/webp'],
+  ['bmp', 'image/bmp'],
+  ['avif', 'image/avif'],
+  ['ico', 'image/x-icon'],
+  ['pdf', 'application/pdf'],
+  ['csv', 'text/plain;charset=utf-8'],
+  ['tsv', 'text/plain;charset=utf-8'],
+  ['log', 'text/plain;charset=utf-8'],
+  ['json', 'text/plain;charset=utf-8'],
+  ['xml', 'text/plain;charset=utf-8'],
+  ['yaml', 'text/plain;charset=utf-8'],
+  ['yml', 'text/plain;charset=utf-8'],
+]);
+
 // Object URLs for images loaded from the open folder, keyed by resolved path
 const imageUrlCache = new Map<string, { url: string; lastModified: number }>();
 
@@ -71,11 +93,60 @@ function scrollToAnchor(container: HTMLElement, id: string): void {
   target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// An SVG opened as a page runs its scripts with this app's origin; inside <img> it is only a picture
+function imagePage(imageUrl: string, title: string): Blob {
+  const page = document.implementation.createHTMLDocument(title);
+  const csp = page.createElement('meta');
+  csp.httpEquiv = 'Content-Security-Policy';
+  csp.content = "default-src 'none'; img-src blob:";
+  page.head.prepend(csp);
+
+  const img = page.createElement('img');
+  img.src = imageUrl;
+  img.alt = title;
+  page.body.append(img);
+
+  return new Blob([`<!doctype html>${page.documentElement.outerHTML}`], { type: 'text/html;charset=utf-8' });
+}
+
+/** Opens `url` in a new window and frees its object URLs once the window has had time to load them. */
+function openInWindow(url: string, objectUrls: string[]): void {
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => objectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl)), 60_000);
+}
+
+/** Shows a linked file (not a document) in a new window, or downloads it if it isn't safe to show. */
+async function openLinkedFile(path: string, file: File): Promise<void> {
+  const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
+
+  if (extension === 'svg') {
+    const imageUrl = URL.createObjectURL(new Blob([file], { type: 'image/svg+xml' }));
+    const pageUrl = URL.createObjectURL(imagePage(imageUrl, file.name));
+    openInWindow(pageUrl, [pageUrl, imageUrl]);
+
+    return;
+  }
+
+  const type = VIEWABLE_TYPES.get(extension);
+
+  if (!type) {
+    const { saveAs } = await import('file-saver');
+    saveAs(file, file.name);
+
+    return;
+  }
+
+  const url = URL.createObjectURL(new Blob([file], { type }));
+  // The desktop app turns scripts off in the new window except for PDFs, whose viewer needs them
+  openInWindow(type === 'application/pdf' ? `${url}#pdf` : url, [url]);
+}
+
 /**
  * Makes rendered markdown behave like a document on disk:
  * - relative image paths are loaded from the open folder,
  * - `#anchor` links scroll within the document,
- * - relative links to other files open them in a tab,
+ * - relative links to other documents open them in a tab; images, PDFs and plain text open in
+ *   a window, and other files are downloaded,
  * - external links open outside the app.
  */
 export function useDocumentLinks(
@@ -175,9 +246,7 @@ export function useDocumentLinks(
             }, 150);
           }
         } else {
-          // Other files (PDF, images, ...): show them in a new window/tab
-          const url = URL.createObjectURL(await readFileBlob(targetPath));
-          window.open(url, '_blank');
+          await openLinkedFile(targetPath, await readFileBlob(targetPath));
         }
       } catch (error) {
         console.error(`Failed to open linked file: ${targetPath}`, error);
