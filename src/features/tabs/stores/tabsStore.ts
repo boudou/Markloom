@@ -10,6 +10,8 @@ export interface Tab {
   content: string;
   originalContent: string;
   isDirty: boolean;
+  /** Changes whenever a different file is loaded into this tab; editors are keyed by it so undo history never crosses documents */
+  loadId: string;
 }
 
 interface TabsState {
@@ -50,6 +52,7 @@ const createNewTab = (path?: string | null, content?: string, name?: string): Ta
     content: content || '',
     originalContent: content || '',
     isDirty: false,
+    loadId: nanoid(),
   };
 };
 
@@ -137,16 +140,10 @@ export const useTabsStore = create<TabsState>()(
 
     loadFileIntoTab: (tabId, path, content) => {
       set((state) => {
-        const tab = state.tabs.find((t) => t.id === tabId);
-        if (tab) {
-          tab.path = path;
-          // Handle file:// prefix for standalone files
-          const normalizedPath = path.startsWith('file://') ? path.slice(7) : path;
-          tab.name = normalizedPath.split(/[/\\]/).pop() || 'Untitled';
-          tab.content = content;
-          tab.originalContent = content;
-          tab.isDirty = false;
-        }
+        const index = state.tabs.findIndex((t) => t.id === tabId);
+
+        // A freshly loaded document under the same tab id (new loadId, clean state)
+        if (index !== -1) state.tabs[index] = { ...createNewTab(path, content), id: tabId };
       });
     },
 

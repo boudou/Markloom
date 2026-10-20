@@ -4,7 +4,7 @@ import { GripVertical, AlertCircle, RefreshCw, ZoomIn, ZoomOut, RotateCcw, Maxim
 import CodeMirror from '@uiw/react-codemirror';
 import { EditorView } from '@codemirror/view';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
-import { useActiveContent, useActivePath, useSetActiveContent } from '@/features/tabs';
+import { useActiveContent, useSetActiveContent } from '@/features/tabs';
 import { MermaidRenderer } from '@/features/mermaid/components/MermaidRenderer';
 import { initMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { cn } from '@/lib/utils';
@@ -32,11 +32,8 @@ const basicSetup = {
 export function MermaidEditor() {
   const content = useActiveContent();
   const setContent = useSetActiveContent();
-  const activeFilePath = useActivePath();
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<{ view?: EditorView }>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
   const [splitPosition, setSplitPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [debouncedContent, setDebouncedContent] = useState(content);
@@ -56,22 +53,6 @@ export function MermaidEditor() {
     }, 300);
     return () => clearTimeout(timer);
   }, [content]);
-
-  // Reset render key and scroll to top when file changes
-  useEffect(() => {
-    setDebouncedContent(content);
-    setRenderKey((k) => k + 1);
-    // Scroll editor to top
-    if (editorRef.current?.view) {
-      editorRef.current.view.dispatch({
-        effects: EditorView.scrollIntoView(0, { y: 'start' }),
-      });
-    }
-    // Scroll preview to top
-    if (previewRef.current) {
-      previewRef.current.scrollTop = 0;
-    }
-  }, [activeFilePath]);
 
   // Manual refresh handler
   const handleRefresh = useCallback(() => {
@@ -161,7 +142,6 @@ export function MermaidEditor() {
               extensions={sourceExtensions}
               basicSetup={basicSetup}
               className="h-full"
-              ref={editorRef as any}
             />
           </div>
         </div>
@@ -249,7 +229,7 @@ export function MermaidEditor() {
               </Tooltip>
             </div>
           </div>
-          <div ref={previewRef} className="flex-1 overflow-auto p-4 bg-panel/30">
+          <div className="flex-1 overflow-auto p-4 bg-panel/30">
             {debouncedContent.trim() ? (
               <div className="flex items-center justify-center min-h-full">
                 <div
@@ -260,7 +240,7 @@ export function MermaidEditor() {
                   }}
                 >
                   <MermaidRenderer
-                    key={`${activeFilePath}-${renderKey}`}
+                    key={renderKey}
                     code={debouncedContent}
                     className="max-w-full"
                   />
