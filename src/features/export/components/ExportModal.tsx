@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { m } from 'framer-motion';
 import { FileDown, Loader2, FileType, FileText, Globe, FileCode2, AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, ModalFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,37 @@ const FORMATS: { id: ExportFormat; label: string; icon: typeof FileText; descrip
     description: 'One portable .md file: images and diagrams embedded, no folders needed.',
   },
 ];
+
+// Every label the export button can show shares one grid cell, so the button keeps its
+// width while the label crossfades (after interior.dev's loading button)
+const FACE_SWAP = { type: 'spring', stiffness: 260, damping: 34, mass: 0.8 } as const;
+const BUTTON_FACES = [
+  ...FORMATS.map((f) => ({ key: f.id as string, text: `Export ${f.label}`, busy: false })),
+  { key: 'exporting', text: 'Exporting…', busy: true },
+];
+
+function ExportButtonLabel({ active }: { active: string }) {
+  return (
+    <span className="grid">
+      {BUTTON_FACES.map((face) => {
+        const shown = face.key === active;
+        return (
+          <m.span
+            key={face.key}
+            aria-hidden={!shown}
+            initial={false}
+            animate={shown ? { opacity: 1, y: 0, filter: 'blur(0px)' } : { opacity: 0, y: 3, filter: 'blur(3px)' }}
+            transition={FACE_SWAP}
+            className="col-start-1 row-start-1 flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            {face.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+            {face.text}
+          </m.span>
+        );
+      })}
+    </span>
+  );
+}
 
 // Markdown emphasis and characters Windows/macOS reject in file names
 function toFileName(title: string): string {
@@ -223,9 +255,8 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={exporting}>
           Cancel
         </Button>
-        <Button onClick={() => void handleExport()} disabled={exporting || !content.trim()}>
-          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-          {exporting ? 'Exporting…' : `Export ${current.label}`}
+        <Button onClick={() => void handleExport()} disabled={exporting || !content.trim()} aria-busy={exporting || undefined}>
+          <ExportButtonLabel active={exporting ? 'exporting' : format} />
         </Button>
       </ModalFooter>
     </Modal>

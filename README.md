@@ -23,7 +23,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore
 - **Find & replace** that works in both editors, plus a command palette (`Ctrl+Shift+P`)
 - **Image drop and paste**: images are saved to `assets/` beside the document
-- **Syntax highlighting**, templates, version history, native spell check
+- **Syntax highlighting** with a copy button on every code block, templates, version history, native spell check
 - **Synced scrolling** between source and preview
 - **Private by design**: no accounts, no uploads; Markdown is sanitized and Mermaid runs in strict mode
 
