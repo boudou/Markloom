@@ -16,7 +16,8 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         type="button"
         aria-pressed={pressed}
         className={cn(
-          'relative inline-flex items-center justify-center rounded-md transition-colors duration-150',
+          // Presses down a pixel, like interior.dev's buttons
+          'relative inline-flex items-center justify-center rounded-md transition-colors duration-150 active:translate-y-px',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
           'disabled:opacity-40 disabled:pointer-events-none',
           pressed && 'bg-accent-muted text-accent-hover hover:bg-accent-muted hover:text-accent-hover',

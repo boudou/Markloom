@@ -381,6 +381,133 @@
   .editor-panel {
     @apply bg-panel border border-rule rounded-lg overflow-hidden;
   }
+
+  /* ---------------------------------------------------------------------------------
+     Floating surfaces, after interior.dev: menus, popovers, selects, context menus and
+     tooltips share one surface and one way of arriving and leaving. Radix sets
+     data-state and data-side; it waits for the closing animation before unmounting. */
+
+  .ml-surface {
+    background: var(--canvas);
+    border-radius: 11px;
+    box-shadow:
+      0 0 0 1px rgba(26, 26, 26, 0.1),
+      0 2px 4px rgba(26, 26, 26, 0.06),
+      0 12px 32px -8px rgba(26, 26, 26, 0.14);
+  }
+
+  /* Rises from the trigger's side with a slight scale; leaves faster than it came */
+  .ml-float {
+    --ml-x: 0px;
+    --ml-y: -6px;
+    transform-origin: var(--ml-origin, top center);
+  }
+
+  .ml-float[data-side='top'] { --ml-y: 6px; }
+  .ml-float[data-side='left'] { --ml-x: 6px; --ml-y: 0px; }
+  .ml-float[data-side='right'] { --ml-x: -6px; --ml-y: 0px; }
+
+  .ml-float[data-state='open'] {
+    animation:
+      ml-rise 240ms cubic-bezier(0.23, 1, 0.32, 1),
+      ml-fade-in 120ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .ml-float[data-state='closed'] {
+    animation: ml-fall 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  /* One highlight slides between menu items instead of each item lighting up */
+  .ml-menu-highlight {
+    position: absolute;
+    top: 0;
+    left: 4px;
+    right: 4px;
+    border-radius: 7px;
+    background: var(--wash);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 200ms cubic-bezier(0.23, 1, 0.32, 1),
+      height 200ms cubic-bezier(0.23, 1, 0.32, 1),
+      opacity 100ms ease;
+  }
+
+  .ml-menu-highlight[data-visible] { opacity: 1; }
+  .ml-menu-highlight[data-jump] { transition: opacity 100ms ease; }
+
+  /* Tooltips rise and sharpen on first show; neighbours then swap in at once */
+  .ml-tooltip {
+    --ml-lift: 4px;
+    transform-origin: var(--radix-tooltip-content-transform-origin);
+  }
+
+  .ml-tooltip[data-side='bottom'] { --ml-lift: -4px; }
+
+  .ml-tooltip[data-state='delayed-open'] {
+    animation: ml-tip-rise 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .ml-tooltip[data-state='instant-open'] {
+    animation: ml-fade-in 90ms ease-out;
+  }
+
+  .ml-tooltip[data-state='closed'] {
+    animation: ml-tip-fall 120ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  /* Dialogs spring up from just below and settle */
+  .ml-dialog[data-state='open'] {
+    animation:
+      ml-dialog-rise 320ms cubic-bezier(0.23, 1, 0.32, 1),
+      ml-fade-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .ml-dialog[data-state='closed'] {
+    animation: ml-dialog-fall 150ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  .ml-backdrop[data-state='open'] { animation: ml-fade-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+  .ml-backdrop[data-state='closed'] { animation: ml-fade-out 150ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+  /* A chosen option's check pops in */
+  .ml-check {
+    animation: ml-check-in 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  @keyframes ml-fade-in { from { opacity: 0; } }
+  @keyframes ml-fade-out { to { opacity: 0; } }
+
+  @keyframes ml-rise {
+    from { transform: translate(var(--ml-x), var(--ml-y)) scale(0.94); }
+  }
+
+  @keyframes ml-fall {
+    to {
+      opacity: 0;
+      transform: translate(calc(var(--ml-x) * 0.75), calc(var(--ml-y) * 0.75)) scale(0.97);
+    }
+  }
+
+  @keyframes ml-tip-rise {
+    from { opacity: 0; transform: translateY(var(--ml-lift)) scale(0.9); filter: blur(4px); }
+  }
+
+  @keyframes ml-tip-fall {
+    to { opacity: 0; transform: translateY(calc(var(--ml-lift) * 0.35)) scale(0.96); filter: blur(2px); }
+  }
+
+  @keyframes ml-dialog-rise {
+    from { transform: translateY(12px) scale(0.96); }
+  }
+
+  @keyframes ml-dialog-fall {
+    to { opacity: 0; transform: translateY(6px) scale(0.98); }
+  }
+
+  @keyframes ml-check-in {
+    from { opacity: 0; transform: scale(0.7); }
+  }
 }
 
 @layer utilities {

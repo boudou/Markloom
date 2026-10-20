@@ -24,6 +24,23 @@ const sizeClasses = {
   '3xl': 'max-w-4xl',
 };
 
+// Motion after interior.dev: the panel springs up from just below; leaving is quicker
+const EASE = [0.23, 1, 0.32, 1] as const;
+const LEAVE = [0.4, 0, 1, 1] as const;
+const SURFACE = { type: 'spring', stiffness: 420, damping: 36, mass: 0.9 } as const;
+
+const backdrop = {
+  closed: { opacity: 0 },
+  open: { opacity: 1, transition: { duration: 0.2, ease: EASE } },
+  gone: { opacity: 0, transition: { duration: 0.15, ease: LEAVE } },
+};
+
+const panel = {
+  closed: { opacity: 0, scale: 0.96, y: 12 },
+  open: { opacity: 1, scale: 1, y: 0, transition: { ...SURFACE, opacity: { duration: 0.16, ease: EASE } } },
+  gone: { opacity: 0, scale: 0.98, y: 6, transition: { duration: 0.15, ease: LEAVE } },
+};
+
 // Dialogs opened from the keyboard have no trigger for Radix to return focus to; remember
 // what had focus and go back there (the editor, usually) when the dialog closes.
 let focusBeforeDialog: HTMLElement | null = null;
@@ -71,24 +88,25 @@ export function Modal({
           <Dialog.Portal forceMount>
             <Dialog.Overlay asChild>
               <m.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                variants={backdrop}
+                initial="closed"
+                animate="open"
+                exit="gone"
                 className="fixed inset-0 bg-[#1A1A1A]/40 z-50"
               />
             </Dialog.Overlay>
 
+            {/* Centres the panel; clicks on it fall through to the overlay, which closes the dialog */}
+            <div className="fixed inset-0 z-50 grid place-items-center p-4 pointer-events-none">
             <Dialog.Content asChild onOpenAutoFocus={focusPreferred} onCloseAutoFocus={restoreFocus}>
               <m.div
-                initial={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
-                animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
-                exit={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                variants={panel}
+                initial="closed"
+                animate="open"
+                exit="gone"
                 className={cn(
-                  'fixed top-1/2 left-1/2',
-                  'w-[calc(100%-2rem)] p-6 rounded-xl',
-                  'bg-canvas border border-rule',
-                  'shadow-[0_24px_60px_-20px_rgba(26,26,26,0.35)] z-50',
+                  'relative w-full p-6 rounded-[14px] bg-canvas pointer-events-auto',
+                  'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_12px_32px_-8px_rgba(26,26,26,0.14)]',
                   'focus:outline-none',
                   sizeClasses[size],
                   className
@@ -118,6 +136,7 @@ export function Modal({
                 {children}
               </m.div>
             </Dialog.Content>
+            </div>
           </Dialog.Portal>
         )}
       </AnimatePresence>

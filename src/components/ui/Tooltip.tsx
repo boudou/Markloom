@@ -32,14 +32,13 @@ export function Tooltip({
           align={align}
           sideOffset={6}
           className={cn(
-            'z-50 px-2.5 py-1.5 text-xs font-medium rounded-md',
-            'bg-text-primary text-canvas shadow-[0_4px_12px_rgba(0,0,0,0.12)]',
-            'animate-fade-in',
-            'select-none'
+            // After interior.dev: a light chip that rises on first show, then swaps between neighbours
+            'ml-tooltip z-50 max-w-[240px] px-2 py-1 rounded-lg select-none',
+            'bg-canvas text-[11.5px] font-medium leading-snug text-text-primary',
+            'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_8px_20px_-8px_rgba(26,26,26,0.14)]'
           )}
         >
           {content}
-          <TooltipPrimitive.Arrow className="fill-text-primary" />
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
     </TooltipPrimitive.Root>

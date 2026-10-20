@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -150,7 +150,7 @@ export function CommandPalette() {
   const commands = useCommands();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
 
   const results = useMemo(() => filterCommands(commands, query), [commands, query]);
 
@@ -166,6 +166,19 @@ export function CommandPalette() {
   useEffect(() => {
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [active]);
+
+  // The active row's highlight slides between rows (after interior.dev); a new result list
+  // places it without sliding, since the rows under it changed
+  const [bar, setBar] = useState<{ top: number; height: number; jump: boolean } | null>(null);
+  // The list mounts a render after the dialog opens (Radix portals), so track the element itself
+  const [listEl, setListEl] = useState<HTMLUListElement | null>(null);
+  const lastResults = useRef(results);
+  useLayoutEffect(() => {
+    const row = listEl?.querySelector<HTMLElement>(`[data-index="${active}"]`);
+    const jump = lastResults.current !== results || !bar;
+    lastResults.current = results;
+    setBar(row ? { top: row.offsetTop, height: row.offsetHeight, jump } : null);
+  }, [active, results, listEl]);
 
   const runCommand = (command: Command | undefined) => {
     if (!command) return;
@@ -187,15 +200,15 @@ export function CommandPalette() {
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && closeDialog()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-[#1A1A1A]/25" />
+        <Dialog.Overlay className="ml-backdrop fixed inset-0 z-50 bg-[#1A1A1A]/25" />
         <Dialog.Content
           aria-describedby={undefined}
           onOpenAutoFocus={rememberFocus}
           onCloseAutoFocus={restoreFocus}
           className={cn(
-            'fixed left-1/2 top-[14vh] z-50 w-[min(560px,calc(100%-2rem))] -translate-x-1/2',
-            'rounded-xl border border-rule bg-canvas overflow-hidden',
-            'shadow-[0_24px_60px_-20px_rgba(26,26,26,0.35)] outline-none'
+            'fixed inset-x-0 mx-auto top-[14vh] z-50 w-[min(560px,calc(100%-2rem))]',
+            'ml-dialog rounded-[14px] bg-canvas overflow-hidden outline-none',
+            'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_24px_48px_-12px_rgba(26,26,26,0.22)]'
           )}
         >
           <Dialog.Title className="sr-only">Command palette</Dialog.Title>
@@ -217,7 +230,18 @@ export function CommandPalette() {
               className="flex-1 h-12 bg-transparent text-[15px] text-text-primary placeholder:text-text-muted outline-none"
             />
           </div>
-          <ul id="command-list" role="listbox" aria-label="Commands" ref={listRef} className="max-h-[50vh] overflow-y-auto py-1.5">
+          <ul id="command-list" role="listbox" aria-label="Commands" ref={(el) => {
+              listRef.current = el;
+              setListEl(el);
+            }} className="relative max-h-[50vh] overflow-y-auto py-1.5">
+            <li
+              role="presentation"
+              aria-hidden
+              className="ml-menu-highlight left-1.5 right-1.5 bg-accent-muted"
+              data-visible={bar ? '' : undefined}
+              data-jump={bar?.jump ? '' : undefined}
+              style={bar ? { transform: `translateY(${bar.top}px)`, height: bar.height } : undefined}
+            />
             {results.length === 0 && <li className="px-4 py-6 text-center text-sm text-text-muted">No matching commands</li>}
             {results.map((command, index) => {
               const showGroup = index === 0 || results[index - 1].group !== command.group;
@@ -236,8 +260,7 @@ export function CommandPalette() {
                     onMouseMove={() => setActive(index)}
                     onClick={() => runCommand(command)}
                     className={cn(
-                      'mx-1.5 flex items-center justify-between gap-4 rounded-md px-2.5 py-1.5 text-sm cursor-default',
-                      index === active ? 'bg-accent-muted text-text-primary' : 'text-text-primary'
+                      'relative mx-1.5 flex items-center justify-between gap-4 rounded-[7px] px-2.5 py-1.5 text-sm text-text-primary cursor-default'
                     )}
                   >
                     <span className="truncate">{command.label}</span>

@@ -1,6 +1,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Clock, FileText, X, Trash2 } from 'lucide-react';
 import { IconButton, Tooltip } from '@/components/ui';
+import { useMenuHighlight } from '@/components/ui/useMenuHighlight';
 import { cn } from '@/lib/utils';
 import { useRecentFiles } from '../hooks';
 import { notify } from '@/stores/uiStore';
@@ -8,6 +9,7 @@ import { notify } from '@/stores/uiStore';
 export function RecentFilesMenu() {
   const { recentFiles, openRecentFile, removeRecentFile, clearRecentFiles } =
     useRecentFiles();
+  const { onFocusCapture, highlight } = useMenuHighlight();
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -55,14 +57,14 @@ export function RecentFilesMenu() {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           className={cn(
-            'min-w-[280px] max-w-[400px] p-1 rounded-lg',
-            'bg-wash border border-rule',
-            'shadow-xl',
-            'animate-fade-in'
+            'ml-surface ml-float [--ml-origin:var(--radix-dropdown-menu-content-transform-origin)]',
+            'relative z-50 min-w-[280px] max-w-[400px] p-1 outline-none'
           )}
-          sideOffset={4}
+          sideOffset={6}
           align="start"
+          onFocusCapture={onFocusCapture}
         >
+          {highlight}
           <div className="flex items-center justify-between px-2 py-1.5">
             <DropdownMenu.Label className="text-xs font-medium text-text-muted">
               Recent Files
@@ -86,9 +88,8 @@ export function RecentFilesMenu() {
             <DropdownMenu.Item
               key={file.path}
               className={cn(
-                'flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer',
-                'outline-none group',
-                'data-[highlighted]:bg-rule'
+                'relative flex items-center gap-2 px-2 py-2 rounded-[7px] cursor-pointer',
+                'outline-none group'
               )}
               onSelect={() => handleOpen(file.path)}
             >

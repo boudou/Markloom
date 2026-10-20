@@ -4,11 +4,12 @@ import * as ContextMenu from '@radix-ui/react-context-menu';
 import { cn } from '@/lib/utils';
 import { useTabsStore, type Tab } from '../stores';
 import { IconButton, Tooltip } from '@/components/ui';
+import { useMenuHighlight } from '@/components/ui/useMenuHighlight';
 import { newDocument, requestCloseTabs } from '@/lib/documentActions';
 import { shortcutHint } from '@/lib/shortcuts';
 
 const menuItemClass =
-  'flex items-center px-2 py-1.5 text-sm text-text-primary rounded-md cursor-default outline-none data-[highlighted]:bg-wash';
+  'relative flex items-center px-2 py-1.5 text-sm text-text-primary rounded-[7px] cursor-default outline-none';
 
 export function TabBar() {
   const tabs = useTabsStore((s) => s.tabs);
@@ -77,6 +78,7 @@ interface TabItemProps {
 }
 
 function TabItem({ tab, isActive, onSelect, onKeyDown, onClose, onCloseOthers, onCloseAll }: TabItemProps) {
+  const { onFocusCapture, highlight } = useMenuHighlight();
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
@@ -133,7 +135,11 @@ function TabItem({ tab, isActive, onSelect, onKeyDown, onClose, onCloseOthers, o
       </ContextMenu.Trigger>
 
       <ContextMenu.Portal>
-        <ContextMenu.Content className="z-50 min-w-[170px] p-1 rounded-lg bg-canvas border border-rule shadow-[0_8px_24px_-6px_rgba(26,26,26,0.16)]">
+        <ContextMenu.Content
+          onFocusCapture={onFocusCapture}
+          className="ml-surface ml-float [--ml-origin:var(--radix-context-menu-content-transform-origin)] relative z-50 min-w-[170px] p-1 outline-none"
+        >
+          {highlight}
           <ContextMenu.Item className={menuItemClass} onSelect={onClose}>
             Close
           </ContextMenu.Item>
