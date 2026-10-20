@@ -22,6 +22,15 @@ const CONTENT_SECURITY_POLICY = [
 ].join('; ');
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 const DOCUMENT_EXTENSIONS = /\.(md|markdown|mdx|mmd|txt)$/i;
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|svg|bmp|avif|ico|tiff?)$/i;
+
+// Even inside a trusted folder the page reaches only what a document needs: documents,
+// the images and PDFs they link, and new images in an assets/ folder (where dropped
+// images go). Keys, configs and executables stay out of reach.
+const canRead = (file) => DOCUMENT_EXTENSIONS.test(file) || IMAGE_EXTENSIONS.test(file) || /\.pdf$/i.test(file);
+const canWrite = (file) =>
+  DOCUMENT_EXTENSIONS.test(file) ||
+  (IMAGE_EXTENSIONS.test(file) && path.basename(path.dirname(file)).toLowerCase() === 'assets');
 
 // Serve the production build from a secure custom scheme so browser APIs that
 // require a secure context (File System Access API, IndexedDB, etc.) keep working.
@@ -49,42 +58,67 @@ function registerAppProtocol() {
 
 // ---------------------------------------------------------------------------
 // Files opened from the OS (double-click, "Open with", drag onto the app icon).
-// The page may read and write only inside folders the user opened a file from.
+// The page may read and write only inside folders the user opened a file from, or, for a
+// file in a broad folder (home, a drive root), only that file and its assets/ folder.
 
-const trustedDirsFile = () => path.join(app.getPath('userData'), 'trusted-folders.json');
+const trustFile = () => path.join(app.getPath('userData'), 'trusted-folders.json');
 let trustedDirs = new Set();
+let trustedFiles = new Set();
 
-function loadTrustedDirs() {
+// Opening ~/notes.md must not hand the page the whole home folder
+function isBroadFolder(dir) {
+  return dir === path.parse(dir).root || dir === os.homedir();
+}
+
+// Real paths, so a symlink inside a trusted folder cannot lead the page elsewhere
+function realPaths(paths) {
+  return paths.flatMap((p) => {
+    try {
+      return [fs.realpathSync(p)];
+    } catch {
+      return [];
+    }
+  });
+}
+
+function loadTrust() {
   try {
-    // Real paths, so a symlink inside a trusted folder cannot lead the page elsewhere
-    trustedDirs = new Set(
-      JSON.parse(fs.readFileSync(trustedDirsFile(), 'utf8')).flatMap((dir) => {
-        try {
-          return [fs.realpathSync(dir)];
-        } catch {
-          return [];
-        }
-      })
-    );
+    const saved = JSON.parse(fs.readFileSync(trustFile(), 'utf8'));
+    // Older versions saved a plain list of folders
+    const { dirs = [], files = [] } = Array.isArray(saved) ? { dirs: saved } : saved;
+    trustedDirs = new Set(realPaths(dirs).filter((dir) => !isBroadFolder(dir)));
+    trustedFiles = new Set(realPaths(files));
   } catch {
     trustedDirs = new Set();
+    trustedFiles = new Set();
+  }
+}
+
+function saveTrust() {
+  try {
+    fs.writeFileSync(trustFile(), JSON.stringify({ dirs: [...trustedDirs], files: [...trustedFiles] }));
+  } catch {
+    // Not fatal: access still works for this session
   }
 }
 
 function trustFolderOf(filePath) {
-  let dir;
+  let file;
   try {
-    dir = fs.realpathSync(path.dirname(path.resolve(filePath)));
+    file = fs.realpathSync(path.resolve(filePath));
   } catch {
     return;
   }
-  if (trustedDirs.has(dir)) return;
-  trustedDirs.add(dir);
-  try {
-    fs.writeFileSync(trustedDirsFile(), JSON.stringify([...trustedDirs]));
-  } catch {
-    // Not fatal: access still works for this session
+  const dir = path.dirname(file);
+  if (isBroadFolder(dir)) {
+    if (trustedFiles.has(file)) return;
+    trustedFiles.add(file);
+    trustedDirs.add(path.join(dir, 'assets'));
+  } else {
+    if (trustedDirs.has(dir)) return;
+    trustedDirs.add(dir);
   }
+  saveTrust();
 }
 
 // Follows symlinks for the part of the path that exists; a file still to be created
@@ -105,8 +139,11 @@ async function realPathOf(filePath) {
   }
 }
 
-/** Resolves the path and checks it lies inside a trusted folder. Use the returned path for the file access. */
-async function assertTrusted(filePath) {
+/**
+ * Resolves the path and checks it is trusted and of a kind `allowed` accepts (checked on the
+ * real path, so a `notes.md` symlink to a key file is refused). Use the returned path for the access.
+ */
+async function assertTrusted(filePath, allowed) {
   const denied = new Error('Markloom does not have access to that location');
   if (typeof filePath !== 'string') throw denied;
   let real;
@@ -115,7 +152,8 @@ async function assertTrusted(filePath) {
   } catch {
     throw denied;
   }
-  if (![...trustedDirs].some((dir) => real === dir || real.startsWith(dir + path.sep))) throw denied;
+  const inTrustedDir = [...trustedDirs].some((dir) => real.startsWith(dir + path.sep));
+  if (!(inTrustedDir || trustedFiles.has(real)) || !allowed(real)) throw denied;
   return real;
 }
 
@@ -144,13 +182,14 @@ ipcMain.handle('take-pending-files', () => {
 });
 
 ipcMain.handle('read-file', async (_event, filePath) => {
-  return fs.promises.readFile(await assertTrusted(filePath));
+  return fs.promises.readFile(await assertTrusted(filePath, canRead));
 });
 
 ipcMain.handle('write-file', async (_event, filePath, data) => {
-  const target = await assertTrusted(filePath);
+  if (typeof data !== 'string' && !(data instanceof Uint8Array)) throw new Error('Unsupported file contents');
+  const target = await assertTrusted(filePath, canWrite);
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
-  await fs.promises.writeFile(target, typeof data === 'string' ? data : Buffer.from(data));
+  await fs.promises.writeFile(target, data);
 });
 
 // ---------------------------------------------------------------------------
@@ -310,7 +349,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    loadTrustedDirs();
+    loadTrust();
     pendingFiles.forEach(trustFolderOf);
     openDocuments(documentsIn(process.argv));
     setUpSpellCheck();
