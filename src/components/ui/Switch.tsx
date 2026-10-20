@@ -40,8 +40,8 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
           onCheckedChange={onCheckedChange}
           disabled={disabled}
           className={cn(
-            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
-            'border-2 border-transparent transition-colors',
+            'group relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
+            'border-2 border-transparent transition-colors duration-200',
             'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50',
             'disabled:cursor-not-allowed disabled:opacity-50',
             checked ? 'bg-accent-primary' : 'bg-rule'
@@ -49,9 +49,11 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
         >
           <SwitchPrimitive.Thumb
             className={cn(
-              'pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg',
-              'transition-transform',
-              checked ? 'translate-x-5' : 'translate-x-0'
+              'pointer-events-none block h-5 w-5 rounded-full bg-white',
+              'shadow-[0_1px_2px_rgba(26,26,26,0.2),0_0_0_0.5px_rgba(26,26,26,0.08)]',
+              // Springy travel, and the thumb stretches while pressed (interior.dev)
+              'transition-[transform,width] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-active:w-6',
+              checked ? 'translate-x-5 group-active:translate-x-4' : 'translate-x-0'
             )}
           />
         </SwitchPrimitive.Root>

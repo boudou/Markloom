@@ -96,10 +96,8 @@ export function HistoryPanel() {
           align="end"
           sideOffset={8}
           className={cn(
-            'w-[28rem] max-h-[70vh] rounded-lg',
-            'bg-canvas border border-rule',
-            'shadow-[0_12px_32px_-8px_rgba(26,26,26,0.22)] overflow-hidden',
-            'animate-fade-in z-50'
+            'ml-surface ml-float [--ml-origin:var(--radix-popover-content-transform-origin)]',
+            'w-[28rem] max-h-[70vh] overflow-hidden outline-none z-50'
           )}
         >
           {/* Header */}

@@ -1,6 +1,7 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useMenuHighlight } from './useMenuHighlight';
 
 export const Menu = DropdownMenu.Root;
 export const MenuTrigger = DropdownMenu.Trigger;
@@ -8,22 +9,25 @@ export const MenuTrigger = DropdownMenu.Trigger;
 export const MenuContent = forwardRef<
   HTMLDivElement,
   ComponentPropsWithoutRef<typeof DropdownMenu.Content>
->(function MenuContent({ className, sideOffset = 6, align = 'start', ...props }, ref) {
+>(function MenuContent({ className, sideOffset = 6, align = 'start', children, ...props }, ref) {
+  const { onFocusCapture, highlight } = useMenuHighlight();
   return (
     <DropdownMenu.Portal>
       <DropdownMenu.Content
         ref={ref}
         sideOffset={sideOffset}
         align={align}
+        onFocusCapture={onFocusCapture}
         className={cn(
-          'z-50 min-w-[200px] p-1 rounded-lg',
-          'bg-canvas border border-rule',
-          'shadow-[0_8px_24px_-6px_rgba(26,26,26,0.16),0_2px_6px_rgba(26,26,26,0.06)]',
-          'animate-fade-in',
+          'ml-surface ml-float [--ml-origin:var(--radix-dropdown-menu-content-transform-origin)]',
+          'relative z-50 min-w-[200px] p-1 outline-none',
           className
         )}
         {...props}
-      />
+      >
+        {highlight}
+        {children}
+      </DropdownMenu.Content>
     </DropdownMenu.Portal>
   );
 });
@@ -42,9 +46,8 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(function MenuI
     <DropdownMenu.Item
       ref={ref}
       className={cn(
-        'flex items-start gap-2.5 px-2 py-1.5 rounded-md text-sm text-text-primary',
-        'cursor-default select-none outline-none',
-        'data-[highlighted]:bg-wash data-[disabled]:opacity-40',
+        'relative flex items-start gap-2.5 px-2 py-1.5 rounded-[7px] text-sm text-text-primary',
+        'cursor-default select-none outline-none data-[disabled]:opacity-40',
         className
       )}
       {...props}
@@ -85,9 +88,10 @@ export const MenuSubTrigger = forwardRef<HTMLDivElement, MenuSubTriggerProps>(fu
     <DropdownMenu.SubTrigger
       ref={ref}
       className={cn(
-        'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm text-text-primary',
+        'relative flex items-center gap-2.5 px-2 py-1.5 rounded-[7px] text-sm text-text-primary',
         'cursor-default select-none outline-none',
-        'data-[highlighted]:bg-wash data-[state=open]:bg-wash',
+        // Stays lit while focus is in its submenu
+        'data-[state=open]:bg-wash',
         className
       )}
       {...props}
@@ -104,19 +108,24 @@ export const MenuSubTrigger = forwardRef<HTMLDivElement, MenuSubTriggerProps>(fu
 export const MenuSubContent = forwardRef<
   HTMLDivElement,
   ComponentPropsWithoutRef<typeof DropdownMenu.SubContent>
->(function MenuSubContent({ className, sideOffset = 6, ...props }, ref) {
+>(function MenuSubContent({ className, sideOffset = 6, children, ...props }, ref) {
+  const { onFocusCapture, highlight } = useMenuHighlight();
   return (
     <DropdownMenu.Portal>
       <DropdownMenu.SubContent
         ref={ref}
         sideOffset={sideOffset}
+        onFocusCapture={onFocusCapture}
         className={cn(
-          'z-50 min-w-[220px] p-1 rounded-lg bg-canvas border border-rule',
-          'shadow-[0_8px_24px_-6px_rgba(26,26,26,0.16),0_2px_6px_rgba(26,26,26,0.06)] animate-fade-in',
+          'ml-surface ml-float [--ml-origin:var(--radix-dropdown-menu-content-transform-origin)]',
+          'relative z-50 min-w-[220px] p-1 outline-none',
           className
         )}
         {...props}
-      />
+      >
+        {highlight}
+        {children}
+      </DropdownMenu.SubContent>
     </DropdownMenu.Portal>
   );
 });

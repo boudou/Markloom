@@ -1,6 +1,7 @@
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMenuHighlight } from './useMenuHighlight';
 
 interface SelectOption {
   value: string;
@@ -26,6 +27,7 @@ export function Select({
   disabled,
   className,
 }: SelectProps) {
+  const { onFocusCapture, highlight } = useMenuHighlight();
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
@@ -40,42 +42,42 @@ export function Select({
             'bg-wash border border-rule',
             'text-text-primary',
             'focus:outline-none focus:ring-2 focus:ring-accent-primary/50',
-            'transition-colors',
+            'transition-[background-color,box-shadow] duration-150',
+            // Pressed in while its list is open (interior.dev)
+            'data-[state=open]:bg-panel data-[state=open]:shadow-[inset_0_1px_2px_rgba(26,26,26,0.06)]',
             'disabled:cursor-not-allowed disabled:opacity-50',
             '[&[data-placeholder]]:text-text-muted'
           )}
         >
           <SelectPrimitive.Value placeholder={placeholder} />
           <SelectPrimitive.Icon>
-            <ChevronDown className="w-4 h-4 text-text-muted" />
+            <ChevronDown className="w-4 h-4 text-text-muted transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] [[data-state=open]_&]:rotate-180" />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
 
         <SelectPrimitive.Portal>
           <SelectPrimitive.Content
             className={cn(
-              'overflow-hidden rounded-lg',
-              'bg-wash border border-rule',
-              'shadow-xl',
-              'animate-fade-in'
+              'ml-surface ml-float [--ml-origin:var(--radix-select-content-transform-origin)]',
+              'z-50 overflow-hidden min-w-[var(--radix-select-trigger-width)]'
             )}
             position="popper"
             sideOffset={4}
           >
-            <SelectPrimitive.Viewport className="p-1">
+            <SelectPrimitive.Viewport className="relative p-1" onFocusCapture={onFocusCapture}>
+              {highlight}
               {options.map((option) => (
                 <SelectPrimitive.Item
                   key={option.value}
                   value={option.value}
                   className={cn(
-                    'relative flex items-center px-8 py-2 rounded-md cursor-pointer',
+                    'relative flex items-center px-8 py-2 rounded-[7px] cursor-pointer',
                     'text-sm text-text-primary',
                     'outline-none',
-                    'data-[highlighted]:bg-rule',
                     'data-[state=checked]:text-accent-primary'
                   )}
                 >
-                  <SelectPrimitive.ItemIndicator className="absolute left-2">
+                  <SelectPrimitive.ItemIndicator className="ml-check absolute left-2">
                     <Check className="w-4 h-4" />
                   </SelectPrimitive.ItemIndicator>
                   <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>

@@ -4,6 +4,10 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Changed
+
+- Menus, popovers, context menus, tooltips and dialogs take on [interior.dev](https://interior.dev)'s look and motion: a hairline-ringed surface, a spring-in and quick-out, one highlight that slides between menu items (and command palette rows), light tooltips that rise on first show and swap between neighbours, and buttons that press down.
+
 ## [0.2.0] - 2026-10-20
 
 ### Added

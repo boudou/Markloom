@@ -17,13 +17,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'disabled:opacity-50 disabled:cursor-not-allowed',
           {
             // Variants
-            'bg-accent-primary text-white hover:bg-accent-hover active:scale-[0.98]':
+            'bg-accent-primary text-white hover:bg-accent-hover active:translate-y-px':
               variant === 'primary',
-            'bg-wash text-text-primary border border-rule hover:bg-rule active:scale-[0.98]':
+            'bg-wash text-text-primary border border-rule hover:bg-rule active:translate-y-px':
               variant === 'secondary',
             'bg-transparent text-text-secondary hover:text-text-primary hover:bg-wash':
               variant === 'ghost',
-            'bg-canvas text-[#B91C1C] border border-rule hover:bg-error/10 hover:border-error/40 active:scale-[0.98]':
+            'bg-canvas text-[#B91C1C] border border-rule hover:bg-error/10 hover:border-error/40 active:translate-y-px':
               variant === 'danger',
             // Sizes
             'text-xs px-2.5 py-1.5 gap-1.5': size === 'sm',
