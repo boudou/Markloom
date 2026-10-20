@@ -1,133 +1,92 @@
-// Find and replace for the rich-text editor: highlights matches as decorations and
-// edits through normal transactions, so replacements undo like any other edit.
+// Find and replace for the rich-text editor: a thin adapter over the shared search engine.
+// Highlights are decorations, edits are normal transactions, so replacements undo like any other edit.
 import { $prose } from '@milkdown/kit/utils';
-import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state';
+import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view';
 import {
-  buildSearchRegExp,
+  collectMatches,
+  createDocChangeListeners,
+  createSearchEngine,
   type SearchEngine,
-  type SearchOptions,
-  type SearchResult,
+  type SearchMatch,
 } from '@/features/find-replace/engine';
 
-interface Match {
-  from: number;
-  to: number;
-}
-
-interface SearchState {
-  regex: RegExp | null;
-  matches: Match[];
+interface HighlightMeta {
+  matches: SearchMatch[];
   current: number;
 }
 
-const key = new PluginKey<SearchState>('markloom-search');
-const EMPTY: SearchState = { regex: null, matches: [], current: -1 };
-
-function findMatches(state: EditorState, regex: RegExp | null): Match[] {
-  if (!regex) return [];
-  const matches: Match[] = [];
-  state.doc.descendants((node, pos) => {
-    if (!node.isTextblock) return true;
-    // One character per position: inline leaves (images, breaks) become U+FFFC
-    const text = node.textBetween(0, node.content.size, undefined, '￼');
-    regex.lastIndex = 0;
-    for (let m = regex.exec(text); m; m = regex.exec(text)) {
-      if (m[0].length === 0) {
-        regex.lastIndex++;
-        continue;
-      }
-      matches.push({ from: pos + 1 + m.index, to: pos + 1 + m.index + m[0].length });
-    }
-    return false;
-  });
-  return matches;
-}
+const key = new PluginKey<DecorationSet>('markloom-search');
+const docChanges = createDocChangeListeners<EditorView>();
 
 export const searchPlugin = $prose(
   () =>
-    new Plugin<SearchState>({
+    new Plugin<DecorationSet>({
       key,
       state: {
-        init: () => EMPTY,
-        apply(tr, prev, _old, state) {
-          const meta = tr.getMeta(key) as Partial<SearchState> | undefined;
-          if (!meta && !tr.docChanged) return prev;
-          const regex = meta && 'regex' in meta ? (meta.regex ?? null) : prev.regex;
-          const matches = findMatches(state, regex);
-          const wanted = meta?.current ?? prev.current;
-          return { regex, matches, current: matches.length ? Math.min(Math.max(wanted, 0), matches.length - 1) : -1 };
+        init: () => DecorationSet.empty,
+        apply(tr, decorations) {
+          const meta: HighlightMeta | undefined = tr.getMeta(key);
+          if (meta) {
+            return DecorationSet.create(
+              tr.doc,
+              meta.matches.map((m, i) =>
+                Decoration.inline(m.from, m.to, { class: i === meta.current ? 'rt-find-match is-current' : 'rt-find-match' })
+              )
+            );
+          }
+
+          // Between recounts the highlights just follow the edits
+          return tr.docChanged ? decorations.map(tr.mapping, tr.doc) : decorations;
         },
       },
       props: {
-        decorations(state) {
-          const search = key.getState(state);
-          if (!search?.matches.length) return null;
-          return DecorationSet.create(
-            state.doc,
-            search.matches.map((m, i) =>
-              Decoration.inline(m.from, m.to, { class: i === search.current ? 'rt-find-match is-current' : 'rt-find-match' })
-            )
-          );
-        },
+        decorations: (state) => key.getState(state),
       },
+      view: () => ({
+        update(view, previous) {
+          if (view.state.doc !== previous.doc) docChanges.notify(view);
+        },
+      }),
     })
 );
 
 /** Adapter used by the shared Find bar */
 export function prosemirrorSearchEngine(view: EditorView): SearchEngine {
-  let replacement = '';
-  const state = () => key.getState(view.state) ?? EMPTY;
-  const result = (): SearchResult => ({ count: state().matches.length, current: state().current });
-
-  const reveal = () => {
-    const match = state().matches[state().current];
-    if (!match) return;
-    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, match.from, match.to)).scrollIntoView());
+  // The bar can clear the search after Milkdown destroyed the view (mode or tab switch)
+  const dispatch = (build: (state: EditorState) => Transaction) => {
+    if (!view.isDestroyed) view.dispatch(build(view.state));
   };
 
-  return {
-    update(options: SearchOptions) {
-      replacement = options.replacement;
-      const regex = buildSearchRegExp(options);
-      // Start from the first match at or after the cursor
-      const from = view.state.selection.from;
-      const matches = findMatches(view.state, regex);
-      const first = matches.findIndex((m) => m.from >= from);
-      view.dispatch(view.state.tr.setMeta(key, { regex, current: first === -1 ? 0 : first }));
-      reveal();
-      return { ...result(), invalid: !!options.query && !regex };
+  return createSearchEngine({
+    matches(regex) {
+      const found: SearchMatch[] = [];
+      view.state.doc.descendants((node, pos) => {
+        if (!node.isTextblock) return true;
+        // One character per position: inline leaves (images, breaks) become U+FFFC
+        const text = node.textBetween(0, node.content.size, undefined, '￼');
+        for (const match of collectMatches(regex, text, pos + 1)) found.push(match);
+        return false;
+      });
+      return found;
     },
-    next() {
-      const { matches, current } = state();
-      if (matches.length) view.dispatch(view.state.tr.setMeta(key, { current: (current + 1) % matches.length }));
-      reveal();
-      return result();
+    applyReplacements(edits) {
+      dispatch((state) => {
+        let tr = state.tr;
+        // Back to front so earlier positions stay valid; one transaction = one undo step
+        for (let i = edits.length - 1; i >= 0; i--) tr = tr.insertText(edits[i].text, edits[i].from, edits[i].to);
+        return tr;
+      });
     },
-    previous() {
-      const { matches, current } = state();
-      if (matches.length) view.dispatch(view.state.tr.setMeta(key, { current: (current - 1 + matches.length) % matches.length }));
-      reveal();
-      return result();
+    setHighlights(matches, current) {
+      const meta: HighlightMeta = { matches, current };
+      dispatch((state) => state.tr.setMeta(key, meta));
     },
-    replace() {
-      const match = state().matches[state().current];
-      if (match) view.dispatch(view.state.tr.insertText(replacement, match.from, match.to));
-      reveal();
-      return result();
+    select(match) {
+      dispatch((state) => state.tr.setSelection(TextSelection.create(state.doc, match.from, match.to)).scrollIntoView());
     },
-    replaceAll() {
-      const { matches } = state();
-      if (!matches.length) return 0;
-      let tr = view.state.tr;
-      // Back to front so earlier positions stay valid; one transaction = one undo step
-      for (const match of [...matches].reverse()) tr = tr.insertText(replacement, match.from, match.to);
-      view.dispatch(tr);
-      return matches.length;
-    },
-    clear() {
-      view.dispatch(view.state.tr.setMeta(key, { regex: null, current: -1 }));
-    },
-    focusEditor: () => view.focus(),
-  };
+    selectionFrom: () => view.state.selection.from,
+    onDocChange: (listener) => docChanges.listen(view, listener),
+    focus: () => view.focus(),
+  });
 }

@@ -1,80 +1,32 @@
-// Search engine for the Markdown source editor (CodeMirror's own search, driven by our bar).
-import type { EditorView } from '@codemirror/view';
-import {
-  SearchQuery,
-  setSearchQuery,
-  findNext,
-  findPrevious,
-  replaceNext,
-  replaceAll as cmReplaceAll,
-} from '@codemirror/search';
-import { buildSearchRegExp, type SearchEngine, type SearchOptions, type SearchResult } from './engine';
-import { setFindMatches } from './codemirrorHighlight';
+// Search adapter for the Markdown source editor: the shared engine does the searching,
+// this only reads the document and turns edits, highlights and selections into transactions.
+import { EditorView } from '@codemirror/view';
+import { collectMatches, createSearchEngine, type SearchEngine } from './engine';
+import { onFindDocChange, setFindMatches } from './codemirrorHighlight';
 
 export function codemirrorSearchEngine(view: EditorView): SearchEngine {
-  let query: SearchQuery | null = null;
-
-  // Counts matches, works out which one holds the selection, and redraws the highlights
-  const result = (): SearchResult => {
-    if (!query || !query.valid || !query.search) {
-      view.dispatch({ effects: setFindMatches.of({ ranges: [], current: -1 }) });
-      return { count: 0, current: -1, invalid: !!query && !!query.search && !query.valid };
-    }
-    const { from } = view.state.selection.main;
-    const cursor = query.getCursor(view.state.doc);
-    const ranges: { from: number; to: number }[] = [];
-    let current = -1;
-    for (let next = cursor.next(); !next.done; next = cursor.next()) {
-      if (current === -1 && next.value.from >= from) current = ranges.length;
-      ranges.push({ from: next.value.from, to: next.value.to });
-    }
-    current = ranges.length ? Math.max(0, current) : -1;
-    view.dispatch({ effects: setFindMatches.of({ ranges, current }) });
-    return { count: ranges.length, current };
-  };
-
-  return {
-    update(options: SearchOptions) {
-      // Same pattern rules as Rich text, expressed as a CodeMirror regexp query. `literal` stops
-      // CodeMirror turning \n and \t into control characters; outside Regex mode `$` is literal too.
-      const regex = buildSearchRegExp(options);
-      query = new SearchQuery({
-        search: options.query ? (regex?.source ?? options.query) : '',
-        replace: options.regex ? options.replacement : options.replacement.replace(/\$/g, '$$$$'),
-        caseSensitive: options.caseSensitive,
-        regexp: true,
-        literal: true,
+  return createSearchEngine({
+    // Document positions are UTF-16 offsets with \n line breaks, the same as the string
+    matches: (regex) => collectMatches(regex, view.state.doc.toString(), 0),
+    applyReplacements(edits) {
+      // `input.replace` never joins with neighbouring history events: one call, one undo step
+      view.dispatch({
+        changes: edits.map(({ from, to, text }) => ({ from, to, insert: text })),
+        userEvent: 'input.replace',
       });
-      if (options.query && !regex) {
-        view.dispatch({
-          effects: [setSearchQuery.of(new SearchQuery({ search: '' })), setFindMatches.of({ ranges: [], current: -1 })],
-        });
-        return { count: 0, current: -1, invalid: true };
-      }
-      view.dispatch({ effects: setSearchQuery.of(query) });
-      return result();
     },
-    next() {
-      findNext(view);
-      return result();
+    setHighlights(matches, current) {
+      view.dispatch({ effects: setFindMatches.of({ ranges: matches, current }) });
     },
-    previous() {
-      findPrevious(view);
-      return result();
+    select(match) {
+      view.dispatch({
+        selection: { anchor: match.from, head: match.to },
+        effects: EditorView.scrollIntoView(match.from),
+        userEvent: 'select.search',
+      });
     },
-    replace() {
-      replaceNext(view);
-      return result();
-    },
-    replaceAll() {
-      const before = result().count;
-      cmReplaceAll(view);
-      return before;
-    },
-    clear() {
-      query = null;
-      view.dispatch({ effects: [setSearchQuery.of(new SearchQuery({ search: '' })), setFindMatches.of({ ranges: [], current: -1 })] });
-    },
-    focusEditor: () => view.focus(),
-  };
+    selectionFrom: () => view.state.selection.main.from,
+    onDocChange: (listener) => onFindDocChange(view, listener),
+    focus: () => view.focus(),
+  });
 }
