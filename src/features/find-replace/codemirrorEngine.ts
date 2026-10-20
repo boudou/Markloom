@@ -35,13 +35,15 @@ export function codemirrorSearchEngine(view: EditorView): SearchEngine {
 
   return {
     update(options: SearchOptions) {
-      // Same pattern rules as Rich text, expressed as a CodeMirror regexp query
+      // Same pattern rules as Rich text, expressed as a CodeMirror regexp query. `literal` stops
+      // CodeMirror turning \n and \t into control characters; outside Regex mode `$` is literal too.
       const regex = buildSearchRegExp(options);
       query = new SearchQuery({
         search: options.query ? (regex?.source ?? options.query) : '',
-        replace: options.replacement,
+        replace: options.regex ? options.replacement : options.replacement.replace(/\$/g, '$$$$'),
         caseSensitive: options.caseSensitive,
         regexp: true,
+        literal: true,
       });
       if (options.query && !regex) {
         view.dispatch({
