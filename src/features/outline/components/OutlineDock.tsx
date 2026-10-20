@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getMarkdownParser } from '@/lib/markdown';
+import { getMarkdownParser, headingText } from '@/lib/markdown';
 import { cn } from '@/lib/utils';
 import { useActiveContent, useTabsStore } from '@/features/tabs';
-import { useAppStore } from '@/stores/appStore';
+import { useAppStore, type EditorMode } from '@/stores/appStore';
 
 interface Heading {
   level: number;
@@ -11,18 +11,13 @@ interface Heading {
   line: number;
 }
 
-// Same parser as the preview, so headings line up one-to-one with the rendered ones
+// Same parser as the preview, so the labels match the rendered headings and their ids
 function parseHeadings(markdown: string): Heading[] {
   const tokens = getMarkdownParser().parse(markdown, {});
   const headings: Heading[] = [];
   tokens.forEach((token, i) => {
     if (token.type !== 'heading_open' || !token.map) return;
-    const inline = tokens[i + 1];
-    const text = (inline.children ?? [])
-      .filter((child) => child.type === 'text' || child.type === 'code_inline')
-      .map((child) => child.content)
-      .join('')
-      .trim();
+    const text = headingText(tokens[i + 1]);
     headings.push({ level: Number(token.tag.slice(1)), text: text || 'Untitled section', line: token.map[0] + 1 });
   });
   return headings;
@@ -33,7 +28,25 @@ function documentSurface(): HTMLElement | null {
   return document.querySelector<HTMLElement>('[data-doc-surface]');
 }
 
-/** Docked table of contents that follows the reader's position. */
+/**
+ * The rendered element of each outline heading, undefined while the surface hasn't caught up.
+ * The preview is matched by source line, because raw HTML headings there have no outline
+ * entry; rich text shows raw HTML as text, so its document headings pair up by position.
+ */
+function renderedHeadings(surface: HTMLElement, mode: EditorMode, headings: Heading[]): Array<HTMLElement | undefined> {
+  if (mode === 'split') {
+    const byLine = new Map(
+      Array.from(surface.querySelectorAll<HTMLElement>(':is(h1, h2, h3, h4, h5, h6)[data-line]'), (el) => [el.dataset.line, el])
+    );
+
+    return headings.map((heading) => byLine.get(String(heading.line)));
+  }
+
+  const shown = surface.querySelectorAll<HTMLElement>('.rt-document :is(h1, h2, h3, h4, h5, h6)');
+
+  return headings.map((_heading, index) => shown[index]);
+}
+
 /** The document's headings, following the reader's position (shown in the sidebar) */
 export function OutlineDock() {
   const content = useActiveContent();
@@ -47,6 +60,9 @@ export function OutlineDock() {
     return () => window.clearTimeout(timer);
   }, [content]);
   const headings = useMemo(() => parseHeadings(settled), [settled]);
+  // The scroll tracker reads the latest headings without re-attaching on every parse
+  const headingsRef = useRef(headings);
+  headingsRef.current = headings;
   const [current, setCurrent] = useState(0);
   // After a click, the smooth scroll passes other headings; don't let them steal the highlight
   const holdUntil = useRef(0);
@@ -58,16 +74,20 @@ export function OutlineDock() {
     const update = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        if (!surface || Date.now() < holdUntil.current) return;
-        const top = surface.getBoundingClientRect().top + 96;
-        const rendered = Array.from(surface.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'));
+        const shown = surface;
+        if (!shown || Date.now() < holdUntil.current) return;
+
+        const top = shown.getBoundingClientRect().top + 96;
+        const outline = headingsRef.current;
         let index = 0;
-        rendered.forEach((el, i) => {
-          if (el.getBoundingClientRect().top <= top) index = i;
+        // Headings whose element isn't rendered yet (the preview lags typing) are skipped
+        renderedHeadings(shown, editorMode, outline).forEach((el, i) => {
+          if (el && el.getBoundingClientRect().top <= top) index = i;
         });
+
         // At the very end the last sections can't reach the top; the reader is in the last one
-        const atBottom = surface.scrollTop + surface.clientHeight >= surface.scrollHeight - 4;
-        setCurrent(atBottom && rendered.length ? rendered.length - 1 : index);
+        const atBottom = shown.scrollTop + shown.clientHeight >= shown.scrollHeight - 4;
+        setCurrent(atBottom && outline.length ? outline.length - 1 : index);
       });
     };
     // The surface mounts after the editor; look for it until it's there
@@ -86,14 +106,14 @@ export function OutlineDock() {
     };
   }, [activeTabId, headings.length, editorMode]);
 
-  const go = (_heading: Heading, index: number) => {
+  const go = (index: number) => {
     setCurrent(index);
     holdUntil.current = Date.now() + 900;
     // Scroll the rendered document only; in split view, scroll sync brings the source along.
     // (Moving both panes at once made them fight and land a section off.)
-    documentSurface()
-      ?.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')
-      [index]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const surface = documentSurface();
+    const target = surface ? renderedHeadings(surface, editorMode, headings)[index] : undefined;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const minLevel = Math.min(...headings.map((h) => h.level), 6);
@@ -116,7 +136,7 @@ export function OutlineDock() {
                 <li key={`${heading.line}-${index}`}>
                   <button
                     type="button"
-                    onClick={() => go(heading, index)}
+                    onClick={() => go(index)}
                     aria-current={isCurrent ? 'location' : undefined}
                     style={{ paddingLeft: `${16 + depth * 12}px` }}
                     className={cn(
