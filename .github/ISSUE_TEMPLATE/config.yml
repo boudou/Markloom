@@ -1,1 +1,8 @@
 blank_issues_enabled: false
+contact_links:
+  - name: User manual
+    url: https://github.com/boudou/Markloom/wiki/User-Manual
+    about: How to write, add diagrams and images, and export. Check here first.
+  - name: Report a security vulnerability
+    url: https://github.com/boudou/Markloom/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.
