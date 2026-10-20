@@ -22,6 +22,7 @@ import {
 import { saveAs } from 'file-saver';
 import type MarkdownIt from 'markdown-it';
 import { getMarkdownParser } from '@/lib/markdown';
+import { CALLOUT_COLORS, CALLOUT_LABELS, type CalloutKind } from '@/lib/callouts';
 import { loadDocumentImage, renderDiagram, svgDataUrl, toPngBytes, type ExportImage } from './assets';
 import type { ExportRequest } from './exporters';
 
@@ -54,6 +55,8 @@ interface WalkState {
   lists: ListFrame[];
   items: ItemFrame[];
   quoteDepth: number;
+  /** Callout kind of each open quote, innermost last ('' for a plain quote) */
+  callouts: string[];
   nextListInstance: number;
 }
 
@@ -208,7 +211,9 @@ function blockOptions(state: WalkState): Partial<IParagraphOptions> {
   if (state.quoteDepth > 0) {
     const current = (options.indent as { left: number } | undefined)?.left ?? 0;
     options.indent = { left: current + 360 * state.quoteDepth };
-    options.border = { left: { style: BorderStyle.SINGLE, size: 12, color: 'D9DCE1', space: 10 } };
+    const callout = state.callouts[state.callouts.length - 1] as CalloutKind | '';
+    const color = callout ? CALLOUT_COLORS[callout] : 'D9DCE1';
+    options.border = { left: { style: BorderStyle.SINGLE, size: callout ? 18 : 12, color, space: 10 } };
   }
   return options as Partial<IParagraphOptions>;
 }
@@ -326,9 +331,11 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         break;
       case 'blockquote_open':
         state.quoteDepth++;
+        state.callouts.push(token.attrGet('data-callout') ?? '');
         break;
       case 'blockquote_close':
         state.quoteDepth--;
+        state.callouts.pop();
         break;
       case 'fence':
       case 'code_block':
@@ -354,6 +361,18 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         break;
       }
       case 'html_block': {
+        const callout = token.meta?.calloutTitle as CalloutKind | undefined;
+        if (callout) {
+          blocks.push(
+            new Paragraph({
+              ...blockOptions(state),
+              keepNext: true,
+              spacing: { after: 60 },
+              children: [new TextRun({ text: CALLOUT_LABELS[callout], bold: true, color: CALLOUT_COLORS[callout] })],
+            })
+          );
+          break;
+        }
         const textContent = new DOMParser().parseFromString(token.content, 'text/html').body.textContent?.trim();
         if (textContent) blocks.push(new Paragraph({ ...blockOptions(state), children: [new TextRun(textContent)] }));
         break;
@@ -368,7 +387,7 @@ const ORDERED_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFor
 
 export async function exportDocx(request: ExportRequest): Promise<void> {
   const tokens = getMarkdownParser().parse(request.markdown, {});
-  const state: WalkState = { docPath: request.docPath, lists: [], items: [], quoteDepth: 0, nextListInstance: 0 };
+  const state: WalkState = { docPath: request.docPath, lists: [], items: [], quoteDepth: 0, callouts: [], nextListInstance: 0 };
   const children = await walk(tokens, state);
 
   const levels = (ordered: boolean) =>

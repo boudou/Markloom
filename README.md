@@ -19,6 +19,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 
 - **Two editors**: split view (CodeMirror source plus live preview) or rich text (Milkdown) that keeps untouched Markdown byte-for-byte
 - **Mermaid diagrams**: rendered live, with errors reported as "Line N: …" against your document
+- **Callouts**: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and friends render as coloured boxes, in the preview and in exports
 - **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore
 - **Find & replace** that works in both editors, plus a command palette (`Ctrl+Shift+P`)
