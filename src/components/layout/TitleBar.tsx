@@ -2,7 +2,7 @@ import { FileText, FolderOpen, Save, FileDown, LayoutTemplate, Keyboard, PanelLe
 import { IconButton, Tooltip } from '@/components/ui';
 import { RecentFilesMenu } from '@/features/recent-files';
 import { HistoryPanel } from '@/features/version-history';
-import { selectActiveTab, useTabsStore } from '@/features/tabs';
+import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
 import { openFile, openFolder, saveActiveTab } from '@/lib/documentActions';
@@ -25,7 +25,7 @@ function Separator() {
  */
 export function TitleBar() {
   // Primitives only: the tab object itself changes on every keystroke
-  const hasContent = useTabsStore((s) => /\S/.test(selectActiveTab(s)?.content ?? ''));
+  const hasContent = useTabsStore((s) => /\S/.test(selectActiveContent(s)));
   const isDirty = useTabsStore((s) => !!selectActiveTab(s)?.isDirty);
   const docName = useTabsStore((s) => selectActiveTab(s)?.name ?? 'Untitled');
   const docPath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);

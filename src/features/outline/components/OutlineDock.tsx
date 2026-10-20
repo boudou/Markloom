@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getMarkdownParser } from '@/lib/markdown';
 import { cn } from '@/lib/utils';
-import { useTabsStore } from '@/features/tabs';
+import { useActiveContent, useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 
 interface Heading {
@@ -36,7 +36,7 @@ function documentSurface(): HTMLElement | null {
 /** Docked table of contents that follows the reader's position. */
 /** The document's headings, following the reader's position (shown in the sidebar) */
 export function OutlineDock() {
-  const content = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.content ?? '');
+  const content = useActiveContent();
   const activeTabId = useTabsStore((s) => s.activeTabId);
   // Switching modes swaps the scrolling surface; re-attach to the new one
   const editorMode = useAppStore((s) => s.editorMode);

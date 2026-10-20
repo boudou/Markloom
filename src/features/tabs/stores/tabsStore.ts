@@ -188,7 +188,13 @@ useTabsStore.setState((state) => ({
 /** The tab being edited. Select fields from it, not the tab itself: its object changes on every keystroke. */
 export const selectActiveTab = (s: TabsState): Tab | undefined => s.tabs.find((t) => t.id === s.activeTabId);
 
-export const useActiveContent = () => useTabsStore((s) => selectActiveTab(s)?.content ?? '');
+/** A document's text ('' for an unknown tab). Read text through this, never through a tab object. */
+export const selectTabContent = (s: TabsState, tabId: string): string => s.tabs.find((t) => t.id === tabId)?.content ?? '';
+
+/** The active document's text ('' when no tab is active). Read text through this, never through a tab object. */
+export const selectActiveContent = (s: TabsState): string => selectActiveTab(s)?.content ?? '';
+
+export const useActiveContent = () => useTabsStore(selectActiveContent);
 
 /** Where the active document lives; null until it is saved */
 export const useActivePath = () => useTabsStore((s) => selectActiveTab(s)?.path ?? null);

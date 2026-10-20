@@ -1,6 +1,8 @@
 export {
   useTabsStore,
   selectActiveTab,
+  selectTabContent,
+  selectActiveContent,
   useActiveContent,
   useActivePath,
   useSetActiveContent,

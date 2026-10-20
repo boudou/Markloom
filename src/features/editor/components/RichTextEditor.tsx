@@ -30,7 +30,7 @@ import { trailing } from '@milkdown/kit/plugin/trailing';
 import { $prose, callCommand, getMarkdown, insert, replaceAll } from '@milkdown/kit/utils';
 import { Plugin } from '@milkdown/kit/prose/state';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
-import { useTabsStore } from '@/features/tabs';
+import { selectTabContent, useTabsStore } from '@/features/tabs';
 import { Modal, ModalFooter, Button, Input } from '@/components/ui';
 import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
@@ -52,8 +52,8 @@ interface RichTextEditorProps {
 type LinkRequest = { kind: 'link' | 'image'; hasSelection: boolean } | null;
 
 function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorProps) {
-  const tab = useTabsStore((s) => s.tabs.find((t) => t.id === tabId));
-  const content = tab?.content ?? '';
+  const content = useTabsStore((s) => selectTabContent(s, tabId));
+  const hasPath = useTabsStore((s) => !!s.tabs.find((t) => t.id === tabId)?.path);
   const containerRef = useRef<HTMLDivElement>(null);
   // Markdown we last handed to (or received from) the editor; anything else is an outside change
   const knownMarkdown = useRef(content);
@@ -268,7 +268,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     return () => window.removeEventListener('outline-navigate', handleNavigate);
   }, []);
 
-  const isBlank = !tab?.path && content === '';
+  const isBlank = !hasPath && content === '';
 
   return (
     <div className="h-full flex flex-col">
