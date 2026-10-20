@@ -39,7 +39,7 @@ Get the desktop app for your system from the [latest release](https://github.com
 
 | System | File |
 | --- | --- |
-| Windows | `Markloom Setup <version>.exe` (installer) or `Markloom <version>.exe` (portable, no install) |
+| Windows | `Markloom-Setup-<version>.exe` (installer) or `Markloom-<version>.exe` (portable, no install) |
 | macOS (Apple silicon) | `Markloom-<version>-arm64.dmg` |
 | Linux | `Markloom-<version>.AppImage` |
 
