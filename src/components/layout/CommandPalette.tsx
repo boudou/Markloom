@@ -8,6 +8,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTabsStore } from '@/features/tabs';
 import { useFindReplaceStore } from '@/features/find-replace';
+import { toggleAutoSave } from '@/features/auto-save';
 import { mermaidTemplates } from '@/features/mermaid-toolbar';
 import { readFile, documentName } from '@/features/file-tree/api/fileSystem';
 import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from '@/lib/documentActions';
@@ -29,6 +30,7 @@ function useCommands(): Command[] {
   const outlineOpen = useAppStore((s) => s.sidebarOpen && s.sidebarView === 'outline');
   const rootPath = useAppStore((s) => s.rootPath);
   const recentFiles = useSettingsStore((s) => s.recentFiles);
+  const autoSave = useSettingsStore((s) => s.autoSave);
 
   return useMemo(() => {
     const ui = useUiStore.getState();
@@ -39,6 +41,7 @@ function useCommands(): Command[] {
       { id: 'open-folder', label: 'Open folder…', group: 'File', shortcut: 'openFolder', run: () => void openFolder() },
       { id: 'save', label: 'Save', group: 'File', shortcut: 'save', run: () => void saveActiveTab() },
       { id: 'save-as', label: 'Save as…', group: 'File', shortcut: 'saveAs', run: () => void saveActiveTab({ saveAs: true }) },
+      { id: 'auto-save', label: autoSave ? 'Turn off auto-save' : 'Turn on auto-save', group: 'File', run: toggleAutoSave },
       { id: 'export', label: 'Export…', group: 'File', shortcut: 'export', run: () => ui.openDialog('export') },
       { id: 'templates', label: 'New from template…', group: 'File', run: () => ui.openDialog('templates') },
       {
@@ -129,7 +132,7 @@ function useCommands(): Command[] {
       });
     }
     return commands;
-  }, [editorCommands, editorMode, outlineOpen, rootPath, recentFiles]);
+  }, [editorCommands, editorMode, outlineOpen, rootPath, recentFiles, autoSave]);
 }
 
 /** Every words of the query must appear; labels starting with the query rank first. */
