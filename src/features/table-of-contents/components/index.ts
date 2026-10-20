@@ -1,0 +1,1 @@
+export { TocPanel } from './TocPanel';

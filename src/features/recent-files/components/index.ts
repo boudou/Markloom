@@ -1,0 +1,1 @@
+export { RecentFilesMenu } from './RecentFilesMenu';

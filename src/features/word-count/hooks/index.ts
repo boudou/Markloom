@@ -1,0 +1,1 @@
+export { useWordCount } from './useWordCount';

@@ -1,0 +1,58 @@
+import type { SearchEngine } from '@/features/find-replace/engine';
+
+/** Formatting actions shared by the toolbar, shortcuts and both editors */
+export type MarkdownAction =
+  | 'bold'
+  | 'italic'
+  | 'strikethrough'
+  | 'code'
+  | 'link'
+  | 'image'
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'paragraph'
+  | 'ul'
+  | 'ol'
+  | 'checkbox'
+  | 'quote'
+  | 'hr'
+  | 'table'
+  | 'codeblock';
+
+/** What applies at the cursor, so the toolbar can show it */
+export interface FormatState {
+  bold: boolean;
+  italic: boolean;
+  strikethrough: boolean;
+  code: boolean;
+  link: boolean;
+  /** 0 = body text, 1-6 = heading level */
+  heading: number;
+  list: 'ul' | 'ol' | 'checkbox' | null;
+  quote: boolean;
+}
+
+export const EMPTY_FORMAT_STATE: FormatState = {
+  bold: false,
+  italic: false,
+  strikethrough: false,
+  code: false,
+  link: false,
+  heading: 0,
+  list: null,
+  quote: false,
+};
+
+export function sameFormatState(a: FormatState, b: FormatState): boolean {
+  return (Object.keys(a) as (keyof FormatState)[]).every((key) => a[key] === b[key]);
+}
+
+/** What an editor exposes to the shared toolbar */
+export interface EditorCommands {
+  run: (action: MarkdownAction) => void;
+  /** Drives the shared Find bar */
+  search: SearchEngine;
+  /** Inserts a markdown snippet (e.g. a fenced Mermaid block) at the cursor */
+  insert: (markdown: string) => void;
+}

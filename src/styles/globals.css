@@ -1,0 +1,753 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light theme */
+  :root,
+  :root.light,
+  :root[data-theme="light"] {
+    --canvas: #FFFFFF;
+    --panel: #F8F9FA;
+    --wash: #F1F3F5;
+    --rule: #E9ECEF;
+    --text-primary: #1A1A1A;
+    --text-secondary: #5A5A5A;
+    --text-body: #33363B;
+    --text-muted: #626977;
+    --accent-primary: #2563EB;
+    --accent-hover: #1D4ED8;
+    --accent-muted: #DBEAFE;
+    --accent-secondary: #7C3AED;
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --error: #EF4444;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--rule);
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+  }
+
+  ::selection {
+    background-color: var(--accent-muted);
+    color: var(--text-primary);
+  }
+
+  html {
+    font-feature-settings: 'liga' 1, 'calt' 1;
+  }
+
+  body {
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .stagger-children > * {
+    opacity: 0;
+    animation: fadeInUp 0.4s ease-out forwards;
+  }
+
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+  .stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+  .stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+
+  .prose-markloom {
+    @apply prose max-w-none;
+    @apply prose-headings:font-display prose-headings:font-semibold;
+    @apply prose-p:leading-relaxed;
+    @apply prose-a:no-underline hover:prose-a:underline;
+    @apply prose-strong:font-semibold;
+    @apply prose-code:font-mono;
+    @apply prose-pre:border prose-pre:rounded-lg;
+    @apply prose-blockquote:rounded-r-lg prose-blockquote:py-1;
+  }
+
+  /* Theme-aware prose colors using CSS variables */
+  .prose-markloom {
+    --tw-prose-body: var(--text-body);
+    --tw-prose-headings: var(--text-primary);
+    --tw-prose-lead: var(--text-secondary);
+    --tw-prose-links: var(--accent-primary);
+    --tw-prose-bold: var(--text-primary);
+    --tw-prose-counters: var(--text-muted);
+    --tw-prose-bullets: var(--text-muted);
+    --tw-prose-hr: var(--rule);
+    --tw-prose-quotes: var(--text-secondary);
+    --tw-prose-quote-borders: var(--accent-primary);
+    --tw-prose-captions: var(--text-muted);
+    --tw-prose-code: #9F1239;
+    --tw-prose-pre-code: var(--text-primary);
+    --tw-prose-pre-bg: var(--panel);
+    --tw-prose-th-borders: var(--rule);
+    --tw-prose-td-borders: var(--rule);
+  }
+
+  /* Inline code: a quiet chip. The typography plugin's decorative backticks are removed:
+     they read as part of the text, especially in the editable rich-text view. */
+  .prose-markloom :not(pre) > code {
+    padding: 0.12em 0.35em;
+    border-radius: 4px;
+    background-color: var(--wash);
+    font-size: 0.875em;
+    font-weight: 500;
+  }
+
+  .prose-markloom code::before,
+  .prose-markloom code::after {
+    content: none;
+  }
+
+  /* Code blocks own their surface; the code inside is plain text on it */
+  .prose-markloom pre {
+    background-color: var(--panel);
+    border-color: var(--rule);
+  }
+
+  .prose-markloom pre code {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+    font-weight: 400;
+  }
+
+  .prose-markloom blockquote {
+    padding: 0.4em 1.1em;
+    background-color: var(--panel);
+    border-left-width: 2px;
+    border-color: var(--rule);
+    font-style: normal;
+  }
+
+  /* Blockquotes are often callouts ("Status: …"), not quotations */
+  .prose-markloom blockquote p:first-of-type::before,
+  .prose-markloom blockquote p:last-of-type::after {
+    content: none;
+  }
+
+  /* Comfortable measure for long-form reading */
+  .reading-column {
+    max-width: 72ch;
+    margin-inline: auto;
+  }
+
+  /* Task lists (preview) */
+  .prose-markloom li.task-list-item {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .prose-markloom ul:has(> li.task-list-item) {
+    padding-left: 0.25rem;
+  }
+
+  /* Drawn like the rich-text checkbox so both views look the same */
+  .prose-markloom .task-checkbox {
+    appearance: none;
+    width: 0.95em;
+    height: 0.95em;
+    margin: 0 0.55em 0 0;
+    vertical-align: -0.1em;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 3px;
+    background: var(--canvas);
+    opacity: 1;
+  }
+
+  .prose-markloom .task-checkbox:checked {
+    border-color: var(--accent-primary);
+    background: var(--accent-primary)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / 80% no-repeat;
+  }
+
+  .prose-markloom li.task-list-item:has(> .task-checkbox:checked),
+  .prose-markloom li.task-list-item:has(> p > .task-checkbox:checked) {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--rule);
+  }
+
+  /* Code blocks name their language, in both views */
+  .prose-markloom pre[data-lang] {
+    position: relative;
+    padding-top: 1.9rem;
+  }
+
+  .prose-markloom pre[data-lang]::before {
+    content: attr(data-lang);
+    position: absolute;
+    top: 0.55rem;
+    right: 0.8rem;
+    font: 500 0.7rem/1 'IBM Plex Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  /* H4 needs to read as a heading, not bold body text */
+  .prose-markloom h4 {
+    font-size: 1.08em;
+    font-weight: 650;
+    letter-spacing: 0.005em;
+  }
+
+  .editor-panel {
+    @apply bg-panel border border-rule rounded-lg overflow-hidden;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+}
+
+/* CodeMirror is themed in src/features/editor/codemirror/theme.ts */
+.cm-editor {
+  height: 100%;
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+/* Mermaid diagram styling */
+.mermaid-container {
+  @apply bg-panel border border-rule rounded-lg p-4 my-6 overflow-auto;
+}
+
+/* An error replaces the diagram rather than sitting in a box inside its box */
+.mermaid-container:has(.mermaid-error) {
+  @apply p-0 border-0 bg-transparent;
+}
+
+/* Images that couldn't be found say so plainly instead of showing a broken icon */
+.missing-image {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.5em 0.8em;
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font: 0.8125rem/1.4 Outfit, system-ui, sans-serif;
+}
+
+.mermaid-container svg {
+  @apply mx-auto;
+}
+
+.mermaid-error {
+  @apply text-sm p-4 rounded-lg border;
+  color: #991B1B;
+  background-color: #FEF2F2;
+  border-color: #FECACA;
+}
+
+.mermaid-error-title {
+  @apply font-medium mb-1;
+  font-family: Outfit, system-ui, sans-serif;
+}
+
+.mermaid-error p {
+  margin: 0;
+}
+
+.mermaid-error-summary {
+  max-width: 72ch;
+  margin: 0;
+  font-family: Outfit, system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.mermaid-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+  font-family: Outfit, system-ui, sans-serif;
+}
+
+.mermaid-error-actions button {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid #FCA5A5;
+  border-radius: 6px;
+  background: #fff;
+  color: #991B1B;
+  font-weight: 500;
+}
+
+.mermaid-error-actions button:hover {
+  background: #FEE2E2;
+}
+
+.mermaid-error-actions summary {
+  padding: 0.25rem 0;
+  cursor: pointer;
+  color: #991B1B;
+}
+
+.mermaid-error-actions details pre {
+  margin-top: 0.4rem;
+  max-height: 12rem;
+  overflow: auto;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--canvas);
+  color: var(--text-primary);
+}
+
+.mermaid-error pre {
+  @apply m-0 p-0 bg-transparent border-0 font-mono text-xs whitespace-pre-wrap;
+  color: inherit;
+}
+
+/* Highlight.js theme - VS Code Light style for light theme */
+.hljs {
+  color: var(--text-primary);
+  background: var(--panel);
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #6A9955;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-addition {
+  color: #AF00DB;
+}
+
+.hljs-number,
+.hljs-string,
+.hljs-meta .hljs-meta-string,
+.hljs-literal,
+.hljs-doctag,
+.hljs-regexp {
+  color: #A31515;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #795E26;
+}
+
+.hljs-attribute,
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-class .hljs-title,
+.hljs-type {
+  color: #267F99;
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-subst,
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-link {
+  color: #001080;
+}
+
+.hljs-built_in,
+.hljs-deletion {
+  color: #0000FF;
+}
+
+.hljs-function .hljs-title,
+.hljs-title.function_ {
+  color: #795E26;
+}
+
+.hljs-params {
+  color: var(--text-secondary);
+}
+
+.hljs-property {
+  color: #001080;
+}
+
+.hljs-operator {
+  color: var(--text-primary);
+}
+
+.hljs-punctuation {
+  color: var(--text-secondary);
+}
+
+
+/* Electron desktop shell: draggable custom title bar */
+.app-drag-region {
+  -webkit-app-region: drag;
+}
+.app-drag-region button,
+.app-drag-region a,
+.app-drag-region input {
+  -webkit-app-region: no-drag;
+}
+
+/* ---------------------------------------------------------------------------
+   Rich-text editor (Milkdown). Inherits the preview's prose styles so the two
+   views read as the same document. */
+.milkdown {
+  outline: none;
+}
+
+.rt-document {
+  max-width: 72ch;
+  margin-inline: auto;
+  min-height: 60vh;
+  padding-bottom: 30vh;
+  outline: none;
+  font-family: Literata, Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.7;
+  caret-color: var(--accent-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.rt-document .ProseMirror-selectednode {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.rt-document img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.rt-document img.is-missing {
+  border-radius: 6px;
+}
+
+.rt-document a {
+  cursor: text;
+}
+
+/* Task items: the checkbox is drawn in the left padding and toggled on click */
+.rt-document li[data-item-type='task'] {
+  list-style: none;
+  position: relative;
+  padding-left: 1.75rem;
+  margin-left: -1.75rem;
+}
+
+.rt-document li[data-item-type='task']::before {
+  content: '';
+  position: absolute;
+  left: 0.15rem;
+  top: 0.45em;
+  width: 0.95em;
+  height: 0.95em;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 3px;
+  background: var(--canvas);
+  cursor: pointer;
+}
+
+.rt-document li[data-item-type='task'][data-checked='true']::before {
+  background: var(--accent-primary)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 80% no-repeat;
+  border-color: var(--accent-primary);
+}
+
+.rt-document li[data-item-type='task'][data-checked='true'] > p {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--rule);
+}
+
+/* Code blocks */
+.rt-code {
+  position: relative;
+}
+
+/* Room for the language label so it never sits on the first line of code */
+.rt-code:has(.rt-code-label:not(:empty)) > pre {
+  padding-top: 1.75rem;
+}
+
+.rt-code-label {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  font: 500 0.7rem/1 'IBM Plex Mono', monospace;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* Mermaid: the diagram is the content; its source opens on demand */
+.rt-mermaid {
+  position: relative;
+  margin: 1.5em 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.rt-mermaid-preview {
+  padding: 1.25rem;
+  overflow-x: auto;
+  user-select: none;
+}
+
+.rt-mermaid-preview svg {
+  display: block;
+  margin-inline: auto;
+  max-width: 100%;
+  height: auto;
+}
+
+.rt-mermaid-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.rt-mermaid > pre {
+  display: none;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0 0 8px 8px;
+}
+
+.rt-mermaid.is-editing > pre {
+  display: block;
+}
+
+.rt-mermaid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--text-muted);
+  font: 500 0.75rem/1.2 Outfit, system-ui, sans-serif;
+  user-select: none;
+}
+
+.rt-mermaid-toggle {
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+}
+
+.rt-mermaid-toggle:hover,
+.rt-mermaid-toggle:focus-visible {
+  border-color: var(--rule);
+  background: var(--canvas);
+  color: var(--text-primary);
+  outline: none;
+}
+
+/* The source line a diagram error points to */
+.rt-diagram-error-line {
+  background: #FEF2F2;
+  text-decoration: underline wavy #DC2626;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+/* Tables from the GFM preset: same open, ruled look as the preview */
+.rt-document table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rt-document td,
+.rt-document th {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.55em 0.75em;
+  vertical-align: top;
+  text-align: left;
+}
+
+.rt-document th {
+  border-bottom-color: #D9DCE1;
+}
+
+.rt-document .selectedCell {
+  background: var(--accent-muted);
+}
+
+/* Respect the system's reduced-motion setting for CSS animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Find matches in the rich-text editor */
+.rt-find-match {
+  background: #FEF3C7;
+  box-shadow: 0 0 0 1px #FCD34D;
+  border-radius: 2px;
+}
+
+.rt-find-match.is-current {
+  background: #FDE68A;
+  box-shadow: 0 0 0 1px #F59E0B;
+}
+
+/* Table cells hold a paragraph in the rich-text editor; keep rows as compact as the preview */
+.rt-document td > p,
+.rt-document th > p {
+  margin: 0;
+}
+
+.rt-document th {
+  font-weight: 600;
+}
+
+/* In a rich-text diagram block, an error takes the diagram's place instead of nesting a card */
+.rt-mermaid-preview:has(.mermaid-error) {
+  padding: 0;
+}
+
+.rt-mermaid-preview .mermaid-error {
+  border: 0;
+  border-radius: 0;
+}
+
+/* ProseMirror's own base rules (its stylesheet isn't bundled by Milkdown's kit). Without
+   them the invisible separator image after inline widgets picks up prose image margins
+   and opens large gaps between lines. */
+.ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0;
+}
+
+.ProseMirror pre {
+  white-space: pre-wrap;
+}
+
+.ProseMirror li {
+  position: relative;
+}
+
+.rt-document img.ProseMirror-separator,
+.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+
+.ProseMirror-hideselection {
+  caret-color: transparent;
+}
+
+.ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
+/* Raw HTML in rich text: comments become a quiet marker (hover to read), other tags
+   show as code-like text. Both are kept in the file exactly as written. */
+.rt-html-comment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25em;
+  height: 1.05em;
+  margin: 0 0.15em;
+  vertical-align: -0.1em;
+  border-radius: 4px;
+  background: var(--wash);
+  color: var(--text-muted);
+  cursor: help;
+  user-select: none;
+}
+
+.rt-html-comment:hover {
+  background: var(--rule);
+  color: var(--text-secondary);
+}
+
+.rt-html-comment svg {
+  width: 0.75em;
+  height: 0.75em;
+}
+
+.rt-html-inline {
+  padding: 0.05em 0.3em;
+  border-radius: 4px;
+  background: var(--wash);
+  color: var(--text-secondary);
+  font: 0.85em 'IBM Plex Mono', monospace;
+}

@@ -1,0 +1,1 @@
+export { WordCountWidget } from './WordCountWidget';

@@ -1,0 +1,1 @@
+export { useSyncScroll } from './useSyncScroll';
