@@ -7,6 +7,30 @@ const { pathToFileURL } = require('url');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 
+// The app's own page: the packaged build, or the dev server while developing
+function isAppUrl(url) {
+  if (url.startsWith('app://markloom/')) return true;
+  if (!DEV_URL) return false;
+  try {
+    return new URL(url).origin === new URL(DEV_URL).origin;
+  } catch {
+    return false;
+  }
+}
+
+// Only the app's page (its top frame) may use the desktop bridge. A frame that navigated away
+// or is gone (`senderFrame` null) is refused.
+function assertFromApp(event) {
+  const frame = event.senderFrame;
+  if (!frame || frame.parent !== null || !isAppUrl(frame.url)) {
+    throw new Error('Markloom refused a request from outside the app');
+  }
+}
+
+function openInBrowser(url) {
+  if (/^(https?|mailto):/.test(url)) shell.openExternal(url);
+}
+
 // Second line of defence behind the renderer's HTML sanitizer: even if markup from a
 // document slipped through, it can't run scripts or send data anywhere.
 const CONTENT_SECURITY_POLICY = [
@@ -45,7 +69,7 @@ function registerAppProtocol() {
   protocol.handle('app', (request) => {
     const { pathname } = new URL(request.url);
     let filePath = path.normalize(path.join(DIST_DIR, decodeURIComponent(pathname)));
-    if (!filePath.startsWith(DIST_DIR) || pathname === '/') {
+    if (!filePath.startsWith(DIST_DIR + path.sep) || pathname === '/') {
       filePath = path.join(DIST_DIR, 'index.html');
     }
     return net.fetch(pathToFileURL(filePath).toString()).then((response) => {
@@ -176,16 +200,19 @@ function openDocuments(files) {
   else pendingFiles.push(...files);
 }
 
-ipcMain.handle('take-pending-files', () => {
+ipcMain.handle('take-pending-files', (event) => {
+  assertFromApp(event);
   rendererReady = true;
   return pendingFiles.splice(0);
 });
 
-ipcMain.handle('read-file', async (_event, filePath) => {
+ipcMain.handle('read-file', async (event, filePath) => {
+  assertFromApp(event);
   return fs.promises.readFile(await assertTrusted(filePath, canRead));
 });
 
-ipcMain.handle('write-file', async (_event, filePath, data) => {
+ipcMain.handle('write-file', async (event, filePath, data) => {
+  assertFromApp(event);
   if (typeof data !== 'string' && !(data instanceof Uint8Array)) throw new Error('Unsupported file contents');
   const target = await assertTrusted(filePath, canWrite);
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
@@ -216,7 +243,8 @@ function getPrintSession() {
   return printSession;
 }
 
-ipcMain.handle('print-pdf', async (_event, html, options = {}) => {
+ipcMain.handle('print-pdf', async (event, html, options = {}) => {
+  assertFromApp(event);
   if (typeof html !== 'string' || html.length > MAX_PRINT_HTML) throw new Error('Nothing printable');
   const secured = html.replace(/<head>/i, `<head>\n<meta http-equiv="Content-Security-Policy" content="${PRINT_CSP}">`);
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'markloom-print-'));
@@ -242,6 +270,45 @@ ipcMain.handle('print-pdf', async (_event, html, options = {}) => {
     fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 });
+
+// ---------------------------------------------------------------------------
+// window.open from the page. Linked local files arrive as blob: URLs of the app's page (the
+// renderer opens only images, PDFs and plain text). Their windows get no preload and no
+// JavaScript, except PDFs, whose viewer needs scripts; the renderer tags those `#pdf`.
+
+function handleWindowOpen({ url }) {
+  if (url.startsWith('blob:') && isAppUrl(url.slice('blob:'.length))) {
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        webPreferences: {
+          preload: undefined,
+          javascript: url.endsWith('#pdf'),
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+      },
+    };
+  }
+  // External links open in the user's default browser instead of a new Electron window
+  openInBrowser(url);
+  return { action: 'deny' };
+}
+
+// A linked file's window stays on that file: its links (a PDF's, say) open in the browser.
+// Its first load, started by the app's page, also comes through will-navigate.
+function guardLinkedFileWindow(child, { url: fileUrl }) {
+  child.webContents.on('will-navigate', (event, url) => {
+    if (url === fileUrl) return;
+    event.preventDefault();
+    openInBrowser(url);
+  });
+  child.webContents.setWindowOpenHandler(({ url }) => {
+    openInBrowser(url);
+    return { action: 'deny' };
+  });
+}
 
 // ---------------------------------------------------------------------------
 
@@ -329,19 +396,14 @@ function createWindow() {
 
   // The app never navigates its own window; links open in a tab, a new window, or the browser.
   win.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('app://markloom/') && !(DEV_URL && url.startsWith(DEV_URL))) {
+    if (!isAppUrl(url)) {
       event.preventDefault();
-      if (/^(https?|mailto):/.test(url)) shell.openExternal(url);
+      openInBrowser(url);
     }
   });
 
-  // Open external links in the user's default browser instead of a new Electron window.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    // Linked local files (PDFs, images) are passed as blob URLs: show them in an app window
-    if (url.startsWith('blob:')) return { action: 'allow' };
-    if (/^(https?|mailto):/.test(url)) shell.openExternal(url);
-    return { action: 'deny' };
-  });
+  win.webContents.setWindowOpenHandler(handleWindowOpen);
+  win.webContents.on('did-create-window', guardLinkedFileWindow);
 
   // A reload starts a fresh page that must ask for pending files again
   win.webContents.on('did-start-loading', () => {
