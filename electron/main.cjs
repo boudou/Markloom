@@ -196,24 +196,50 @@ ipcMain.handle('write-file', async (_event, filePath, data) => {
 // PDF export: Chromium's own print engine gives selectable vector text and real page
 // breaks. The HTML arrives already rendered (diagrams as SVG), so scripts stay off.
 
+// The page being printed comes from a document, so it gets no way to reach local files: its
+// own session lets through only the page itself, embedded data and web images (an <iframe>
+// of file:///…/id_rsa would otherwise end up in the PDF), and a CSP says the same in the page.
+const PRINT_CSP = "default-src 'none'; img-src data: https: http:; font-src data:; style-src 'unsafe-inline'";
+const MAX_PRINT_HTML = 256 * 1024 * 1024;
+const PAGE_SIZES = new Set(['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid']);
+const printablePages = new Set();
+let printSession;
+
+function getPrintSession() {
+  if (!printSession) {
+    printSession = session.fromPartition('markloom-print');
+    printSession.webRequest.onBeforeRequest(({ url }, callback) => {
+      const allowed = printablePages.has(url) || /^(data|https?):/.test(url);
+      callback({ cancel: !allowed });
+    });
+  }
+  return printSession;
+}
+
 ipcMain.handle('print-pdf', async (_event, html, options = {}) => {
-  const tempFile = path.join(os.tmpdir(), `markloom-print-${Date.now()}.html`);
-  await fs.promises.writeFile(tempFile, html, 'utf8');
+  if (typeof html !== 'string' || html.length > MAX_PRINT_HTML) throw new Error('Nothing printable');
+  const secured = html.replace(/<head>/i, `<head>\n<meta http-equiv="Content-Security-Policy" content="${PRINT_CSP}">`);
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'markloom-print-'));
+  const tempFile = path.join(tempDir, 'document.html');
+  const pageUrl = pathToFileURL(tempFile).href;
+  await fs.promises.writeFile(tempFile, secured, 'utf8');
+  printablePages.add(pageUrl);
   const printer = new BrowserWindow({
     show: false,
-    webPreferences: { javascript: false, sandbox: true, contextIsolation: true },
+    webPreferences: { javascript: false, sandbox: true, contextIsolation: true, session: getPrintSession() },
   });
   try {
-    await printer.loadFile(tempFile);
+    await printer.loadURL(pageUrl);
     return await printer.webContents.printToPDF({
-      pageSize: options.pageSize || 'A4',
-      landscape: options.landscape === true,
+      pageSize: PAGE_SIZES.has(options?.pageSize) ? options.pageSize : 'A4',
+      landscape: options?.landscape === true,
       printBackground: true,
       margins: { marginType: 'custom', top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 },
     });
   } finally {
+    printablePages.delete(pageUrl);
     printer.destroy();
-    fs.promises.unlink(tempFile).catch(() => {});
+    fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 });
 
