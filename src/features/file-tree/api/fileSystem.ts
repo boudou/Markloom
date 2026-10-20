@@ -113,11 +113,13 @@ export async function saveFileDialog(
   }
 }
 
-// Read directory contents
+/**
+ * Lists a directory. Subdirectories come back with `children` undefined (not loaded yet).
+ * Throws when no folder is open or the directory can't be read, so a failure never looks like an empty folder.
+ */
 export async function readDirectory(path: string): Promise<FileNode[]> {
   if (!rootDirectoryHandle) {
-    console.log('No root directory handle');
-    return [];
+    throw new Error('No folder is open');
   }
 
   try {
@@ -137,8 +139,7 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
         // Navigate to the directory
         const resolvedHandle = await getDirectoryHandle(path);
         if (!resolvedHandle) {
-          console.log('Could not get handle for path:', path);
-          return [];
+          throw new Error(`Folder not found: ${path}`);
         }
         handle = resolvedHandle;
         handleCache.set(path, handle);
@@ -160,7 +161,6 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
         name: entry.name,
         path: childPath,
         isDirectory: entry.kind === 'directory',
-        children: entry.kind === 'directory' ? [] : undefined,
       });
     }
 
@@ -175,7 +175,9 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
     return nodes;
   } catch (error) {
     console.error('Error reading directory:', error);
-    return [];
+    // A cached handle may point at a folder that was deleted or replaced: re-resolve from the root next time
+    handleCache.delete(path);
+    throw error;
   }
 }
 

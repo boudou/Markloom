@@ -1,6 +1,7 @@
 // Document-level actions shared by the title bar, keyboard shortcuts and empty states.
 import { useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
+import { useFileTreeStore } from '@/features/file-tree/stores/fileTreeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { notify, useUiStore } from '@/stores/uiStore';
 import {
@@ -34,6 +35,8 @@ export async function openFile(): Promise<void> {
 export async function openFolder(): Promise<void> {
   const path = await openFolderDialog();
   if (!path) return;
+  // rootPath is the folder's name: drop the old tree so a folder with the same name is read too
+  useFileTreeStore.getState().setNodes([], null);
   const app = useAppStore.getState();
   app.setRootPath(path);
   app.showSidebarView('files');

@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { cn, isMarkdownFile, isMermaidFile } from '@/lib/utils';
@@ -20,25 +20,39 @@ export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: Tr
   const toggleExpanded = useFileTreeStore((s) => s.toggleExpanded);
   const setSelected = useFileTreeStore((s) => s.setSelected);
   const updateNode = useFileTreeStore((s) => s.updateNode);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleClick = useCallback(async () => {
-    if (node.isDirectory) {
-      // Always toggle first
-      toggleExpanded(node.path);
+  // An expanded folder that isn't loaded (and hasn't failed) is loading: the read ends by setting children or loadError
+  const isLoading = node.isDirectory && isExpanded && node.children === undefined && node.loadError === undefined;
 
-      // Load children if not loaded yet and we're expanding
-      const willBeExpanded = !isExpanded;
-      if (willBeExpanded && (!node.children || node.children.length === 0)) {
-        setIsLoading(true);
-        try {
-          const children = await readDirectory(node.path);
-          updateNode(node.path, { children });
-        } catch (error) {
-          console.error('Failed to load directory:', error);
-        }
-        setIsLoading(false);
+  // Loads on the click that expands a folder, after Refresh replaces the nodes, and for expanded folders
+  // nested inside it once it renders them
+  useEffect(() => {
+    if (!isLoading) return;
+
+    // Dropped after cleanup: collapse or Refresh while loading, or the StrictMode double mount
+    let cancelled = false;
+    readDirectory(node.path).then(
+      (children) => {
+        if (!cancelled) updateNode(node.path, { children });
+      },
+      (error) => {
+        if (!cancelled) updateNode(node.path, { loadError: error instanceof Error ? error.message : String(error) });
       }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, node.path, updateNode]);
+
+  const handleClick = useCallback(() => {
+    if (node.isDirectory) {
+      // Expanding a folder that failed to read clears the error, so the effect tries again
+      if (!isExpanded && node.loadError !== undefined) {
+        updateNode(node.path, { loadError: undefined });
+      }
+
+      toggleExpanded(node.path);
     } else {
       setSelected(node.path);
       if (isMarkdownFile(node.name) || isMermaidFile(node.name)) {
@@ -119,25 +133,47 @@ export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: Tr
         )}
       </AnimatePresence>
 
-      {/* Empty folder message */}
+      {/* Empty folder or read failure */}
       <AnimatePresence>
-        {node.isDirectory && isExpanded && node.children && node.children.length === 0 && !isLoading && (
-          <m.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="overflow-hidden"
-          >
-            <div
-              className="text-xs text-text-muted italic py-1"
-              style={{ paddingLeft: `${(depth + 1) * 12 + 8 + 20}px` }}
-            >
-              Empty folder
-            </div>
-          </m.div>
+        {node.isDirectory && isExpanded && node.children && node.children.length === 0 && (
+          <FolderNote key="empty" depth={depth} className="text-text-muted italic">
+            Empty folder
+          </FolderNote>
+        )}
+        {node.isDirectory && isExpanded && node.loadError !== undefined && (
+          <FolderNote key="error" depth={depth} className="text-error" title={node.loadError}>
+            Couldn't read this folder
+          </FolderNote>
         )}
       </AnimatePresence>
     </div>
   );
 });
+
+interface FolderNoteProps {
+  depth: number;
+  className: string;
+  title?: string;
+  children: string;
+}
+
+/** A one-line note inside an expanded folder, indented like its entries */
+function FolderNote({ depth, className, title, children }: FolderNoteProps) {
+  return (
+    <m.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="overflow-hidden"
+    >
+      <div
+        className={cn('text-xs py-1', className)}
+        style={{ paddingLeft: `${(depth + 1) * 12 + 8 + 20}px` }}
+        title={title}
+      >
+        {children}
+      </div>
+    </m.div>
+  );
+}
