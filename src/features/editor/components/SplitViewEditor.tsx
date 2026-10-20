@@ -17,7 +17,8 @@ import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
 import { markdownKeymap, runMarkdownAction, insertSnippet } from '../codemirror/commands';
 import { diagramErrorLines, diagramErrorTheme, setDiagramErrorLines } from '../codemirror/diagramErrors';
 import type { EditorCommands, FormatState } from '../types';
-import { formatStateReporter } from '../codemirror/formatState';
+import { formatStateReporter, selectionReporter } from '../codemirror/formatState';
+import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
 
 interface SplitViewEditorProps {
@@ -57,10 +58,14 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       findHighlights,
       diagramErrorTheme,
       formatStateReporter(onFormatState),
+      selectionReporter(setSelectedText),
       ...(editorSettings.wordWrap ? [EditorView.lineWrapping] : []),
     ],
     [editorSettings.wordWrap, onFormatState]
   );
+
+  // A selection in this editor means nothing once it is gone (mode or tab switch)
+  useEffect(() => () => setSelectedText(''), []);
 
   // Expose formatting commands to the shared toolbar
   useEffect(() => {

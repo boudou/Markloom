@@ -1,13 +1,30 @@
-import { useState } from 'react';
-import { Clock, FileText, Type, AlignLeft, BookOpen, Mic } from 'lucide-react';
-import { Modal } from '@/components/ui';
+import { useMemo, useState } from 'react';
+import { Clock, FileText, Type, AlignLeft, BookOpen, Mic, Target, Check } from 'lucide-react';
+import { Button, Input, Modal } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { useTabsStore } from '@/features/tabs';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useWordCount } from '../hooks';
-import { formatReadingTime, formatNumber } from '../utils';
+import { useSelectedText } from '../stores/selection';
+import { calculateTextStats, formatReadingTime, formatNumber } from '../utils';
+
+const plural = (n: number, word: string) => `${formatNumber(n)} ${n === 1 ? word : `${word}s`}`;
+
+/** The key a document's word goal is stored under: its path, or its tab while unsaved */
+function useGoalKey(): string | null {
+  return useTabsStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return tab ? (tab.path ?? tab.id) : null;
+  });
+}
 
 export function WordCountWidget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const stats = useWordCount();
+  const selectedText = useSelectedText((s) => s.text);
+  const selection = useMemo(() => (selectedText ? calculateTextStats(selectedText) : null), [selectedText]);
+  const goalKey = useGoalKey();
+  const goal = useSettingsStore((s) => (goalKey ? s.wordGoals[goalKey] : undefined));
 
   return (
     <>
@@ -27,10 +44,16 @@ export function WordCountWidget() {
             <span>{formatReadingTime(stats.readingTime)} read</span>
           </span>
         )}
-        <span>
-          {formatNumber(stats.words)} {stats.words === 1 ? 'word' : 'words'}
-        </span>
-        <span>{formatNumber(stats.characters)} characters</span>
+        {selection && selection.characters > 0 ? (
+          <span className="text-text-secondary">
+            {plural(selection.words, 'word')}, {plural(selection.characters, 'character')} selected
+          </span>
+        ) : (
+          <>
+            {goal ? <GoalProgress words={stats.words} goal={goal} /> : <span>{plural(stats.words, 'word')}</span>}
+            <span>{plural(stats.characters, 'character')}</span>
+          </>
+        )}
       </button>
 
       <Modal
@@ -38,6 +61,7 @@ export function WordCountWidget() {
         onOpenChange={setIsModalOpen}
         title="Document statistics"
       >
+        {goalKey && <GoalSetting goalKey={goalKey} goal={goal} words={stats.words} />}
         <div className="grid grid-cols-2 gap-4">
           <StatCard
             icon={Type}
@@ -81,6 +105,78 @@ export function WordCountWidget() {
         </div>
       </Modal>
     </>
+  );
+}
+
+function GoalProgress({ words, goal }: { words: number; goal: number }) {
+  const done = words >= goal;
+  return (
+    <span className={cn('flex items-center gap-1.5', done && 'text-[#15803D]')}>
+      <span aria-hidden className="relative w-12 h-1 rounded-full bg-rule overflow-hidden">
+        <span
+          className={cn(
+            'absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]',
+            done ? 'bg-[#15803D]' : 'bg-accent-primary'
+          )}
+          style={{ width: `${Math.min(100, (words / goal) * 100)}%` }}
+        />
+      </span>
+      {done && <Check className="w-3 h-3" aria-hidden />}
+      <span>
+        {formatNumber(words)} / {plural(goal, 'word')}
+      </span>
+    </span>
+  );
+}
+
+// A word goal for the open document; saved with the settings
+function GoalSetting({ goalKey, goal, words }: { goalKey: string; goal: number | undefined; words: number }) {
+  const setWordGoal = useSettingsStore((s) => s.setWordGoal);
+  const [draft, setDraft] = useState(goal ? String(goal) : '');
+  const value = Number(draft);
+  const valid = Number.isInteger(value) && value > 0;
+
+  return (
+    <form
+      className="mb-5 flex items-end gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) setWordGoal(goalKey, value);
+      }}
+    >
+      <div className="flex-1">
+        <Input
+          id="word-goal"
+          label="Word goal for this document"
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          placeholder="e.g. 1000"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          hint={goal ? `${formatNumber(Math.max(0, goal - words))} to go` : 'The status bar shows your progress'}
+        />
+      </div>
+      <div className="flex gap-2 mb-6">
+        <Button type="submit" variant="secondary" disabled={!valid || value === goal}>
+          <Target className="w-4 h-4" />
+          Set goal
+        </Button>
+        {goal && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setWordGoal(goalKey, null);
+              setDraft('');
+            }}
+          >
+            Remove
+          </Button>
+        )}
+      </div>
+    </form>
   );
 }
 

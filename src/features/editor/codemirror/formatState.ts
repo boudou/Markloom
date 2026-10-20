@@ -33,6 +33,20 @@ export function sourceFormatState(state: EditorState): FormatState {
 }
 
 /** Calls `report` whenever the format at the cursor changes. */
+/** Reports the selected text (all ranges, one per line) for the selection count */
+export function selectionReporter(report: (text: string) => void) {
+  return EditorView.updateListener.of((update) => {
+    if (!update.selectionSet && !update.docChanged) return;
+    const { state } = update;
+    report(
+      state.selection.ranges
+        .filter((range) => !range.empty)
+        .map((range) => state.sliceDoc(range.from, range.to))
+        .join('\n')
+    );
+  });
+}
+
 export function formatStateReporter(report: (state: FormatState) => void) {
   let last = EMPTY_FORMAT_STATE;
   return EditorView.updateListener.of((update) => {

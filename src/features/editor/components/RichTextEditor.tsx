@@ -41,6 +41,7 @@ import { preserveUnchangedBlocks } from '../milkdown/preserve';
 import { StartPanel } from './StartPanel';
 import { EMPTY_FORMAT_STATE, sameFormatState, type EditorCommands, type FormatState, type MarkdownAction } from '../types';
 import { richFormatState } from '../milkdown/formatState';
+import { setSelectedText } from '@/features/word-count';
 
 interface RichTextEditorProps {
   tabId: string;
@@ -113,7 +114,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
         .use(taskToggle)
         .use(searchPlugin)
         .use(
-          // Tell the toolbar what applies at the cursor
+          // Tell the toolbar what applies at the cursor, and the status bar what is selected
           $prose(() => {
             let last = EMPTY_FORMAT_STATE;
             return new Plugin({
@@ -124,7 +125,10 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
                     last = next;
                     reportFormat.current(next);
                   }
+                  const { from, to, empty } = view.state.selection;
+                  setSelectedText(empty ? '' : view.state.doc.textBetween(from, to, '\n', ' '));
                 },
+                destroy: () => setSelectedText(''),
               }),
             });
           })
