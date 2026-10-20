@@ -5,7 +5,7 @@ import { $prose, $view } from '@milkdown/kit/utils';
 import { codeBlockSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
-import { Decoration, DecorationSet, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
+import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
 import { readFileBlob } from '@/features/file-tree/api/fileSystem';
@@ -329,80 +329,98 @@ class ImageView implements NodeView {
 export const imageView = $view(imageSchema.node, () => (node) => new ImageView(node));
 
 // ---------------------------------------------------------------------------
+// Decorations that depend only on the document. ProseMirror reads a `decorations` prop on
+// every state update, cursor moves included; these are built when the document changes and
+// reused otherwise.
+
+function documentDecorations(
+  name: string,
+  build: (doc: ProseNode) => Decoration[],
+  props: EditorProps<Plugin<DecorationSet>> = {}
+): Plugin<DecorationSet> {
+  const key = new PluginKey<DecorationSet>(name);
+
+  return new Plugin<DecorationSet>({
+    key,
+    state: {
+      init: (_config, state) => DecorationSet.create(state.doc, build(state.doc)),
+      apply: (tr, set) => (tr.docChanged ? DecorationSet.create(tr.doc, build(tr.doc)) : set),
+    },
+    props: { ...props, decorations: (state) => key.getState(state) },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Task lists: clicking the checkbox area of a task item toggles it.
 
-export const taskToggle = $prose(
-  () =>
-    new Plugin({
-      props: {
-        // The checkbox is drawn with CSS; give screen readers its state as text
-        decorations(state) {
-          const widgets: Decoration[] = [];
-          state.doc.descendants((node, pos) => {
-            if (node.type.name !== 'list_item' || node.attrs.checked == null) return true;
-            const label = node.attrs.checked ? 'Done, ' : 'Not done, ';
-            widgets.push(
-              Decoration.widget(
-                pos + 2,
-                () => {
-                  const span = document.createElement('span');
-                  span.className = 'sr-only';
-                  span.textContent = label;
-                  return span;
-                },
-                { side: -1, ignoreSelection: true, key: label }
-              )
-            );
-            return true;
-          });
-          return DecorationSet.create(state.doc, widgets);
+// The checkbox is drawn with CSS; give screen readers its state as text
+function taskLabels(doc: ProseNode): Decoration[] {
+  const widgets: Decoration[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name !== 'list_item' || node.attrs.checked == null) return true;
+    const label = node.attrs.checked ? 'Done, ' : 'Not done, ';
+    widgets.push(
+      Decoration.widget(
+        pos + 2,
+        () => {
+          const span = document.createElement('span');
+          span.className = 'sr-only';
+          span.textContent = label;
+          return span;
         },
-        // Keyboard: Ctrl/Cmd+Enter ticks the task item at the cursor
-        handleKeyDown(view: EditorView, event: KeyboardEvent) {
-          if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return false;
-          const { $from } = view.state.selection;
-          for (let depth = $from.depth; depth > 0; depth--) {
-            const node = $from.node(depth);
-            if (node.type.name !== 'list_item') continue;
-            if (node.attrs.checked == null) return false;
-            view.dispatch(view.state.tr.setNodeMarkup($from.before(depth), undefined, { ...node.attrs, checked: !node.attrs.checked }));
-            return true;
-          }
-          return false;
-        },
-        handleClickOn(view: EditorView, _pos, node, nodePos, event, direct) {
-          if (!direct || node.type.name !== 'list_item' || node.attrs.checked == null) return false;
-          const target = event.target as HTMLElement;
-          const box = target.getBoundingClientRect();
-          // The checkbox is drawn in the item's left padding
-          if (event.clientX - box.left > 24) return false;
-          view.dispatch(
-            view.state.tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, checked: !node.attrs.checked })
-          );
-          return true;
-        },
-      },
-    })
+        { side: -1, ignoreSelection: true, key: label }
+      )
+    );
+    return true;
+  });
+
+  return widgets;
+}
+
+export const taskToggle = $prose(() =>
+  documentDecorations('markloom-task-labels', taskLabels, {
+    // Keyboard: Ctrl/Cmd+Enter ticks the task item at the cursor
+    handleKeyDown(view: EditorView, event: KeyboardEvent) {
+      if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return false;
+      const { $from } = view.state.selection;
+      for (let depth = $from.depth; depth > 0; depth--) {
+        const node = $from.node(depth);
+        if (node.type.name !== 'list_item') continue;
+        if (node.attrs.checked == null) return false;
+        view.dispatch(view.state.tr.setNodeMarkup($from.before(depth), undefined, { ...node.attrs, checked: !node.attrs.checked }));
+        return true;
+      }
+      return false;
+    },
+    handleClickOn(view: EditorView, _pos, node, nodePos, event, direct) {
+      if (!direct || node.type.name !== 'list_item' || node.attrs.checked == null) return false;
+      // SAFETY: a click ProseMirror routes to a node landed on that node's rendered HTML element
+      const target = event.target as HTMLElement;
+      const box = target.getBoundingClientRect();
+      // The checkbox is drawn in the item's left padding
+      if (event.clientX - box.left > 24) return false;
+      view.dispatch(
+        view.state.tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, checked: !node.attrs.checked })
+      );
+      return true;
+    },
+  })
 );
 
 // Inline code: no spell-check squiggles on identifiers
-export const inlineCodeSpellcheck = $prose(
-  () =>
-    new Plugin({
-      props: {
-        decorations(state) {
-          const decorations: Decoration[] = [];
-          state.doc.descendants((node, pos) => {
-            if (node.isText && node.marks.some((m) => m.type.name === 'inlineCode')) {
-              decorations.push(Decoration.inline(pos, pos + node.nodeSize, { spellcheck: 'false' }));
-            }
-            return true;
-          });
-          return DecorationSet.create(state.doc, decorations);
-        },
-      },
-    })
-);
+function inlineCodeRanges(doc: ProseNode): Decoration[] {
+  const decorations: Decoration[] = [];
+  doc.descendants((node, pos) => {
+    if (node.isText && node.marks.some((m) => m.type.name === 'inlineCode')) {
+      decorations.push(Decoration.inline(pos, pos + node.nodeSize, { spellcheck: 'false' }));
+    }
+    return true;
+  });
+
+  return decorations;
+}
+
+export const inlineCodeSpellcheck = $prose(() => documentDecorations('markloom-inline-code-spellcheck', inlineCodeRanges));
 
 // ---------------------------------------------------------------------------
 // Raw HTML (inline): comments are metadata for tools and people reading the source, so

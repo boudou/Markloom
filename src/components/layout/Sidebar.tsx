@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { m } from 'framer-motion';
 import { FolderTree, ListTree } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useResizeDrag } from '@/lib/useResizeDrag';
 import { useAppStore, type SidebarView } from '@/stores/appStore';
 import { FileTree } from '@/features/file-tree/components';
 import { OutlineDock } from '@/features/outline';
@@ -23,39 +24,20 @@ export function Sidebar() {
   const sidebarWidth = useAppStore((s) => s.sidebarWidth);
   const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
   const asideRef = useRef<HTMLElement>(null);
-  const [resizing, setResizing] = useState(false);
 
   // A collapsed panel must not be reachable by keyboard (React 18 has no `inert` prop)
   useEffect(() => {
     asideRef.current?.toggleAttribute('inert', !open);
   }, [open]);
 
-  // Pointer capture keeps the drag alive even when the pointer races ahead of the handle
-  // (the editor, the desktop title bar region or an iframe would otherwise swallow moves)
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const handle = e.currentTarget;
-    handle.setPointerCapture(e.pointerId);
-    const left = asideRef.current?.getBoundingClientRect().left ?? 0;
-    setResizing(true);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    const move = (ev: PointerEvent) => setSidebarWidth(ev.clientX - left);
-    const up = (ev: PointerEvent) => {
-      handle.releasePointerCapture(ev.pointerId);
-      handle.removeEventListener('pointermove', move);
-      handle.removeEventListener('pointerup', up);
-      handle.removeEventListener('pointercancel', up);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      setResizing(false);
-    };
-    handle.addEventListener('pointermove', move);
-    handle.addEventListener('pointerup', up);
-    handle.addEventListener('pointercancel', up);
-  };
+  const drag = useResizeDrag({
+    stored: sidebarWidth,
+    min: MIN_WIDTH,
+    max: MAX_WIDTH,
+    anchorRef: asideRef,
+    toValue: (x, rect) => x - rect.left,
+    commit: setSidebarWidth,
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const step = e.shiftKey ? 40 : 10;
@@ -72,12 +54,12 @@ export function Sidebar() {
       ref={asideRef}
       aria-label="Sidebar"
       initial={false}
-      animate={{ width: open ? sidebarWidth : 0 }}
+      animate={{ width: open ? drag.value : 0 }}
       // Follow the pointer exactly while dragging; animate only open/close
-      transition={resizing ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      transition={drag.dragging ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className={cn('relative h-full flex-shrink-0 overflow-hidden bg-panel', open && 'border-r border-rule')}
     >
-      <div className="h-full flex flex-col overflow-hidden" style={{ width: sidebarWidth }}>
+      <div className="h-full flex flex-col overflow-hidden" style={{ width: drag.value }}>
         <div role="tablist" aria-label="Sidebar view" className="flex items-center gap-1 h-10 px-2 border-b border-rule flex-shrink-0">
           {VIEWS.map(({ id, label, icon: Icon }) => {
             const selected = view === id;
@@ -112,11 +94,11 @@ export function Sidebar() {
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize sidebar"
-          aria-valuenow={sidebarWidth}
+          aria-valuenow={drag.value}
           aria-valuemin={MIN_WIDTH}
           aria-valuemax={MAX_WIDTH}
           tabIndex={0}
-          onPointerDown={handlePointerDown}
+          onPointerDown={drag.onPointerDown}
           onDoubleClick={() => setSidebarWidth(280)}
           onKeyDown={handleKeyDown}
           className={cn(
@@ -128,7 +110,7 @@ export function Sidebar() {
             aria-hidden
             className={cn(
               'w-0.5 h-full transition-colors',
-              resizing ? 'bg-accent-primary' : 'bg-transparent group-hover:bg-accent-primary/60 group-focus-visible:bg-accent-primary'
+              drag.dragging ? 'bg-accent-primary' : 'bg-transparent group-hover:bg-accent-primary/60 group-focus-visible:bg-accent-primary'
             )}
           />
         </div>
