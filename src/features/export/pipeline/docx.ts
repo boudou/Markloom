@@ -21,7 +21,7 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import type MarkdownIt from 'markdown-it';
-import { getMarkdownParser } from '@/lib/markdown';
+import { getMarkdownParser, isMermaidFence } from '@/lib/markdown';
 import { CALLOUT_COLORS, CALLOUT_LABELS, type CalloutKind } from '@/lib/callouts';
 import { loadDocumentImage, renderDiagram, svgDataUrl, toPngBytes, type ExportImage } from './assets';
 import type { ExportRequest } from './exporters';
@@ -339,7 +339,7 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         break;
       case 'fence':
       case 'code_block':
-        if (token.type === 'fence' && token.info.trim().split(/\s+/)[0] === 'mermaid') {
+        if (token.type === 'fence' && isMermaidFence(token.info)) {
           blocks.push(await diagramParagraph(token.content.trim()));
         } else {
           blocks.push(codeParagraph(token.content));
