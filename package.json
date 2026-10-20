@@ -19,8 +19,7 @@
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite --port 1420 --strictPort\" \"wait-on tcp:1420 && cross-env VITE_DEV_SERVER_URL=http://localhost:1420 electron .\"",
     "electron:start": "npm run build && electron .",
-    "electron:build": "npm run build && electron-builder",
-    "icon": "electron scripts/make-icon.cjs"
+    "electron:build": "npm run build && electron-builder"
   },
   "devDependencies": {
     "@codemirror/commands": "6.10.2",

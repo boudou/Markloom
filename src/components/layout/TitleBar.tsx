@@ -73,7 +73,7 @@ export function TitleBar() {
         </Tooltip>
 
         <div className="flex items-center gap-1.5 px-2">
-          <MarkloomMark className="w-4 h-4 text-accent-primary" />
+          <MarkloomMark className="w-5 h-5" />
           <span className="font-display text-sm font-semibold text-text-primary">Markloom</span>
         </div>
 
