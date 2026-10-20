@@ -2,6 +2,7 @@ import { saveAs } from 'file-saver';
 import { getMarkdownParser } from '@/lib/markdown';
 import { buildStandaloneHtml, renderExportBody } from './html';
 import { loadDocumentImage, renderDiagram, svgDataUrl } from './assets';
+import { placedInlines } from './inlineLines';
 
 export interface ExportRequest {
   markdown: string;
@@ -46,13 +47,44 @@ export async function exportHtml(request: ExportRequest): Promise<void> {
   saveAs(new Blob([html], { type: 'text/html;charset=utf-8' }), `${request.title}.html`);
 }
 
+const IMAGE_SYNTAX = /!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(\s+"[^"]*")?\)/g;
+
 /**
- * A single portable .md file: diagrams become embedded SVG images and local images
+ * A single portable Markdown text: diagrams become embedded SVG images and local images
  * are embedded too, so it reads the same anywhere it's opened.
  */
-export async function exportMarkdown(request: ExportRequest): Promise<void> {
+export async function portableMarkdown(request: ExportRequest): Promise<string> {
+  const md = getMarkdownParser();
+  const tokens = md.parse(request.markdown, {});
   const lines = request.markdown.split('\n');
-  const tokens = getMarkdownParser().parse(request.markdown, {});
+
+  // Embed images first, while line numbers are the original ones. Only the lines of inline
+  // text that markdown-it parsed as images are touched, so code blocks keep their examples.
+  // Bottom-up, and a data URL has no line break, so every token's lines stay valid.
+  for (const { token, lines: [start, end] } of placedInlines(tokens).reverse()) {
+    const wanted = new Set(
+      (token.children ?? []).flatMap((child) => (child.type === 'image' ? [child.attrGet('src') ?? ''] : []))
+    );
+    if (wanted.size === 0) continue;
+
+    let text = lines.slice(start, end).join('\n');
+    for (const match of [...text.matchAll(IMAGE_SYNTAX)].reverse()) {
+      const rawSrc = match[2].replace(/^<|>$/g, '');
+      if (/^(data|https?):/i.test(rawSrc)) continue;
+
+      // markdown-it keeps the normalized form, which is also what Word and HTML export load
+      const src = md.normalizeLink(rawSrc);
+      if (!wanted.has(src)) continue;
+
+      const image = await loadDocumentImage(src, request.docPath);
+      if (!image) continue;
+
+      const replacement = `![${match[1]}](${image.dataUrl}${match[3] ?? ''})`;
+      text = text.slice(0, match.index) + replacement + text.slice(match.index + match[0].length);
+    }
+
+    lines.splice(start, end - start, ...text.split('\n'));
+  }
 
   // Replace each Mermaid fence (bottom-up so line numbers stay valid)
   const fences = tokens.filter((t) => t.type === 'fence' && t.info.trim() === 'mermaid' && t.map);
@@ -66,17 +98,10 @@ export async function exportMarkdown(request: ExportRequest): Promise<void> {
     }
   }
 
-  // Embed images referenced by relative path
-  let text = lines.join('\n');
-  const images = [...text.matchAll(/!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(\s+"[^"]*")?\)/g)];
-  for (const match of images.reverse()) {
-    const src = match[2].replace(/^<|>$/g, '');
-    if (/^(data|https?):/i.test(src)) continue;
-    const image = await loadDocumentImage(src, request.docPath);
-    if (!image) continue;
-    const replacement = `![${match[1]}](${image.dataUrl}${match[3] ?? ''})`;
-    text = text.slice(0, match.index!) + replacement + text.slice(match.index! + match[0].length);
-  }
+  return lines.join('\n');
+}
 
+export async function exportMarkdown(request: ExportRequest): Promise<void> {
+  const text = await portableMarkdown(request);
   saveAs(new Blob([text], { type: 'text/markdown;charset=utf-8' }), `${request.title}.md`);
 }

@@ -9,7 +9,7 @@ import { Decoration, DecorationSet, type EditorView, type NodeView } from '@milk
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
 import { readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveRelativePath } from '../hooks/useDocumentLinks';
+import { resolveSourcePath } from '../hooks/useDocumentLinks';
 import { useTabsStore } from '@/features/tabs';
 import { getMarkdownParser } from '@/lib/markdown';
 
@@ -26,7 +26,7 @@ function activeDocumentPath(): string | null {
 async function resolveImageSrc(src: string): Promise<string> {
   const docPath = activeDocumentPath();
   if (!src || ABSOLUTE_URL.test(src) || !docPath || docPath.startsWith('file://')) return src;
-  const path = resolveRelativePath(docPath, decodeURIComponent(src.split(/[?#]/)[0]));
+  const path = resolveSourcePath(docPath, src);
   const cached = imageUrlCache.get(path);
   if (cached) return cached;
   const url = URL.createObjectURL(await readFileBlob(path));

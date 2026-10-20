@@ -3,7 +3,8 @@ import { getMarkdownParser } from '@/lib/markdown';
 import { diagramSyntaxError } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError } from '@/features/mermaid/utils/errors';
 import { readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveRelativePath } from '@/features/editor/hooks/useDocumentLinks';
+import { resolveSourcePath, safeDecode } from '@/features/editor/hooks/useDocumentLinks';
+import { placedInlines } from './inlineLines';
 
 export interface ExportIssue {
   kind: 'diagram' | 'image';
@@ -37,28 +38,32 @@ export async function checkDocument(markdown: string, docPath: string | null): P
         })
       );
     }
+  }
 
-    if (token.type !== 'inline' || !token.map) continue;
-    const line = token.map[0] + 1;
+  for (const { token, lines } of placedInlines(tokens)) {
+    const line = lines[0] + 1;
     for (const child of token.children ?? []) {
       if (child.type !== 'image') continue;
       const src = child.attrGet('src') ?? '';
       if (!src || ABSOLUTE_URL.test(src)) continue;
+
+      // markdown-it stores the source percent-encoded; show it as the user typed it
+      const typed = safeDecode(src);
       if (!docPath || docPath.startsWith('file://')) {
         checks.push(
           Promise.resolve({
             kind: 'image',
             line,
-            message: `“${src}” can’t be included: open the document from its folder so Markloom can read it.`,
+            message: `“${typed}” can’t be included: open the document from its folder so Markloom can read it.`,
           })
         );
         continue;
       }
-      const path = resolveRelativePath(docPath, decodeURIComponent(src.split(/[?#]/)[0]));
+
       checks.push(
-        readFileBlob(path).then(
+        readFileBlob(resolveSourcePath(docPath, src)).then(
           () => null,
-          () => ({ kind: 'image', line, message: `Image not found: ${src}` })
+          () => ({ kind: 'image', line, message: `Image not found: ${typed}` })
         )
       );
     }

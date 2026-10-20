@@ -1,6 +1,6 @@
 // Images and diagrams for exports, resolved to self-contained data.
 import { readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveRelativePath } from '@/features/editor/hooks/useDocumentLinks';
+import { resolveSourcePath } from '@/features/editor/hooks/useDocumentLinks';
 import { renderMermaidForExport } from '@/features/mermaid/utils/mermaidConfig';
 
 export interface ExportImage {
@@ -14,9 +14,10 @@ export interface ExportImage {
 const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
 let diagramCounter = 0;
 
-function blobToDataUrl(blob: Blob): Promise<string> {
+export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    // SAFETY: readAsDataURL always yields a string result on load
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
@@ -57,7 +58,7 @@ export async function loadDocumentImage(src: string, docPath: string | null): Pr
       return await fromBlob(await response.blob());
     }
     if (ABSOLUTE_URL.test(src) || !docPath || docPath.startsWith('file://')) return null;
-    const path = resolveRelativePath(docPath, decodeURIComponent(src.split(/[?#]/)[0]));
+    const path = resolveSourcePath(docPath, src);
     return await fromBlob(await readFileBlob(path));
   } catch {
     return null;
