@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { nanoid } from 'nanoid';
+import { documentName } from '@/features/file-tree/api/fileSystem';
 
 export interface Tab {
   id: string;
@@ -39,12 +40,8 @@ interface TabsState {
 }
 
 const createNewTab = (path?: string | null, content?: string, name?: string): Tab => {
-  let fileName = name || 'Untitled';
-  if (path) {
-    // Handle file:// prefix for standalone files
-    const normalizedPath = path.startsWith('file://') ? path.slice(7) : path;
-    fileName = normalizedPath.split(/[/\\]/).pop() || 'Untitled';
-  }
+  const fileName = path ? documentName(path) : name || 'Untitled';
+
   return {
     id: nanoid(),
     path: path || null,
@@ -114,8 +111,7 @@ export const useTabsStore = create<TabsState>()(
         const tab = state.tabs.find((t) => t.id === tabId);
         if (tab) {
           tab.path = path;
-          const normalizedPath = path.startsWith('file://') ? path.slice(7) : path;
-          tab.name = normalizedPath.split(/[/\\]/).pop() || tab.name;
+          tab.name = documentName(path);
         }
       });
     },

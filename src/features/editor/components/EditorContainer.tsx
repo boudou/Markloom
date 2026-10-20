@@ -3,8 +3,7 @@ import { ArrowDownUp } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { selectActiveTab, useTabsStore } from '@/features/tabs';
-import { FindReplaceBar, useFindReplaceStore } from '@/features/find-replace';
-import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
+import { FindReplaceBar } from '@/features/find-replace';
 import { useUiStore } from '@/stores/uiStore';
 import { IconButton, Tooltip } from '@/components/ui';
 import { SplitViewEditor } from './SplitViewEditor';
@@ -45,22 +44,6 @@ export function EditorContainer() {
   useEffect(() => {
     initMermaid();
   }, []);
-
-  // Find / Replace: one bar for both modes (Ctrl+F / Ctrl+H)
-  const openFind = useFindReplaceStore((s) => s.open);
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (matchesCombo(e, SHORTCUTS.find.combo)) {
-        e.preventDefault();
-        openFind(useFindReplaceStore.getState().showReplace);
-      } else if (matchesCombo(e, SHORTCUTS.replace.combo)) {
-        e.preventDefault();
-        openFind(true);
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [openFind]);
 
   if (!activeTabId) return null;
 

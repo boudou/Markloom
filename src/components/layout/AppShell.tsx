@@ -13,18 +13,10 @@ import { EditorContainer } from '@/features/editor/components';
 import { ExportModal } from '@/features/export/components';
 import { ShortcutsModal } from '@/features/shortcuts-panel';
 import { TemplatesModal } from '@/features/templates';
-import { TabBar, useTabsStore } from '@/features/tabs';
-import { useAppStore } from '@/stores/appStore';
+import { TabBar } from '@/features/tabs';
 import { useUiStore } from '@/stores/uiStore';
-import {
-  newDocument,
-  openFile,
-  openFolder,
-  saveActiveTab,
-  requestCloseTabs,
-  hasUnsavedTabs,
-} from '@/lib/documentActions';
-import { SHORTCUTS, matchesCombo, type ShortcutId } from '@/lib/shortcuts';
+import { hasUnsavedTabs } from '@/lib/documentActions';
+import { commandForKey } from '@/lib/appCommands';
 import { initSession } from '@/lib/session';
 import { startAutoSave } from '@/features/auto-save';
 import { loadHighlighter } from '@/features/syntax-highlight';
@@ -32,29 +24,6 @@ import { initDesktopFiles } from '@/lib/desktopFiles';
 
 // Module-level so React StrictMode's double effect doesn't start it twice
 let sessionStarted = false;
-
-// App-level shortcuts. Formatting shortcuts live in the editors themselves.
-const globalActions: Partial<Record<ShortcutId, () => void>> = {
-  newDocument,
-  openFile: () => void openFile(),
-  openFolder: () => void openFolder(),
-  save: () => void saveActiveTab(),
-  saveAs: () => void saveActiveTab({ saveAs: true }),
-  closeTab: () => {
-    const { activeTabId } = useTabsStore.getState();
-    if (activeTabId) requestCloseTabs([activeTabId]);
-  },
-  export: () => useUiStore.getState().openDialog('export'),
-  showShortcuts: () => useUiStore.getState().openDialog('shortcuts'),
-  toggleSidebar: () => useAppStore.getState().toggleSidebar(),
-  commandPalette: () => useUiStore.getState().openDialog('palette'),
-  toggleMode: () => {
-    const app = useAppStore.getState();
-    app.setEditorMode(app.editorMode === 'split' ? 'wysiwyg' : 'split');
-  },
-  toggleOutline: () => useAppStore.getState().toggleSidebarView('outline'),
-  versionHistory: () => useUiStore.getState().setHistoryOpen(true),
-};
 
 export function AppShell() {
   const dialog = useUiStore((s) => s.dialog);
@@ -75,13 +44,12 @@ export function AppShell() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // An editor already handled it (e.g. a formatting key)
       if (e.defaultPrevented) return;
-      for (const [id, action] of Object.entries(globalActions)) {
-        if (matchesCombo(e, SHORTCUTS[id as ShortcutId].combo)) {
-          e.preventDefault();
-          action!();
-          return;
-        }
-      }
+
+      const command = commandForKey(e);
+      if (!command) return;
+
+      e.preventDefault();
+      command.run();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
