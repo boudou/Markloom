@@ -6,7 +6,6 @@ import { EditorView } from '@codemirror/view';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
 import { useActiveContent, useSetActiveContent } from '@/features/tabs';
 import { MermaidRenderer } from '@/features/mermaid/components/MermaidRenderer';
-import { initMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
 
@@ -40,11 +39,6 @@ export function MermaidEditor() {
   const [renderKey, setRenderKey] = useState(0);
   const [viewMode, setViewMode] = useState<'split' | 'preview'>('split');
   const [zoom, setZoom] = useState(100);
-
-  // Initialize mermaid on mount
-  useEffect(() => {
-    initMermaid();
-  }, []);
 
   // Update debounced content with delay for live preview
   useEffect(() => {

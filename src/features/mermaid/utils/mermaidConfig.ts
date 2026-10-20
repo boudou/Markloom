@@ -5,6 +5,14 @@ import type MermaidAPI from 'mermaid';
 // document actually contains a diagram, not at startup
 let loading: Promise<typeof MermaidAPI> | null = null;
 
+export type DiagramMode = 'preview' | 'export';
+
+export type DiagramRender = { ok: true; svg: string } | { ok: false; error: string };
+
+// loadMermaid initializes with the preview config. Only queued tasks may change it, so a
+// switch can't land in the middle of another render.
+let activeMode: DiagramMode = 'preview';
+
 function loadMermaid(): Promise<typeof MermaidAPI> {
   loading ??= import('mermaid').then(({ default: mermaid }) => {
     mermaid.initialize(buildConfig());
@@ -177,11 +185,6 @@ function buildConfig(): ExtendedMermaidConfig {
   };
 }
 
-/** Restores the preview settings (only once Mermaid has been loaded) */
-export function initMermaid() {
-  if (loading) void loading.then((mermaid) => mermaid.initialize(buildConfig()));
-}
-
 // Exports need self-contained SVG: plain <text> labels (no HTML inside foreignObject, which
 // Word and canvas can't draw) and real pixel sizes instead of width="100%".
 function buildExportConfig(): ExtendedMermaidConfig {
@@ -215,46 +218,51 @@ function removeRenderLeftovers(id: string) {
   document.getElementById(`d${id}`)?.remove();
 }
 
-// Render mermaid diagram to SVG
-export async function renderMermaid(
-  code: string,
-  id: string
-): Promise<{ svg: string; bindFunctions?: (element: Element) => void }> {
-  return enqueue(async () => {
-    const mermaid = await loadMermaid();
-    try {
-      return await mermaid.render(id, code);
-    } catch (error) {
-      removeRenderLeftovers(id);
-      throw new Error(`Mermaid rendering failed: ${(error as Error).message}`);
-    }
-  });
-}
+// Every surface (preview, rich text, .mmd editor, export) shares these results, so a mode
+// switch or an unrelated edit reuses diagrams already drawn, errors included
+const MAX_CACHED_DIAGRAMS = 100;
+const rendered = new Map<string, Promise<DiagramRender>>();
+let renderCount = 0;
 
-/** Renders with export settings, then restores the preview's settings. */
-export function renderMermaidForExport(code: string, id: string): Promise<{ svg: string }> {
-  return enqueue(async () => {
-    const mermaid = await loadMermaid();
-    mermaid.initialize(buildExportConfig());
-    try {
-      return await mermaid.render(id, code);
-    } catch (error) {
-      removeRenderLeftovers(id);
-      throw new Error((error as Error).message);
-    } finally {
-      mermaid.initialize(buildConfig());
-    }
-  });
-}
+async function draw(code: string, mode: DiagramMode): Promise<DiagramRender> {
+  // Uppercase because heading ids are lowercase slugs, and Mermaid removes any element that
+  // already has the render id
+  const id = `Mermaid-${++renderCount}`;
 
-// Parse mermaid code to check for syntax errors
-export async function validateMermaid(code: string): Promise<boolean> {
   try {
-    await (await loadMermaid()).parse(code);
-    return true;
-  } catch {
-    return false;
+    const mermaid = await loadMermaid();
+    if (mode !== activeMode) {
+      mermaid.initialize(mode === 'export' ? buildExportConfig() : buildConfig());
+      activeMode = mode;
+    }
+
+    const { svg } = await mermaid.render(id, code);
+
+    return { ok: true, svg };
+  } catch (error) {
+    removeRenderLeftovers(id);
+
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/** Renders a diagram (cached by mode and exact source); never rejects. */
+export function renderMermaid(code: string, mode: DiagramMode): Promise<DiagramRender> {
+  const key = `${mode}\n${code}`;
+  const hit = rendered.get(key);
+  if (hit) {
+    // Re-insert so the map stays in least-recently-used order
+    rendered.delete(key);
+    rendered.set(key, hit);
+
+    return hit;
+  }
+
+  const result = enqueue(() => draw(code, mode));
+  rendered.set(key, result);
+  if (rendered.size > MAX_CACHED_DIAGRAMS) rendered.delete(rendered.keys().next().value!);
+
+  return result;
 }
 
 /** Checks diagram syntax without drawing it; returns the error message, or null when valid. */

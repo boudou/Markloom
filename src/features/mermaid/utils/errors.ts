@@ -15,7 +15,7 @@ export interface DiagramError {
  * @param firstLine Document line of the diagram's first line, when known
  */
 export function describeDiagramError(message: string, code: string, firstLine?: number): DiagramError {
-  const detail = message.replace(/^Mermaid rendering failed:\s*/, '').trim();
+  const detail = message.trim();
   const lineInDiagram = Number(detail.match(/(?:Parse|Lexical) error on line (\d+)/i)?.[1]) || null;
   const line = lineInDiagram && firstLine ? firstLine + lineInDiagram - 1 : lineInDiagram;
   const where = line ? `Line ${line}` : 'This diagram';

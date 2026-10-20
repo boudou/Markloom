@@ -1,7 +1,7 @@
 // Images and diagrams for exports, resolved to self-contained data.
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '@/features/editor/hooks/useDocumentLinks';
-import { renderMermaidForExport } from '@/features/mermaid/utils/mermaidConfig';
+import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 
 export interface ExportImage {
   dataUrl: string;
@@ -12,7 +12,6 @@ export interface ExportImage {
 }
 
 const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
-let diagramCounter = 0;
 
 export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -67,8 +66,10 @@ export async function loadDocumentImage(src: string, docPath: string | null): Pr
 
 /** Renders a Mermaid diagram to a standalone SVG with real pixel dimensions. */
 export async function renderDiagram(code: string): Promise<{ svg: string; width: number; height: number }> {
-  const { svg } = await renderMermaidForExport(code, `export-diagram-${++diagramCounter}`);
-  const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  const result = await renderMermaid(code, 'export');
+  if (!result.ok) throw new Error(result.error);
+
+  const doc = new DOMParser().parseFromString(result.svg, 'image/svg+xml');
   const root = doc.documentElement;
   const [, , vbWidth, vbHeight] = (root.getAttribute('viewBox') ?? '0 0 600 400').split(/[\s,]+/).map(Number);
   const width = Math.ceil(vbWidth || 600);

@@ -14,18 +14,6 @@ function showSourceLine(line: number) {
   window.dispatchEvent(new CustomEvent('outline-navigate', { detail: { line } }));
 }
 
-// Rendered diagrams keyed by source, so typing elsewhere doesn't re-run Mermaid
-const mermaidSvgCache = new Map<string, string>();
-const MAX_CACHED_DIAGRAMS = 50;
-let mermaidRenderId = 0;
-
-function rememberSvg(code: string, svg: string) {
-  mermaidSvgCache.set(code, svg);
-  if (mermaidSvgCache.size > MAX_CACHED_DIAGRAMS) {
-    mermaidSvgCache.delete(mermaidSvgCache.keys().next().value!);
-  }
-}
-
 interface MarkdownPreviewProps {
   content: string;
   className?: string;
@@ -63,7 +51,7 @@ export const MarkdownPreview = forwardRef<HTMLDivElement, MarkdownPreviewProps>(
       return () => article.removeEventListener('click', onClick);
     }, []);
 
-    // Fill Mermaid placeholders; unchanged diagrams come straight from the cache.
+    // Fill Mermaid placeholders; unchanged diagrams come straight from the shared cache.
     // Failures become an error card and are reported so the source pane can mark the line.
     useEffect(() => {
       const container = containerRef.current;
@@ -77,25 +65,21 @@ export const MarkdownPreview = forwardRef<HTMLDivElement, MarkdownPreviewProps>(
           slot.setAttribute('role', 'img');
           slot.setAttribute('aria-label', `Diagram: ${code.split('\n')[0].trim()}`);
 
-          const cached = mermaidSvgCache.get(code);
-          if (cached) {
-            slot.innerHTML = cached;
+          const result = await renderMermaid(code, 'preview');
+          if (cancelled) return null;
+
+          if (result.ok) {
+            slot.innerHTML = result.svg;
+
             return null;
           }
-          try {
-            const { svg } = await renderMermaid(code, `mermaid-preview-${++mermaidRenderId}`);
-            rememberSvg(code, svg);
-            if (!cancelled) slot.innerHTML = svg;
-            return null;
-          } catch (error) {
-            const firstLine = Number(slot.getAttribute('data-line')) || undefined;
-            const described = describeDiagramError(error instanceof Error ? error.message : String(error), code, firstLine);
-            if (!cancelled) {
-              slot.removeAttribute('role');
-              slot.replaceChildren(diagramErrorElement(described, showSourceLine));
-            }
-            return described.line;
-          }
+
+          const firstLine = Number(slot.getAttribute('data-line')) || undefined;
+          const described = describeDiagramError(result.error, code, firstLine);
+          slot.removeAttribute('role');
+          slot.replaceChildren(diagramErrorElement(described, showSourceLine));
+
+          return described.line;
         }
       );
 
