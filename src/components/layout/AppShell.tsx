@@ -11,11 +11,10 @@ import { CommandPalette } from './CommandPalette';
 import { Toaster } from '@/components/ui';
 import { EditorContainer } from '@/features/editor/components';
 import { ExportModal } from '@/features/export/components';
-import { useTheme } from '@/features/theme';
 import { ShortcutsModal } from '@/features/shortcuts-panel';
 import { TemplatesModal } from '@/features/templates';
 import { TabBar, useTabsStore } from '@/features/tabs';
-import { useAppStoreBase } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
 import {
   newDocument,
@@ -47,21 +46,19 @@ const globalActions: Partial<Record<ShortcutId, () => void>> = {
   },
   export: () => useUiStore.getState().openDialog('export'),
   showShortcuts: () => useUiStore.getState().openDialog('shortcuts'),
-  toggleSidebar: () => useAppStoreBase.getState().toggleSidebar(),
+  toggleSidebar: () => useAppStore.getState().toggleSidebar(),
   commandPalette: () => useUiStore.getState().openDialog('palette'),
   toggleMode: () => {
-    const app = useAppStoreBase.getState();
+    const app = useAppStore.getState();
     app.setEditorMode(app.editorMode === 'split' ? 'wysiwyg' : 'split');
   },
-  toggleOutline: () => useAppStoreBase.getState().toggleSidebarView('outline'),
+  toggleOutline: () => useAppStore.getState().toggleSidebarView('outline'),
   versionHistory: () => useUiStore.getState().setHistoryOpen(true),
 };
 
 export function AppShell() {
   const dialog = useUiStore((s) => s.dialog);
   const closeDialog = useUiStore((s) => s.closeDialog);
-
-  useTheme();
 
   useEffect(() => {
     if (sessionStarted) return;

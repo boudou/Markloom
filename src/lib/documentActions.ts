@@ -1,6 +1,6 @@
 // Document-level actions shared by the title bar, keyboard shortcuts and empty states.
 import { useTabsStore } from '@/features/tabs';
-import { useAppStoreBase } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { notify, useUiStore } from '@/stores/uiStore';
 import {
@@ -34,7 +34,7 @@ export async function openFile(): Promise<void> {
 export async function openFolder(): Promise<void> {
   const path = await openFolderDialog();
   if (!path) return;
-  const app = useAppStoreBase.getState();
+  const app = useAppStore.getState();
   app.setRootPath(path);
   app.showSidebarView('files');
 }

@@ -1,7 +1,7 @@
 // Remembers what was open (folder + documents) and offers it back on the next launch.
 import { create } from 'zustand';
 import { useTabsStore } from '@/features/tabs';
-import { useAppStoreBase } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore, type LastSession } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
 import { readFile, restoreRememberedFolder } from '@/features/file-tree/api/fileSystem';
@@ -22,7 +22,7 @@ function currentSession(): LastSession {
   const { tabs, activeTabId } = useTabsStore.getState();
   const paths = tabs.map((t) => t.path).filter((p): p is string => !!p);
   return {
-    rootName: useAppStoreBase.getState().rootPath,
+    rootName: useAppStore.getState().rootPath,
     paths,
     activePath: tabs.find((t) => t.id === activeTabId)?.path ?? null,
   };
@@ -53,7 +53,7 @@ function startTracking() {
     }, 400);
   };
   useTabsStore.subscribe(save);
-  useAppStoreBase.subscribe((state, prev) => {
+  useAppStore.subscribe((state, prev) => {
     if (state.rootPath !== prev.rootPath) save();
   });
 }
@@ -77,7 +77,7 @@ export async function restoreLastSession(): Promise<void> {
       const name = await restoreRememberedFolder();
       folderOk = !!name;
       if (name) {
-        const app = useAppStoreBase.getState();
+        const app = useAppStore.getState();
         app.setRootPath(name);
         app.showSidebarView('files');
       }

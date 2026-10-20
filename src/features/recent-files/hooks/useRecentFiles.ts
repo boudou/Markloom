@@ -1,18 +1,16 @@
 import { useCallback } from 'react';
 import { useSettingsStore, type RecentFile } from '@/stores/settingsStore';
-import { useAppStore } from '@/stores/appStore';
+import { useTabsStore } from '@/features/tabs';
 import { readFile } from '@/features/file-tree/api/fileSystem';
 
 export type { RecentFile };
 
 export function useRecentFiles() {
-  const {
-    recentFiles,
-    addRecentFile: storeAddRecentFile,
-    removeRecentFile: storeRemoveRecentFile,
-    clearRecentFiles: storeClearRecentFiles,
-  } = useSettingsStore();
-  const { loadFile } = useAppStore();
+  const recentFiles = useSettingsStore((s) => s.recentFiles);
+  const storeAddRecentFile = useSettingsStore((s) => s.addRecentFile);
+  const storeRemoveRecentFile = useSettingsStore((s) => s.removeRecentFile);
+  const storeClearRecentFiles = useSettingsStore((s) => s.clearRecentFiles);
+  const openDocument = useTabsStore((s) => s.openDocument);
 
   const addRecentFile = useCallback(
     (path: string) => {
@@ -37,7 +35,7 @@ export function useRecentFiles() {
     async (path: string) => {
       try {
         const content = await readFile(path);
-        loadFile(path, content);
+        openDocument(path, content);
         addRecentFile(path);
       } catch (error) {
         console.error('Failed to open recent file:', error);
@@ -46,7 +44,7 @@ export function useRecentFiles() {
         throw error;
       }
     },
-    [loadFile, addRecentFile, removeRecentFile]
+    [openDocument, addRecentFile, removeRecentFile]
   );
 
   return {

@@ -62,14 +62,6 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(function MenuI
   );
 });
 
-export function MenuLabel({ children }: { children: ReactNode }) {
-  return (
-    <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-xs font-medium text-text-muted">
-      {children}
-    </DropdownMenu.Label>
-  );
-}
-
 export function MenuSeparator() {
   return <DropdownMenu.Separator className="my-1 h-px bg-rule" />;
 }

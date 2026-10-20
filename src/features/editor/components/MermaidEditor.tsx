@@ -4,16 +4,35 @@ import { GripVertical, AlertCircle, RefreshCw, ZoomIn, ZoomOut, RotateCcw, Maxim
 import CodeMirror from '@uiw/react-codemirror';
 import { EditorView } from '@codemirror/view';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
-import { useAppStore } from '@/stores/appStore';
+import { useActiveContent, useActivePath, useSetActiveContent } from '@/features/tabs';
 import { MermaidRenderer } from '@/features/mermaid/components/MermaidRenderer';
 import { initMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
 
-
+// Stable references: @uiw/react-codemirror reconfigures the editor whenever these change
+const sourceExtensions = [markloomEditorTheme, markloomHighlight, EditorView.lineWrapping];
+const basicSetup = {
+  lineNumbers: true,
+  highlightActiveLineGutter: true,
+  highlightActiveLine: true,
+  foldGutter: false,
+  dropCursor: true,
+  allowMultipleSelections: true,
+  indentOnInput: true,
+  bracketMatching: true,
+  closeBrackets: true,
+  autocompletion: false,
+  rectangularSelection: true,
+  crosshairCursor: false,
+  highlightSelectionMatches: true,
+  lintKeymap: false,
+};
 
 export function MermaidEditor() {
-  const { content, setContent, activeFilePath } = useAppStore();
+  const content = useActiveContent();
+  const setContent = useSetActiveContent();
+  const activeFilePath = useActivePath();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<{ view?: EditorView }>(null);
@@ -139,23 +158,8 @@ export function MermaidEditor() {
               onChange={handleContentChange}
               height="100%"
               theme="light"
-              extensions={[markloomEditorTheme, markloomHighlight, EditorView.lineWrapping]}
-              basicSetup={{
-                lineNumbers: true,
-                highlightActiveLineGutter: true,
-                highlightActiveLine: true,
-                foldGutter: false,
-                dropCursor: true,
-                allowMultipleSelections: true,
-                indentOnInput: true,
-                bracketMatching: true,
-                closeBrackets: true,
-                autocompletion: false,
-                rectangularSelection: true,
-                crosshairCursor: false,
-                highlightSelectionMatches: true,
-                lintKeymap: false,
-              }}
+              extensions={sourceExtensions}
+              basicSetup={basicSetup}
               className="h-full"
               ref={editorRef as any}
             />

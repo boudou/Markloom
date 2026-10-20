@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { m } from 'framer-motion';
 import { FolderTree, ListTree } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppStoreBase, type SidebarView } from '@/stores/appStore';
+import { useAppStore, type SidebarView } from '@/stores/appStore';
 import { FileTree } from '@/features/file-tree/components';
 import { OutlineDock } from '@/features/outline';
 
@@ -15,13 +15,13 @@ const VIEWS: { id: SidebarView; label: string; icon: typeof FolderTree }[] = [
 ];
 
 export function Sidebar() {
-  const rootPath = useAppStoreBase((s) => s.rootPath);
-  const view = useAppStoreBase((s) => s.sidebarView);
-  const showSidebarView = useAppStoreBase((s) => s.showSidebarView);
+  const rootPath = useAppStore((s) => s.rootPath);
+  const view = useAppStore((s) => s.sidebarView);
+  const showSidebarView = useAppStore((s) => s.showSidebarView);
   // Contents is always useful; the file list only once a folder is open
-  const open = useAppStoreBase((s) => s.sidebarOpen) && (view === 'outline' || !!rootPath);
-  const sidebarWidth = useAppStoreBase((s) => s.sidebarWidth);
-  const setSidebarWidth = useAppStoreBase((s) => s.setSidebarWidth);
+  const open = useAppStore((s) => s.sidebarOpen) && (view === 'outline' || !!rootPath);
+  const sidebarWidth = useAppStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
   const asideRef = useRef<HTMLElement>(null);
   const [resizing, setResizing] = useState(false);
 

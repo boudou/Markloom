@@ -75,19 +75,3 @@ export function Kbd({ children, className }: KbdProps) {
     </span>
   );
 }
-
-// Inline keyboard shortcut (lighter styling for use in tooltips)
-export function KbdInline({ children, className }: KbdProps) {
-  const keys = formatShortcut(children);
-
-  return (
-    <span className={cn('inline-flex items-center gap-0.5 text-text-muted', className)}>
-      {keys.map((key, index) => (
-        <span key={index} className="text-xs font-mono">
-          {key}
-          {index < keys.length - 1 && '+'}
-        </span>
-      ))}
-    </span>
-  );
-}

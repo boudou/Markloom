@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { ArrowDownUp } from 'lucide-react';
-import { useAppStoreBase } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTabsStore } from '@/features/tabs';
 import { FindReplaceBar, useFindReplaceStore } from '@/features/find-replace';
@@ -31,7 +31,7 @@ function SyncScrollToggle() {
 }
 
 export function EditorContainer() {
-  const editorMode = useAppStoreBase((s) => s.editorMode);
+  const editorMode = useAppStore((s) => s.editorMode);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const activePath = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.path ?? null);
   const [commands, setCommands] = useState<EditorCommands | null>(null);

@@ -1,14 +1,12 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { useTabsStore } from '@/features/tabs';
-import { writeFile } from '@/features/file-tree/api/fileSystem';
 
 export type EditorMode = 'split' | 'wysiwyg';
 /** What the left panel shows: the folder's files, or the document's contents (headings) */
 export type SidebarView = 'files' | 'outline';
 
-interface AppStateBase {
+interface AppState {
   // Sidebar
   sidebarOpen: boolean;
   sidebarWidth: number;
@@ -32,8 +30,8 @@ interface AppStateBase {
   showSidebarView: (view: SidebarView) => void;
 }
 
-// Base app store for non-tab related state
-export const useAppStoreBase = create<AppStateBase>()(
+// Layout and mode. Document state lives in the tabs store (`@/features/tabs`).
+export const useAppStore = create<AppState>()(
   persist(
   immer((set) => ({
     // Initial state
@@ -90,80 +88,3 @@ export const useAppStoreBase = create<AppStateBase>()(
     }
   )
 );
-
-// Combined interface for backwards compatibility
-interface AppState extends AppStateBase {
-  // Active tab content (derived from tabsStore)
-  content: string;
-  activeFilePath: string | null;
-  isDirty: boolean;
-
-  // Content actions (delegate to tabsStore)
-  setContent: (content: string) => void;
-  loadFile: (path: string, content: string) => void;
-  markSaved: () => void;
-  setDirty: (dirty: boolean) => void;
-  saveFile: () => Promise<void>;
-}
-
-// Combined hook for backwards compatibility
-// Components can continue using useAppStore and get tab-aware content
-export function useAppStore(): AppState;
-export function useAppStore<T>(selector: (state: AppState) => T): T;
-export function useAppStore<T>(selector?: (state: AppState) => T): AppState | T {
-  // Get base state
-  const baseState = useAppStoreBase();
-
-  // Get tabs state
-  const tabsState = useTabsStore();
-  const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeTabId);
-
-  // Create combined state
-  const combinedState: AppState = {
-    ...baseState,
-
-    // Derived from active tab
-    content: activeTab?.content ?? '',
-    activeFilePath: activeTab?.path ?? null,
-    isDirty: activeTab?.isDirty ?? false,
-
-    // Actions that delegate to tabsStore
-    setContent: (content: string) => {
-      if (tabsState.activeTabId) {
-        tabsState.updateTabContent(tabsState.activeTabId, content);
-      }
-    },
-
-    loadFile: (path: string, content: string) => tabsState.openDocument(path, content),
-
-    markSaved: () => {
-      if (tabsState.activeTabId) {
-        tabsState.markTabSaved(tabsState.activeTabId);
-      }
-    },
-
-    setDirty: (dirty: boolean) => {
-      // This is a simplified version - in practice isDirty is computed
-      // from content vs originalContent, but we provide this for compatibility
-      if (tabsState.activeTabId && activeTab) {
-        if (!dirty) {
-          tabsState.markTabSaved(tabsState.activeTabId);
-        }
-      }
-    },
-
-    saveFile: async () => {
-      if (!tabsState.activeTabId || !activeTab?.path) {
-        throw new Error('No file to save');
-      }
-      await writeFile(activeTab.path, activeTab.content);
-      tabsState.markTabSaved(tabsState.activeTabId);
-    },
-  };
-
-  if (selector) {
-    return selector(combinedState);
-  }
-
-  return combinedState;
-}

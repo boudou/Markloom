@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getMarkdownParser } from '@/lib/markdown';
 import { cn } from '@/lib/utils';
 import { useTabsStore } from '@/features/tabs';
-import { useAppStoreBase } from '@/stores/appStore';
+import { useAppStore } from '@/stores/appStore';
 
 interface Heading {
   level: number;
@@ -39,7 +39,7 @@ export function OutlineDock() {
   const content = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.content ?? '');
   const activeTabId = useTabsStore((s) => s.activeTabId);
   // Switching modes swaps the scrolling surface; re-attach to the new one
-  const editorMode = useAppStoreBase((s) => s.editorMode);
+  const editorMode = useAppStore((s) => s.editorMode);
   // Re-parse shortly after typing pauses (a deferred value can stall behind the lazy editor's Suspense)
   const [settled, setSettled] = useState(content);
   useEffect(() => {

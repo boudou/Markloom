@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react';
-import { useAppStore } from '@/stores/appStore';
+import { useActivePath, useTabsStore } from '@/features/tabs';
 import { readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
 
 // Matches URLs with a scheme (http:, mailto:, data:, blob:, ...) or protocol-relative URLs
@@ -89,8 +89,8 @@ export function useDocumentLinks(
   } = {}
 ): void {
   const { requireModifier = false, resolveImages = true } = options;
-  const activeFilePath = useAppStore((s) => s.activeFilePath);
-  const loadFile = useAppStore((s) => s.loadFile);
+  const activeFilePath = useActivePath();
+  const openDocument = useTabsStore((s) => s.openDocument);
 
   // Swap relative image sources for object URLs read through the file system API
   useEffect(() => {
@@ -166,7 +166,7 @@ export function useDocumentLinks(
       const targetPath = resolveRelativePath(activeFilePath, path);
       try {
         if (/\.(md|markdown|mdx|mmd|txt)$/i.test(targetPath)) {
-          loadFile(targetPath, await readFile(targetPath));
+          openDocument(targetPath, await readFile(targetPath));
           if (hash) {
             // Wait for the newly opened document to render before scrolling
             setTimeout(() => {
@@ -186,5 +186,5 @@ export function useDocumentLinks(
 
     container.addEventListener('click', handleClick);
     return () => container.removeEventListener('click', handleClick);
-  }, [containerRef, activeFilePath, loadFile, requireModifier]);
+  }, [containerRef, activeFilePath, openDocument, requireModifier]);
 }
