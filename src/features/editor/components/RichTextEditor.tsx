@@ -27,7 +27,7 @@ import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
 import { slugify } from '@/lib/markdown';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { useImageDrop } from '@/features/image-drop';
-import { codeBlockView, diagramErrorMarks, htmlView, imageSchemaFix, imageView, inlineCodeSpellcheck, taskToggle } from '../milkdown/plugins';
+import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, htmlView, imageSchemaFix, imageView, inlineCodeSpellcheck, taskToggle } from '../milkdown/plugins';
 import { prosemirrorSearchEngine, searchPlugin } from '../milkdown/search';
 import { preserveUnchangedBlocks } from '../milkdown/preserve';
 import { applyRichLink, insertRichSnippet, runRichAction, type LinkRequest } from '../milkdown/commands';
@@ -99,6 +99,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
         .use(commonmark)
         .use(gfm)
         .use(imageSchemaFix)
+        .use(codeBlockMetaSchema)
         .use(history)
         .use(listener)
         .use(clipboard)
