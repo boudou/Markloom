@@ -2,7 +2,7 @@
 // Mermaid blocks render as diagrams, relative images load from the open folder,
 // and task-list checkboxes can be ticked.
 import { $prose, $view } from '@milkdown/kit/utils';
-import { codeBlockAttr, codeBlockSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
+import { codeBlockAttr, codeBlockSchema, headingSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
 import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
@@ -11,7 +11,7 @@ import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/ut
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '../hooks/useDocumentLinks';
 import { useTabsStore } from '@/features/tabs';
-import { getMarkdownParser, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
+import { getMarkdownParser, headingIdAssigner, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
 
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 
@@ -37,6 +37,44 @@ async function resolveImageSrc(src: string): Promise<string> {
 
   return url;
 }
+
+// ---------------------------------------------------------------------------
+// Heading ids: replaces Milkdown's own heading-id sync, which numbers repeats "a-#2".
+// Uses the preview's assigner so a #a-1 link lands on the same heading in both modes.
+// Empty headings take a number too, as they do in the preview.
+
+export const headingIds = $prose((ctx) => {
+  const assign = (view: EditorView) => {
+    if (view.composing) return;
+
+    const nextId = headingIdAssigner();
+    const heading = headingSchema.type(ctx);
+    const tr = view.state.tr.setMeta('addToHistory', false);
+
+    view.state.doc.descendants((node, pos) => {
+      if (node.type !== heading) return;
+      const id = nextId(node.textContent);
+
+      if (node.attrs.id !== id) tr.setNodeMarkup(pos, undefined, { ...node.attrs, id });
+    });
+
+    // Without this check every update would dispatch again, forever
+    if (tr.docChanged) view.dispatch(tr);
+  };
+
+  return new Plugin({
+    key: new PluginKey('markloom-heading-ids'),
+    view: (view) => {
+      assign(view);
+
+      return {
+        update: (view, prevState) => {
+          if (!view.state.doc.eq(prevState.doc)) assign(view);
+        },
+      };
+    },
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Diagram error marks: the offending line inside a Mermaid block's source.
