@@ -16,9 +16,9 @@ interface MarkdownPreviewProps {
   surfaceRef: React.RefObject<HTMLDivElement>;
   /** The rendered document inside the surface; scroll sync watches its size */
   contentRef: React.RefObject<HTMLElement>;
-  /** "Show line N" on a diagram error card. Keep stable: it re-runs diagram rendering. */
+  /** "Show line N" on a diagram error card; the latest one is called, so it need not be stable */
   onShowLine: (line: number) => void;
-  /** Source lines of the diagrams that failed, after each render. Keep stable too. */
+  /** Source lines of the diagrams that failed, after each render. Keep stable: it re-runs diagram rendering. */
   onDiagramErrors: (lines: number[]) => void;
 }
 
@@ -59,6 +59,12 @@ export function MarkdownPreview({
     return () => article.removeEventListener('click', onClick);
   }, [contentRef]);
 
+  // Error cards call the latest onShowLine, so a new callback does not re-render diagrams
+  const showLineRef = useRef(onShowLine);
+  useEffect(() => {
+    showLineRef.current = onShowLine;
+  }, [onShowLine]);
+
   // Fill Mermaid placeholders; unchanged diagrams come straight from the shared cache.
   // Failures become an error card and are reported so the source pane can mark the line.
   useEffect(() => {
@@ -88,7 +94,7 @@ export function MarkdownPreview({
         const firstLine = Number(slot.getAttribute('data-line')) || undefined;
         const described = describeDiagramError(result.error, code, firstLine);
         slot.removeAttribute('role');
-        slot.replaceChildren(diagramErrorElement(described, onShowLine));
+        slot.replaceChildren(diagramErrorElement(described, (line) => showLineRef.current(line)));
 
         return described.line;
       }
@@ -102,7 +108,7 @@ export function MarkdownPreview({
     return () => {
       cancelled = true;
     };
-  }, [html, surfaceRef, onShowLine, onDiagramErrors]);
+  }, [html, surfaceRef, onDiagramErrors]);
 
   return (
     <m.div

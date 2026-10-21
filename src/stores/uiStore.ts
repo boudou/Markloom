@@ -11,6 +11,11 @@ export interface Toast {
   detail?: string;
 }
 
+export interface LineRequest {
+  tabId: string;
+  line: number;
+}
+
 export type AppDialog = 'export' | 'shortcuts' | 'templates' | 'palette' | null;
 
 interface UiState {
@@ -27,10 +32,11 @@ interface UiState {
   editorCommands: EditorCommands | null;
   setEditorCommands: (commands: EditorCommands | null) => void;
 
-  // A 1-based source line asked for from outside the editor (Export's "Show");
-  // the Markdown view takes it once its editor exists, then clears it
-  lineRequest: number | null;
-  navigateToLine: (line: number) => void;
+  // A 1-based source line to reveal in the Markdown view ("Show line N", Export's "Show").
+  // Stamped with its tab: the view reveals it once its editor shows that tab, and drops it
+  // if another tab is showing, so it never lands in a different document.
+  lineRequest: LineRequest | null;
+  navigateToLine: (tabId: string, line: number) => void;
   clearLineRequest: () => void;
 
   // Tabs waiting on a "save changes?" decision before they close
@@ -61,7 +67,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setEditorCommands: (editorCommands) => set({ editorCommands }),
 
   lineRequest: null,
-  navigateToLine: (lineRequest) => set({ lineRequest }),
+  navigateToLine: (tabId, line) => set({ lineRequest: { tabId, line } }),
   clearLineRequest: () => set({ lineRequest: null }),
 
   pendingClose: null,

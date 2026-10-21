@@ -178,9 +178,12 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
 
   // Jump to the problem in the Markdown view, where the line is visible and marked
   const review = (issue: ExportIssue) => {
+    const { activeTabId } = useTabsStore.getState();
+
     onOpenChange(false);
     useAppStore.getState().setEditorMode('split');
-    useUiStore.getState().navigateToLine(issue.line);
+
+    if (activeTabId) useUiStore.getState().navigateToLine(activeTabId, issue.line);
   };
 
   const diagramCount = issues.filter((i) => i.kind === 'diagram').length;
