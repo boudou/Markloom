@@ -11,7 +11,9 @@ const MAX_FILE_HANDLES = 50;
 
 export const ROOT_KEY = 'root';
 
-type StoredHandle = { handle: FileSystemHandle; savedAt: number };
+type StorableHandle = FileSystemFileHandle | FileSystemDirectoryHandle;
+
+type StoredHandle = { handle: StorableHandle; savedAt: number };
 
 interface HandleDb extends DBSchema {
   handles: { key: string; value: StoredHandle };
@@ -29,7 +31,7 @@ function getDb(): Promise<IDBPDatabase<HandleDb>> {
   return dbPromise;
 }
 
-export async function rememberHandle(key: string, handle: FileSystemHandle): Promise<void> {
+export async function rememberHandle(key: string, handle: StorableHandle): Promise<void> {
   try {
     const db = await getDb();
     await db.put(STORE, { handle, savedAt: Date.now() } satisfies StoredHandle, key);
@@ -48,15 +50,28 @@ export async function rememberHandle(key: string, handle: FileSystemHandle): Pro
   }
 }
 
-export async function recallHandle<T extends FileSystemHandle>(key: string): Promise<T | null> {
+async function recallStored(key: string): Promise<StorableHandle | null> {
   try {
     const entry = await (await getDb()).get(STORE, key);
 
-    // SAFETY: callers recall a key as the kind they stored under it (ROOT_KEY: a directory, a file path: a file).
-    return (entry?.handle as T) ?? null;
+    return entry?.handle ?? null;
   } catch {
     return null;
   }
+}
+
+/** The file handle stored under `key`; null when none is stored or the record holds a directory. */
+export async function recallFileHandle(key: string): Promise<FileSystemFileHandle | null> {
+  const handle = await recallStored(key);
+
+  return handle?.kind === 'file' ? handle : null;
+}
+
+/** The directory handle stored under `key`; null when none is stored or the record holds a file. */
+export async function recallDirectoryHandle(key: string): Promise<FileSystemDirectoryHandle | null> {
+  const handle = await recallStored(key);
+
+  return handle?.kind === 'directory' ? handle : null;
 }
 
 /**
@@ -82,8 +97,9 @@ export async function ensurePermission(
 ): Promise<boolean> {
   if (await hasPermission(handle, mode)) return true;
 
-  // No permission API: nothing to ask, access is allowed
-  if (typeof handle.requestPermission === 'undefined') return true;
+  // No permission API at all: nothing to ask, access is allowed.
+  // One that can be queried but not asked has just said no, so there is no access.
+  if (typeof handle.requestPermission === 'undefined') return typeof handle.queryPermission === 'undefined';
 
   try {
     return (await handle.requestPermission({ mode })) === 'granted';

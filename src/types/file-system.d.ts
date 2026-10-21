@@ -4,8 +4,8 @@ interface FileSystemHandle {
   kind: 'file' | 'directory';
   name: string;
   isSameEntry(other: FileSystemHandle): Promise<boolean>;
-  queryPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
-  requestPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+  queryPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+  requestPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
 }
 
 interface FileSystemHandlePermissionDescriptor {
