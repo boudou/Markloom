@@ -4,17 +4,40 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-21
+
 ### Added
 
-- Auto-save: turn it on from the status bar or the command palette (off by default). Documents saved to a file are written 30 seconds after you stop typing, each on its own timer (#75).
+- Auto-save: turn it on from the status bar or the command palette (off by default). Documents saved to a file are written 30 seconds after you stop typing, each on its own timer, and the status bar shows each document's own result (#75, #141).
+- Find and replace shows a live match count while you type, in both editors (#79).
+- Version history collapses unchanged lines in the comparison and loads quickly however many versions a document has (#88).
 
 ### Changed
 
+- Faster typing in large documents: the app no longer re-renders on every keystroke, and scroll sync, rich-text decorations, word counts and resize drags do less work per frame (#66, #85).
+- Diagrams render once and are reused across the preview, rich text, the diagram editor and exports (#77).
+- Images in the preview are read once and re-checked when you come back to the window, instead of on every pause in typing (#72, #95).
+- Shortcut keys show correctly on macOS and Windows, and the Shortcuts window finds plain key names (#82, #96).
+- In Regex mode, `\n` and `\t` in the replacement insert a line break and a tab; outside Regex mode the replacement is inserted exactly as typed (#70, #142).
 - Building from source needs Node.js 22.18 or newer, which `npm run lint` requires; CI now runs the lint (#103).
 
 ### Fixed
 
+- Undo never brings back another document's text, and Save As keeps your scroll position (#71).
+- Export no longer fails silently on unusual image paths, rewrites images inside code blocks, or hangs after a failed font read; repeated diagrams in a web page export get their own ids (#73, #98).
+- A Mermaid fence with a title is treated the same everywhere (#74), and the diagram editor's Refresh redraws the diagram (#97).
+- Heading links (`#see-docs`) match the Contents panel and GitHub (#81).
+- Open folders keep their contents after Refresh, and read errors show their real reason (#84, #99, #100).
 - Templates insert today's date even when the app has been open since an earlier day (#83).
+- Find Next lands on the nearest match after you edit, and the find bar no longer errors when switching modes (#93, #94).
+- Resize handles follow only the pointer that started the drag (#102).
+
+### Security
+
+- Desktop: opening a document trusts only document, image and PDF files in its folder (never a whole home folder or drive), and only documents, and images in `assets/`, can be written (#67).
+- Desktop: PDF export can no longer read local files into the PDF (#68).
+- Desktop: linked files open in locked-down windows (no app access, no scripts except the PDF viewer), SVGs show as images, other types download, and the app only answers its own window (#69).
+- CI runs with a read-only token (#90).
 
 ## [0.3.0] - 2026-10-20
 
@@ -65,7 +88,8 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/boudou/Markloom/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/boudou/Markloom/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/boudou/Markloom/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/boudou/Markloom/releases/tag/v0.1.0
