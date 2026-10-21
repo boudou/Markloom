@@ -59,4 +59,6 @@ export interface EditorCommands {
   search: SearchEngine;
   /** Inserts a markdown snippet (e.g. a fenced Mermaid block) at the cursor */
   insert: (markdown: string) => void;
+  /** Puts keyboard focus back in the document, e.g. after a toolbar menu closes */
+  focus: () => void;
 }

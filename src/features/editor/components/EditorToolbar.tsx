@@ -86,6 +86,24 @@ export function EditorToolbar({ commands, active = EMPTY_FORMAT_STATE, trailing,
   useRovingToolbar(toolbarRef);
   const run = (action: MarkdownAction) => commands?.run(action);
 
+  // Set when a menu item ran a command. Closing the menu would send focus back to the
+  // trigger, where typing goes nowhere; after a choice it returns to the document instead
+  // (Escape still returns it to the trigger). A dialog the command opened keeps focus.
+  const choseFromMenu = useRef(false);
+
+  const runFromMenu = (command: () => void) => {
+    choseFromMenu.current = true;
+    command();
+  };
+
+  const keepFocusAfterChoice = (event: Event) => {
+    if (!choseFromMenu.current) return;
+
+    choseFromMenu.current = false;
+    event.preventDefault();
+    commands?.focus();
+  };
+
   const isActive = (action: MarkdownAction): boolean => {
     switch (action) {
       case 'bold': return active.bold;
@@ -134,13 +152,13 @@ export function EditorToolbar({ commands, active = EMPTY_FORMAT_STATE, trailing,
             </IconButton>
           </MenuTrigger>
         </Tooltip>
-        <MenuContent>
+        <MenuContent onCloseAutoFocus={keepFocusAfterChoice}>
           {headingItems.map(({ action, icon: Icon, label, shortcut }) => (
             <MenuItem
               key={action}
               icon={<Icon />}
               hint={shortcut ? shortcutKeys(shortcut) : undefined}
-              onSelect={() => run(action)}
+              onSelect={() => runFromMenu(() => run(action))}
             >
               {label}
             </MenuItem>
@@ -163,17 +181,17 @@ export function EditorToolbar({ commands, active = EMPTY_FORMAT_STATE, trailing,
             </IconButton>
           </MenuTrigger>
         </Tooltip>
-        <MenuContent className="w-56">
-          <MenuItem icon={<Image />} onSelect={() => run('image')}>
+        <MenuContent className="w-56" onCloseAutoFocus={keepFocusAfterChoice}>
+          <MenuItem icon={<Image />} onSelect={() => runFromMenu(() => run('image'))}>
             Image
           </MenuItem>
-          <MenuItem icon={<Table />} onSelect={() => run('table')}>
+          <MenuItem icon={<Table />} onSelect={() => runFromMenu(() => run('table'))}>
             Table
           </MenuItem>
-          <MenuItem icon={<SquareCode />} hint={shortcutKeys('codeBlock')} onSelect={() => run('codeblock')}>
+          <MenuItem icon={<SquareCode />} hint={shortcutKeys('codeBlock')} onSelect={() => runFromMenu(() => run('codeblock'))}>
             Code block
           </MenuItem>
-          <MenuItem icon={<Minus />} onSelect={() => run('hr')}>
+          <MenuItem icon={<Minus />} onSelect={() => runFromMenu(() => run('hr'))}>
             Divider
           </MenuItem>
           <MenuSeparator />
@@ -184,7 +202,7 @@ export function EditorToolbar({ commands, active = EMPTY_FORMAT_STATE, trailing,
                 <MenuItem
                   key={template.id}
                   description={template.description}
-                  onSelect={() => commands?.insert(template.template)}
+                  onSelect={() => runFromMenu(() => commands?.insert(template.template))}
                 >
                   {template.name}
                 </MenuItem>
