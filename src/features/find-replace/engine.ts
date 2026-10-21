@@ -89,9 +89,15 @@ export function collectMatches(regex: RegExp, text: string, offset: number): Sea
   return found;
 }
 
-/** Expands `$$`, `$&` and `$n` (longest valid group number) the way CodeMirror's regexp search does */
+/**
+ * Expands `$$`, `$&` and `$n` (longest valid group number) the way CodeMirror's regexp search does,
+ * and `\n`, `\t`, `\\` into newline, tab and backslash. One pass, so group text is never re-expanded.
+ */
 export function expandReplacement(template: string, exec: RegExpExecArray): string {
-  return template.replace(/\$([$&]|\d+)/g, (token: string, ref: string) => {
+  return template.replace(/\$([$&]|\d+)|\\([nt\\])/g, (token: string, ref: string | undefined, escape: string | undefined) => {
+    // The pattern sets exactly one of `ref` and `escape`
+    if (ref === undefined) return escape === 'n' ? '\n' : escape === 't' ? '\t' : '\\';
+
     if (ref === '&') return exec[0];
 
     if (ref === '$') return '$';
