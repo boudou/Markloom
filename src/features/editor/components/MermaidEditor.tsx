@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
 import { useActiveContent, useSetActiveContent } from '@/features/tabs';
 import { MermaidRenderer } from '@/features/mermaid/components/MermaidRenderer';
+import { forgetDiagram } from '@/features/mermaid/utils/mermaidConfig';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
 
@@ -50,10 +51,11 @@ export function MermaidEditor() {
     return () => clearTimeout(timer);
   }, [content]);
 
-  // Manual refresh handler
+  // Results are cached (errors too), so drop this one or the remount gets it back unchanged
   const handleRefresh = useCallback(() => {
+    forgetDiagram(debouncedContent, 'preview');
     setRenderKey((k) => k + 1);
-  }, []);
+  }, [debouncedContent]);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
