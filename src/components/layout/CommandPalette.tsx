@@ -4,12 +4,12 @@ import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Kbd, rememberFocus, restoreFocus } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsStore, type RecentFile } from '@/stores/settingsStore';
 import { mermaidTemplates } from '@/features/mermaid-toolbar';
 import { openPath } from '@/lib/documentActions';
 import { APP_COMMANDS, isOffered } from '@/lib/appCommands';
 import { type ShortcutId } from '@/lib/shortcuts';
-import type { MarkdownAction } from '@/features/editor/types';
+import type { EditorCommands, MarkdownAction } from '@/features/editor/types';
 
 interface Command {
   id: string;
@@ -19,66 +19,74 @@ interface Command {
   run: () => void;
 }
 
+/** Toggle labels and `when` read the stores directly, so the list reflects the moment it's built */
+function buildCommands(editorCommands: EditorCommands | null, recentFiles: RecentFile[]): Command[] {
+  const commands: Command[] = APP_COMMANDS.flatMap((c) =>
+    c.keyOnly || !isOffered(c)
+      ? []
+      : [{ id: c.id, label: c.stateLabel?.() ?? c.label, group: c.group, shortcut: c.shortcut, run: c.run }]
+  );
+
+  if (editorCommands) {
+    const format = (id: MarkdownAction, label: string, shortcut?: ShortcutId): Command => ({
+      id: `format-${id}`,
+      label,
+      group: 'Format',
+      shortcut,
+      run: () => editorCommands.run(id),
+    });
+
+    commands.push(
+      format('bold', 'Bold', 'bold'),
+      format('italic', 'Italic', 'italic'),
+      format('strikethrough', 'Strikethrough', 'strikethrough'),
+      format('code', 'Inline code', 'inlineCode'),
+      format('link', 'Link…', 'link'),
+      format('paragraph', 'Body text'),
+      format('h1', 'Heading 1', 'heading1'),
+      format('h2', 'Heading 2', 'heading2'),
+      format('h3', 'Heading 3', 'heading3'),
+      format('ul', 'Bulleted list', 'bulletList'),
+      format('ol', 'Numbered list', 'orderedList'),
+      format('checkbox', 'Task list', 'taskList'),
+      format('quote', 'Quote', 'blockquote'),
+      { ...format('codeblock', 'Insert code block', 'codeBlock'), group: 'Insert' },
+      { ...format('table', 'Insert table'), group: 'Insert' },
+      { ...format('hr', 'Insert divider'), group: 'Insert' },
+      { ...format('image', 'Insert image…'), group: 'Insert' },
+      ...mermaidTemplates.map((template) => ({
+        id: `diagram-${template.id}`,
+        label: `Insert ${template.name.toLowerCase()}`,
+        group: 'Insert',
+        run: () => editorCommands.insert(template.template),
+      }))
+    );
+  }
+
+  for (const file of recentFiles.slice(0, 8)) {
+    commands.push({
+      id: `recent-${file.path}`,
+      label: `Open recent: ${file.name}`,
+      group: 'Recent',
+      run: () => void openPath(file.path),
+    });
+  }
+
+  return commands;
+}
+
 function useCommands(open: boolean): Command[] {
   const editorCommands = useUiStore((s) => s.editorCommands);
   const recentFiles = useSettingsStore((s) => s.recentFiles);
+  const [commands, setCommands] = useState<Command[]>([]);
 
-  // Rebuilt whenever the palette opens or closes, so toggle labels and `when` read the state of
-  // that moment. Not emptied while closed: the list stays on screen during the closing animation.
-  return useMemo(() => {
-    const commands: Command[] = APP_COMMANDS.flatMap((c) =>
-      c.keyOnly || !isOffered(c)
-        ? []
-        : [{ id: c.id, label: c.stateLabel?.() ?? c.label, group: c.group, shortcut: c.shortcut, run: c.run }]
-    );
-
-    if (editorCommands) {
-      const format = (id: MarkdownAction, label: string, shortcut?: ShortcutId): Command => ({
-        id: `format-${id}`,
-        label,
-        group: 'Format',
-        shortcut,
-        run: () => editorCommands.run(id),
-      });
-
-      commands.push(
-        format('bold', 'Bold', 'bold'),
-        format('italic', 'Italic', 'italic'),
-        format('strikethrough', 'Strikethrough', 'strikethrough'),
-        format('code', 'Inline code', 'inlineCode'),
-        format('link', 'Link…', 'link'),
-        format('paragraph', 'Body text'),
-        format('h1', 'Heading 1', 'heading1'),
-        format('h2', 'Heading 2', 'heading2'),
-        format('h3', 'Heading 3', 'heading3'),
-        format('ul', 'Bulleted list', 'bulletList'),
-        format('ol', 'Numbered list', 'orderedList'),
-        format('checkbox', 'Task list', 'taskList'),
-        format('quote', 'Quote', 'blockquote'),
-        { ...format('codeblock', 'Insert code block', 'codeBlock'), group: 'Insert' },
-        { ...format('table', 'Insert table'), group: 'Insert' },
-        { ...format('hr', 'Insert divider'), group: 'Insert' },
-        { ...format('image', 'Insert image…'), group: 'Insert' },
-        ...mermaidTemplates.map((template) => ({
-          id: `diagram-${template.id}`,
-          label: `Insert ${template.name.toLowerCase()}`,
-          group: 'Insert',
-          run: () => editorCommands.insert(template.template),
-        }))
-      );
-    }
-
-    for (const file of recentFiles.slice(0, 8)) {
-      commands.push({
-        id: `recent-${file.path}`,
-        label: `Open recent: ${file.name}`,
-        group: 'Recent',
-        run: () => void openPath(file.path),
-      });
-    }
-
-    return commands;
+  // Built on opening (before paint), so toggle labels and `when` read the state of that moment.
+  // Kept while closed: the list stays on screen during the closing animation.
+  useLayoutEffect(() => {
+    if (open) setCommands(buildCommands(editorCommands, recentFiles));
   }, [open, editorCommands, recentFiles]);
+
+  return commands;
 }
 
 /** Every words of the query must appear; labels starting with the query rank first. */
