@@ -21,13 +21,10 @@ import {
   type ParagraphChild,
 } from 'docx';
 import { saveAs } from 'file-saver';
-import type MarkdownIt from 'markdown-it';
-import { getMarkdownParser, isMermaidFence } from '@/lib/markdown';
+import { getMarkdownParser, mermaidFence, type Token } from '@/lib/markdown';
 import { CALLOUT_COLORS, CALLOUT_LABELS, type CalloutKind } from '@/lib/callouts';
 import { loadDocumentImage, renderDiagram, svgDataUrl, toPngBytes, type ExportImage } from './assets';
 import type { ExportRequest } from './exporters';
-
-type Token = ReturnType<MarkdownIt['parse']>[number];
 
 const MAX_IMAGE_WIDTH = 600; // px, fits A4/Letter text width
 
@@ -372,14 +369,12 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         state.callouts.pop();
         break;
       case 'fence':
-      case 'code_block':
-        if (token.type === 'fence' && isMermaidFence(token.info)) {
-          blocks.push(await diagramParagraph(token.content.trim()));
-        } else {
-          blocks.push(codeParagraph(token.content));
-        }
-
+      case 'code_block': {
+        const diagram = mermaidFence(token);
+        blocks.push(diagram ? await diagramParagraph(diagram.code) : codeParagraph(token.content));
         break;
+      }
+
       case 'hr':
         blocks.push(
           new Paragraph({

@@ -15,27 +15,23 @@ const KNOWN_HTML_TAGS = new Set(
   ).split(' ')
 );
 
-type Token = ReturnType<MarkdownIt['parse']>[number];
+export type Token = ReturnType<MarkdownIt['parse']>[number];
 
 /**
- * Whether a fence's info string makes it a Mermaid diagram. Only the first word counts
- * ("mermaid title" is a diagram), because that is all the rich-text editor keeps as the language.
+ * A fence's language: the first word of its info string ("js title=x" is "js", "mermaid title"
+ * is a diagram), which is also all the rich-text editor keeps. Empty when there is no info.
  */
-export function isMermaidFence(info: string): boolean {
-  return info.trim().split(/\s+/)[0] === 'mermaid';
+export function fenceLanguage(info: string): string {
+  return info.trim().split(/\s+/)[0];
+}
+
+export function isMermaidLanguage(language: string): boolean {
+  return language === 'mermaid';
 }
 
 /** Number of whole blank lines at the start of text (trimmed away before a diagram renders) */
 export function leadingBlankLines(text: string): number {
   return (text.match(/^(?:[ \t]*\n)*/)?.[0].match(/\n/g) ?? []).length;
-}
-
-/**
- * 1-based document line of a fence's first diagram line, so errors can point into the source:
- * map[0] is the 0-based fence line; the diagram starts on the line after it, after any blank lines.
- */
-export function diagramFirstLine(token: Token): number | null {
-  return token.map ? token.map[0] + 2 + leadingBlankLines(token.content) : null;
 }
 
 export interface MermaidFence {
@@ -47,12 +43,24 @@ export interface MermaidFence {
   firstLine: number;
 }
 
+/** The diagram a token holds, or null when it isn't a Mermaid fence */
+export function mermaidFence(token: Token): MermaidFence | null {
+  if (token.type !== 'fence' || !token.map || !isMermaidLanguage(fenceLanguage(token.info))) return null;
+
+  // map[0] is the 0-based fence line; the diagram starts on the line after it, after any blank lines
+  return {
+    code: token.content.trim(),
+    range: token.map,
+    firstLine: token.map[0] + 2 + leadingBlankLines(token.content),
+  };
+}
+
 /** The Mermaid fences of a parsed document, in source order */
 export function mermaidFences(tokens: Token[]): MermaidFence[] {
   return tokens.flatMap((token) => {
-    const firstLine = token.type === 'fence' && isMermaidFence(token.info) ? diagramFirstLine(token) : null;
+    const fence = mermaidFence(token);
 
-    return token.map && firstLine !== null ? [{ code: token.content.trim(), range: token.map, firstLine }] : [];
+    return fence ? [fence] : [];
   });
 }
 
@@ -68,19 +76,15 @@ export function createMarkdownParser(): MarkdownIt {
   // Custom renderer for mermaid code blocks
   md.renderer.rules.fence = (tokens, idx) => {
     const token = tokens[idx];
-    const info = token.info ? token.info.trim() : '';
+    const diagram = mermaidFence(token);
 
-    if (isMermaidFence(info)) {
-      const code = token.content.trim();
-      const firstLine = diagramFirstLine(token);
-
-      return `<div class="mermaid-container" data-line="${firstLine ?? ''}" data-fence-line="${token.map ? token.map[0] + 1 : ''}" data-mermaid="${encodeURIComponent(code)}"></div>`;
+    if (diagram) {
+      return `<div class="mermaid-container" data-line="${diagram.firstLine}" data-fence-line="${diagram.range[0] + 1}" data-mermaid="${encodeURIComponent(diagram.code)}"></div>`;
     }
 
     // Use highlight.js for syntax highlighting
     const code = token.content;
-    // Only the first word of the info string is the language ("js title=x" -> "js")
-    const lang = info.split(/\s+/)[0] ?? '';
+    const lang = fenceLanguage(token.info);
     const highlighted = lang ? highlightCode(code, lang) : md.utils.escapeHtml(code);
     const langClass = lang ? ` language-${md.utils.escapeHtml(lang)}` : '';
 
@@ -213,8 +217,8 @@ export function createMarkdownParser(): MarkdownIt {
  * Works at any core stage: before text_join, escapes and entities are still text_special
  * tokens whose content is the decoded character.
  */
-export function headingText(inline: Token | undefined): string {
-  const parts = (inline?.children ?? []).map((child) => {
+export function headingText(inline: Token): string {
+  const parts = (inline.children ?? []).map((child) => {
     if (child.type === 'text' || child.type === 'text_special' || child.type === 'code_inline') return child.content;
 
     return child.type === 'softbreak' || child.type === 'hardbreak' ? '\n' : '';
