@@ -1,13 +1,13 @@
-import { forwardRef, useEffect, useMemo } from 'react';
+import { forwardRef, useEffect } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { diffLines, type Change } from 'diff';
 import { History, Clock, Trash2, RotateCcw, X, ChevronRight, Plus } from 'lucide-react';
 import * as Popover from '@radix-ui/react-popover';
 import { cn } from '@/lib/utils';
 import { IconButton } from '@/components/ui';
 import { useActiveContent, useActivePath, useSetActiveContent } from '@/features/tabs';
 import { useHistoryStore } from '../stores/historyStore';
-import { type VersionEntry } from '../utils';
+import { type VersionMeta } from '../utils';
+import { DiffViewer } from './DiffViewer';
 
 function formatDate(timestamp: number) {
   const date = new Date(timestamp);
@@ -45,7 +45,7 @@ export default function HistoryBody() {
   const setContent = useSetActiveContent();
   const versions = useHistoryStore((s) => s.versions);
   const isLoading = useHistoryStore((s) => s.isLoading);
-  const selectedVersionId = useHistoryStore((s) => s.selectedVersionId);
+  const selected = useHistoryStore((s) => s.selected);
   const loadVersions = useHistoryStore((s) => s.loadVersions);
   const saveCurrentVersion = useHistoryStore((s) => s.saveCurrentVersion);
   const selectVersion = useHistoryStore((s) => s.selectVersion);
@@ -57,7 +57,7 @@ export default function HistoryBody() {
     }
   }, [activeFilePath, loadVersions]);
 
-  const selectedVersion = versions.find((v) => v.id === selectedVersionId);
+  const selectedVersion = selected ? versions.find((v) => v.id === selected.id) : undefined;
 
   const handleSaveVersion = async () => {
     if (activeFilePath && content) {
@@ -65,13 +65,13 @@ export default function HistoryBody() {
     }
   };
 
-  const handleRestoreVersion = async (version: VersionEntry) => {
+  const handleRestoreVersion = async (versionContent: string) => {
     // Keep what's on screen as a version first, so restoring can always be undone
-    if (activeFilePath && content && content !== version.content) {
+    if (activeFilePath && content && content !== versionContent) {
       await saveCurrentVersion(activeFilePath, content, 'Before restore');
     }
 
-    setContent(version.content);
+    setContent(versionContent);
     selectVersion(null);
   };
 
@@ -133,7 +133,7 @@ export default function HistoryBody() {
                 <VersionItem
                   key={version.id}
                   version={version}
-                  isSelected={selectedVersionId === version.id}
+                  isSelected={selected?.id === version.id}
                   onSelect={() => selectVersion(version.id)}
                   onDelete={() => removeVersion(version.id)}
                 />
@@ -144,7 +144,7 @@ export default function HistoryBody() {
 
       {/* Preview/Diff */}
       <div className="w-1/2 overflow-hidden flex flex-col">
-        {selectedVersion ? (
+        {selected && selectedVersion ? (
           <>
             <div className="p-2 border-b border-rule/50">
               <p className="text-xs text-text-muted">
@@ -155,18 +155,23 @@ export default function HistoryBody() {
               )}
             </div>
             <div className="flex-1 overflow-y-auto">
-              <DiffViewer
-                oldContent={selectedVersion.content}
-                newContent={content}
-              />
+              {selected.content !== null ? (
+                <DiffViewer oldContent={selected.content} newContent={content} />
+              ) : (
+                <p className="p-4 text-sm text-text-muted">Loading…</p>
+              )}
             </div>
             <div className="p-2 border-t border-rule/50">
               <button
-                onClick={() => handleRestoreVersion(selectedVersion)}
+                type="button"
+                disabled={selected.content === null}
+                onClick={() => {
+                  if (selected.content !== null) handleRestoreVersion(selected.content);
+                }}
                 className={cn(
                   'w-full py-1.5 px-3 rounded-lg text-sm',
                   'bg-accent-primary text-white',
-                  'hover:bg-accent-primary/90 transition-colors',
+                  'hover:bg-accent-primary/90 transition-colors disabled:opacity-50',
                   'flex items-center justify-center gap-2'
                 )}
               >
@@ -191,7 +196,7 @@ export default function HistoryBody() {
 }
 
 interface VersionItemProps {
-  version: VersionEntry;
+  version: VersionMeta;
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
@@ -259,54 +264,3 @@ const VersionItem = forwardRef<HTMLDivElement, VersionItemProps>(function Versio
     </m.div>
   );
 });
-
-interface DiffViewerProps {
-  oldContent: string;
-  newContent: string;
-}
-
-function DiffViewer({ oldContent, newContent }: DiffViewerProps) {
-  const changes = useMemo(() => diffLines(oldContent, newContent), [oldContent, newContent]);
-
-  return (
-    <div className="text-xs font-mono">
-      {changes.map((change, index) => (
-        <DiffLine key={index} change={change} />
-      ))}
-    </div>
-  );
-}
-
-interface DiffLineProps {
-  change: Change;
-}
-
-function DiffLine({ change }: DiffLineProps) {
-  const lines = change.value.split('\n').filter((line, idx, arr) =>
-    // Keep empty lines except trailing one
-    idx < arr.length - 1 || line !== ''
-  );
-
-  if (lines.length === 0) return null;
-
-  return (
-    <>
-      {lines.map((line, index) => (
-        <div
-          key={index}
-          className={cn(
-            'px-2 py-0.5 border-l-2',
-            change.added && 'bg-green-500/10 border-green-500 text-[#15803D]',
-            change.removed && 'bg-red-500/10 border-red-500 text-[#B91C1C]',
-            !change.added && !change.removed && 'border-transparent text-text-muted'
-          )}
-        >
-          <span className="mr-2 text-text-muted/50 select-none">
-            {change.added ? '+' : change.removed ? '-' : ' '}
-          </span>
-          {line || ' '}
-        </div>
-      ))}
-    </>
-  );
-}

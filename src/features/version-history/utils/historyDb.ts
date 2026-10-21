@@ -1,133 +1,106 @@
-import { openDB, type IDBPDatabase } from 'idb';
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
 const DB_NAME = 'markloom-history';
 
-const DB_VERSION = 1;
+export const MAX_VERSIONS = 50;
 
-const STORE_NAME = 'versions';
-
-export interface VersionEntry {
+export interface VersionMeta {
   id: string;
   filePath: string;
-  content: string;
   timestamp: number;
   label?: string;
 }
 
-let dbInstance: IDBPDatabase | null = null;
+type StoredVersion = VersionMeta & { content: string };
 
-async function getDb(): Promise<IDBPDatabase> {
-  if (dbInstance) return dbInstance;
-
-  dbInstance = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        store.createIndex('by-file', 'filePath');
-        store.createIndex('by-timestamp', 'timestamp');
-      }
-    },
-  });
-
-  return dbInstance;
+interface HistoryDb extends DBSchema {
+  versions: { key: string; value: StoredVersion; indexes: { 'by-file': string; 'by-timestamp': number } };
+  meta: { key: string; value: VersionMeta; indexes: { 'by-file': string } };
 }
 
-// Generate unique ID for version entry
+/** A `StoredVersion` passed in loses its `content`. */
+function toMeta({ id, filePath, timestamp, label }: VersionMeta): VersionMeta {
+  return { id, filePath, timestamp, label };
+}
+
+let dbPromise: Promise<IDBPDatabase<HistoryDb>> | null = null;
+
+function getDb(): Promise<IDBPDatabase<HistoryDb>> {
+  dbPromise ??= openDB<HistoryDb>(DB_NAME, 2, {
+    async upgrade(db, oldVersion, _newVersion, tx) {
+      if (oldVersion < 1) {
+        const versions = db.createObjectStore('versions', { keyPath: 'id' });
+        versions.createIndex('by-file', 'filePath');
+        versions.createIndex('by-timestamp', 'timestamp');
+      }
+
+      if (oldVersion < 2) {
+        // The list reads only this store, so opening the panel never loads snapshot text
+        db.createObjectStore('meta', { keyPath: 'id' }).createIndex('by-file', 'filePath');
+        let cursor = await tx.objectStore('versions').openCursor();
+
+        while (cursor) {
+          await tx.objectStore('meta').put(toMeta(cursor.value));
+          cursor = await cursor.continue();
+        }
+      }
+    },
+  }).catch((error) => {
+    dbPromise = null;
+    throw error;
+  });
+
+  return dbPromise;
+}
+
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// Save a new version
-export async function saveVersion(
-  filePath: string,
-  content: string,
-  label?: string
-): Promise<VersionEntry> {
-  const db = await getDb();
-
-  const entry: VersionEntry = {
-    id: generateId(),
-    filePath,
-    content,
-    timestamp: Date.now(),
-    label,
-  };
-
-  await db.put(STORE_NAME, entry);
-
-  return entry;
+function newestFirst(a: VersionMeta, b: VersionMeta): number {
+  return b.timestamp - a.timestamp;
 }
 
-// Get all versions for a file
-export async function getVersionsForFile(filePath: string): Promise<VersionEntry[]> {
+/** The versions of a file, newest first, without their text. */
+export async function listVersions(filePath: string): Promise<VersionMeta[]> {
   const db = await getDb();
-  const index = db.transaction(STORE_NAME).store.index('by-file');
-  const versions = await index.getAll(filePath);
+  const versions = await db.getAllFromIndex('meta', 'by-file', filePath);
 
-  // Sort by timestamp descending (newest first)
-  return versions.sort((a, b) => b.timestamp - a.timestamp);
+  return versions.sort(newestFirst);
 }
 
-// Get a specific version
-export async function getVersion(id: string): Promise<VersionEntry | undefined> {
+export async function readVersionContent(id: string): Promise<string | undefined> {
   const db = await getDb();
 
-  return db.get(STORE_NAME, id);
+  return (await db.get('versions', id))?.content;
 }
 
-// Delete a version
+/** Stores a snapshot, drops the file's versions past `MAX_VERSIONS` and returns the kept list, in one transaction. */
+export async function saveVersion(filePath: string, content: string, label?: string): Promise<VersionMeta[]> {
+  const db = await getDb();
+  const row: StoredVersion = { id: generateId(), filePath, content, timestamp: Date.now(), label };
+  // Only IDB requests may be awaited until `tx.done`, or the transaction commits early
+  const tx = db.transaction(['versions', 'meta'], 'readwrite');
+  const versions = tx.objectStore('versions');
+  const meta = tx.objectStore('meta');
+  await versions.put(row);
+  await meta.put(toMeta(row));
+  const all = (await meta.index('by-file').getAll(filePath)).sort(newestFirst);
+
+  for (const stale of all.slice(MAX_VERSIONS)) {
+    await versions.delete(stale.id);
+    await meta.delete(stale.id);
+  }
+
+  await tx.done;
+
+  return all.slice(0, MAX_VERSIONS);
+}
+
 export async function deleteVersion(id: string): Promise<void> {
   const db = await getDb();
-  await db.delete(STORE_NAME, id);
-}
-
-// Delete all versions for a file
-export async function deleteVersionsForFile(filePath: string): Promise<void> {
-  const db = await getDb();
-  const index = db.transaction(STORE_NAME, 'readwrite').store.index('by-file');
-  const versions = await index.getAll(filePath);
-
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-
-  for (const version of versions) {
-    await tx.store.delete(version.id);
-  }
-
+  const tx = db.transaction(['versions', 'meta'], 'readwrite');
+  await tx.objectStore('versions').delete(id);
+  await tx.objectStore('meta').delete(id);
   await tx.done;
-}
-
-// Clean up old versions (keep only the latest N versions per file)
-export async function cleanupOldVersions(filePath: string, keepCount: number = 50): Promise<void> {
-  const versions = await getVersionsForFile(filePath);
-
-  if (versions.length <= keepCount) return;
-
-  const db = await getDb();
-  const toDelete = versions.slice(keepCount);
-
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-
-  for (const version of toDelete) {
-    await tx.store.delete(version.id);
-  }
-
-  await tx.done;
-}
-
-// Get total version count for a file
-export async function getVersionCount(filePath: string): Promise<number> {
-  const versions = await getVersionsForFile(filePath);
-
-  return versions.length;
-}
-
-// Update version label
-export async function updateVersionLabel(id: string, label: string): Promise<void> {
-  const db = await getDb();
-  const version = await db.get(STORE_NAME, id);
-
-  if (version) {
-    version.label = label;
-    await db.put(STORE_NAME, version);
-  }
 }

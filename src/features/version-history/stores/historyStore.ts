@@ -1,17 +1,23 @@
 import { create } from 'zustand';
-import { saveVersion, getVersionsForFile, deleteVersion, cleanupOldVersions, type VersionEntry } from '../utils';
+import { listVersions, readVersionContent, saveVersion, deleteVersion, type VersionMeta } from '../utils';
+
+interface SelectedVersion {
+  id: string;
+  /** `null` while the snapshot's text is being read */
+  content: string | null;
+}
 
 interface HistoryState {
   /** The document `versions` belong to; replies for any other document are dropped */
   filePath: string | null;
-  versions: VersionEntry[];
+  versions: VersionMeta[];
   isLoading: boolean;
-  selectedVersionId: string | null;
+  selected: SelectedVersion | null;
 
   // Actions
   loadVersions: (filePath: string) => Promise<void>;
   saveCurrentVersion: (filePath: string, content: string, label?: string) => Promise<void>;
-  selectVersion: (id: string | null) => void;
+  selectVersion: (id: string | null) => Promise<void>;
   removeVersion: (id: string) => Promise<void>;
 }
 
@@ -19,17 +25,17 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   filePath: null,
   versions: [],
   isLoading: false,
-  selectedVersionId: null,
+  selected: null,
 
   loadVersions: async (filePath) => {
     set((state) => ({
       filePath,
       isLoading: true,
-      selectedVersionId: state.filePath === filePath ? state.selectedVersionId : null,
+      selected: state.filePath === filePath ? state.selected : null,
     }));
 
     try {
-      const versions = await getVersionsForFile(filePath);
+      const versions = await listVersions(filePath);
 
       if (get().filePath === filePath) set({ versions, isLoading: false });
     } catch (error) {
@@ -41,25 +47,56 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   saveCurrentVersion: async (filePath, content, label) => {
     try {
-      await saveVersion(filePath, content, label);
-      // Clean up old versions (keep latest 50)
-      await cleanupOldVersions(filePath, 50);
-      const versions = await getVersionsForFile(filePath);
+      const versions = await saveVersion(filePath, content, label);
 
-      if (get().filePath === filePath) set({ versions });
+      if (get().filePath !== filePath) return;
+
+      set((state) => ({
+        versions,
+        // The save may have pruned the selected version
+        selected: state.selected && versions.some((v) => v.id === state.selected?.id) ? state.selected : null,
+      }));
     } catch (error) {
       console.error('Failed to save version:', error);
     }
   },
 
-  selectVersion: (id) => set({ selectedVersionId: id }),
+  selectVersion: async (id) => {
+    if (id === null) {
+      set({ selected: null });
+
+      return;
+    }
+
+    set({ selected: { id, content: null } });
+
+    try {
+      const content = await readVersionContent(id);
+
+      // Another version was picked meanwhile
+      if (get().selected?.id !== id) return;
+
+      if (content === undefined) {
+        console.error('Version not found:', id);
+        set({ selected: null });
+
+        return;
+      }
+
+      set({ selected: { id, content } });
+    } catch (error) {
+      console.error('Failed to read version:', error);
+
+      if (get().selected?.id === id) set({ selected: null });
+    }
+  },
 
   removeVersion: async (id) => {
     try {
       await deleteVersion(id);
       set((state) => ({
         versions: state.versions.filter((v) => v.id !== id),
-        selectedVersionId: state.selectedVersionId === id ? null : state.selectedVersionId,
+        selected: state.selected?.id === id ? null : state.selected,
       }));
     } catch (error) {
       console.error('Failed to delete version:', error);
