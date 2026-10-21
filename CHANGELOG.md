@@ -8,6 +8,10 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 - Auto-save: turn it on from the status bar or the command palette (off by default). Documents saved to a file are written 30 seconds after you stop typing, each on its own timer (#75).
 
+### Changed
+
+- Building from source needs Node.js 22.18 or newer, which `npm run lint` requires; CI now runs the lint (#103).
+
 ### Fixed
 
 - Templates insert today's date even when the app has been open since an earlier day (#83).

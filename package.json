@@ -84,7 +84,7 @@
     "postcss-selector-parser": "^7.1.7"
   },
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.18"
   },
   "main": "electron/main.cjs",
   "author": "boudou (https://github.com/boudou)",

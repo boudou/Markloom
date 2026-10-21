@@ -10,7 +10,7 @@ npm run dev            # web app on http://localhost:1420
 npm run electron:dev   # desktop app with live reload
 ```
 
-Node.js 22.12+ is required.
+Node.js 22.18+ is required (`npm run lint` loads the TypeScript Oxlint plugin, which older Node 22 releases cannot run).
 
 ## Before opening a pull request
 
