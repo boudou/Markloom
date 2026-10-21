@@ -4,6 +4,7 @@ import { GripVertical, AlertCircle, RefreshCw, ZoomIn, ZoomOut, RotateCcw, Maxim
 import CodeMirror from '@uiw/react-codemirror';
 import { EditorView } from '@codemirror/view';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
+import { usePreservedEditorState } from '../codemirror/documentStates';
 import { useActiveContent, useSetActiveContent } from '@/features/tabs';
 import { MermaidRenderer } from '@/features/mermaid/components/MermaidRenderer';
 import { forgetDiagram } from '@/features/mermaid/utils/mermaidConfig';
@@ -29,6 +30,32 @@ const basicSetup = {
   highlightSelectionMatches: true,
   lintKeymap: false,
 };
+
+interface MermaidSourceProps {
+  content: string;
+  onChange: (value: string) => void;
+}
+
+// Its own component so each mount (tab switch, or back from "Diagram only") reopens with the
+// state the source had when it was last shown, undo history included
+function MermaidSource({ content, onChange }: MermaidSourceProps) {
+  const [view, setView] = useState<EditorView | null>(null);
+  const initialState = usePreservedEditorState(content, view);
+
+  return (
+    <CodeMirror
+      value={content}
+      onChange={onChange}
+      onCreateEditor={setView}
+      initialState={initialState}
+      height="100%"
+      theme="light"
+      extensions={sourceExtensions}
+      basicSetup={basicSetup}
+      className="h-full"
+    />
+  );
+}
 
 export function MermaidEditor() {
   const content = useActiveContent();
@@ -133,15 +160,7 @@ export function MermaidEditor() {
             <span className="text-sm text-text-muted font-medium">Mermaid source</span>
           </div>
           <div className="flex-1 overflow-hidden">
-            <CodeMirror
-              value={content}
-              onChange={handleContentChange}
-              height="100%"
-              theme="light"
-              extensions={sourceExtensions}
-              basicSetup={basicSetup}
-              className="h-full"
-            />
+            <MermaidSource content={content} onChange={handleContentChange} />
           </div>
         </div>
       </div>

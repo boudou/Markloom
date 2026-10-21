@@ -22,6 +22,7 @@ import type { EditorCommands, FormatState } from '../types';
 import { formatStateReporter, selectionReporter } from '../codemirror/formatState';
 import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
+import { usePreservedEditorState } from '../codemirror/documentStates';
 
 const MIN_SPLIT = 25;
 
@@ -73,6 +74,8 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
   const lineNumbers = useSettingsStore((s) => s.editor.lineNumbers);
   const basicSetup = useMemo(() => basicSetupFor(lineNumbers), [lineNumbers]);
   const [view, setView] = useState<EditorView | null>(null);
+  // Reopen with the text, selection and undo history this document had when it was last shown
+  const initialState = usePreservedEditorState(content, view);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const previewContentRef = useRef<HTMLElement>(null);
@@ -216,6 +219,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
             value={content}
             onChange={setContent}
             onCreateEditor={setView}
+            initialState={initialState}
             extensions={extensions}
             theme="light"
             autoFocus={isBlank}
