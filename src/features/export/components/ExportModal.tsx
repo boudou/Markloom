@@ -5,7 +5,7 @@ import { Button, Input, Modal, ModalFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { selectActiveContent, useActivePath, useTabsStore } from '@/features/tabs';
 import { documentName } from '@/features/file-tree/api/fileSystem';
-import { notify, useUiStore } from '@/stores/uiStore';
+import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
 import type { ExportIssue } from '../pipeline/preflight';
 
@@ -95,7 +95,11 @@ function toFileName(title: string): string {
 }
 
 // The dialog stays mounted: read the text when it's needed rather than re-rendering on every keystroke
-const readContent = () => selectActiveContent(useTabsStore.getState());
+const readContent = () => {
+  flushEditorEdits();
+
+  return selectActiveContent(useTabsStore.getState());
+};
 
 export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const hasContent = useTabsStore((s) => /\S/.test(selectActiveContent(s)));

@@ -79,3 +79,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
 
 /** Shorthand for components and plain modules */
 export const notify = (toast: Omit<Toast, 'id'>) => useUiStore.getState().notify(toast);
+
+/** Writes the active editor's pending edits into the tabs store (see EditorCommands.flush) */
+export function flushEditorEdits(): void {
+  useUiStore.getState().editorCommands?.flush();
+}

@@ -3,7 +3,7 @@ import { useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 import { useFileTreeStore } from '@/features/file-tree/stores/fileTreeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { notify, useUiStore } from '@/stores/uiStore';
+import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import {
   openFileDialog,
   openFolderDialog,
@@ -76,6 +76,8 @@ export async function saveTab(
   tabId: string,
   options: { saveAs?: boolean; /** Auto-save: no success message, never opens a dialog */ quiet?: boolean } = {}
 ): Promise<boolean> {
+  // First: `tabs` below is a snapshot, so a later write would not be in what we save
+  flushEditorEdits();
   const tabs = useTabsStore.getState();
   const tab = tabs.tabs.find((t) => t.id === tabId);
 
@@ -137,6 +139,7 @@ export function saveActiveTab(options?: { saveAs?: boolean }): Promise<boolean> 
 
 /** Closes tabs, asking first when any of them has unsaved changes. */
 export function requestCloseTabs(tabIds: string[]): void {
+  flushEditorEdits();
   const { tabs, closeTabs } = useTabsStore.getState();
   const hasUnsaved = tabs.some((t) => tabIds.includes(t.id) && t.isDirty);
 
@@ -147,6 +150,9 @@ export function requestCloseTabs(tabIds: string[]): void {
   }
 }
 
+/** Whether any tab has unsaved changes. An edit the editor still holds counts, so it is written first. */
 export function hasUnsavedTabs(): boolean {
+  flushEditorEdits();
+
   return useTabsStore.getState().tabs.some((t) => t.isDirty);
 }

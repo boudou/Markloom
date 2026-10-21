@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Editor,
   EditorStatus,
@@ -54,9 +54,38 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   const loadedBaseline = useRef<string | null>(null);
   // The exact source text that baseline came from
   const loadedSource = useRef(content);
+  // The serializer output last written to (or loaded from) the store
+  const lastSerialized = useRef<string | null>(null);
+  // The load this editor was created for (EditorContainer keys it by loadId, so it is fixed per mount)
+  const [loadId] = useState(() => useTabsStore.getState().tabs.find((t) => t.id === tabId)?.loadId);
   const [linkRequest, setLinkRequest] = useState<LinkRequest | null>(null);
   const reportFormat = useRef(onFormatState);
   reportFormat.current = onFormatState;
+
+  // Writes the editor's Markdown into the tabs store. Reads only refs and the mount-constant
+  // tabId and loadId, so the copy the editor factory captures on the first render stays correct.
+  const commit = (markdown: string) => {
+    if (applyingExternal.current || loadedBaseline.current === null) return;
+
+    // The debounced listener fires after a flush with the same text: already written
+    if (markdown === lastSerialized.current) return;
+
+    // Closed, or another file was loaded into this tab: never write this editor's text over it
+    const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId);
+
+    if (tab?.loadId !== loadId) return;
+    lastSerialized.current = markdown;
+
+    // Back to the loaded document (e.g. after undo): restore the original text exactly
+    // Otherwise keep the user's own formatting for every block they didn't change
+    const next =
+      markdown === loadedBaseline.current
+        ? loadedSource.current
+        : preserveUnchangedBlocks(knownMarkdown.current, markdown);
+
+    knownMarkdown.current = next;
+    useTabsStore.getState().updateTabContent(tabId, next);
+  };
 
   // Created once per mount: EditorContainer keys this editor by the tab's loadId, so a
   // different tab or a freshly loaded document always gets a new component
@@ -82,19 +111,8 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
           }));
           // Match the source editor's conventions where remark lets us
           ctx.update(remarkStringifyOptionsCtx, (prev) => ({ ...prev, bullet: '-' as const, emphasis: '_' as const, rule: '-' as const }));
-          ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
-            if (applyingExternal.current || loadedBaseline.current === null) return;
-
-            // Back to the loaded document (e.g. after undo): restore the original text exactly
-            // Otherwise keep the user's own formatting for every block they didn't change
-            const next =
-              markdown === loadedBaseline.current
-                ? loadedSource.current
-                : preserveUnchangedBlocks(knownMarkdown.current, markdown);
-
-            knownMarkdown.current = next;
-            useTabsStore.getState().updateTabContent(tabId, next);
-          });
+          // Debounced by 200 ms; `flush` writes sooner when something reads the store
+          ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => commit(markdown));
         })
         .use(commonmark)
         .use(gfm)
@@ -146,6 +164,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   useEffect(() => {
     if (!editor || loadedBaseline.current !== null) return;
     loadedBaseline.current = editor.action(getMarkdown());
+    lastSerialized.current = loadedBaseline.current;
   }, [editor]);
 
   // Content changed elsewhere (version restore, template, file reload): show it
@@ -157,6 +176,8 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     try {
       editor.action(replaceAll(content));
       loadedBaseline.current = editor.action(getMarkdown());
+      // The listener reports this replace 200 ms later; it is not an edit
+      lastSerialized.current = loadedBaseline.current;
       loadedSource.current = content;
     } finally {
       applyingExternal.current = false;
@@ -179,6 +200,19 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     return current?.status === EditorStatus.Created ? current.action((ctx) => ctx.get(editorViewCtx)) : undefined;
   };
 
+  // Serializes the document now instead of waiting for the listener's debounce
+  const flush = () => {
+    const current = get();
+
+    if (current?.status === EditorStatus.Created) commit(current.action(getMarkdown()));
+  };
+
+  // Milkdown destroys the editor in <Milkdown />'s passive-effect cleanup, and the listener
+  // drops its pending update then. A layout cleanup runs earlier, in the commit that removes
+  // the editor, so a tab or mode switch right after typing keeps the edit. `flush` only reads
+  // `get` (the provider's one ref) and refs, hence no deps (same reasoning as below).
+  useLayoutEffect(() => () => flush(), []);
+
   // Expose commands to the shared toolbar, once per editor: a new object on every
   // render would make the Find bar re-run (and re-select its input) on every keystroke.
   // `get` (and `liveView`, which only reads it) is left out of the deps for that reason (see above).
@@ -196,6 +230,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
       search: prosemirrorSearchEngine(liveView),
       insert: (markdown) => withEditor((current) => insertRichSnippet(current, markdown)),
       focus: () => liveView()?.focus(),
+      flush,
     });
 
     return () => onCommands(null);
