@@ -1,16 +1,22 @@
 // Remembers what was open (folder + documents) and offers it back on the next launch.
 import { create } from 'zustand';
-import { useTabsStore } from '@/features/tabs';
+import { useTabsStore, selectActiveTab, type Tab } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore, type LastSession } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
 import { showFolder } from '@/lib/documentActions';
 import { readFile, restoreRememberedFolder } from '@/features/file-tree/api/fileSystem';
 import { ROOT_KEY, hasPermission, recallDirectoryHandle } from '@/features/file-tree/api/handleStore';
+import { deleteDrafts, listDrafts, saveDraftsNow, startDraftTracking, type Draft } from '@/lib/drafts';
+
+/** What the start panel offers to reopen: the remembered session plus unsaved Untitled drafts */
+export interface SessionOffer extends LastSession {
+  drafts: Draft[];
+}
 
 interface SessionState {
   /** Last session that can still be reopened, or null once handled */
-  offer: LastSession | null;
+  offer: SessionOffer | null;
   restoring: boolean;
 }
 
@@ -71,6 +77,29 @@ async function hasGrantedAccess(): Promise<boolean> {
   return !!root && (await hasPermission(root));
 }
 
+/** An Untitled tab nobody has written in, like the one the app starts with */
+function isBlankUntitled(tab: Tab): boolean {
+  return !tab.path && !tab.isDirty && tab.content === '';
+}
+
+/** Opens each draft as a dirty Untitled tab and returns the new tab ids */
+function reopenDrafts(drafts: Draft[]): string[] {
+  const tabs = useTabsStore.getState();
+
+  return drafts.map((draft) => {
+    // Created empty, then filled, so the tab is dirty: closing it asks, and it is drafted again
+    tabs.createTab(null, '', draft.name);
+    // createTab without a path always appends the new tab
+    const { tabs: open } = useTabsStore.getState();
+    const id = open[open.length - 1].id;
+
+    tabs.updateTabContent(id, draft.content);
+    useSettingsStore.getState().moveWordGoal(draft.id, id);
+
+    return id;
+  });
+}
+
 /** Reopens the last session. Call from a click: the browser may need to ask for access. */
 export async function restoreLastSession(): Promise<void> {
   const session = useSessionStore.getState().offer;
@@ -100,9 +129,24 @@ export async function restoreLastSession(): Promise<void> {
       }
     }
 
-    const active = useTabsStore.getState().tabs.find((t) => t.path === session.activePath);
+    // No awaits from here to the close, so the user cannot type into the blank tab in between
+    const startTab = selectActiveTab(useTabsStore.getState());
+    const blank = startTab && isBlankUntitled(startTab) ? startTab : undefined;
+    const restoredIds = reopenDrafts(session.drafts);
 
-    if (active) useTabsStore.getState().setActiveTab(active.id);
+    // The empty tab the app starts with would sit in front of the restored drafts
+    if (blank && restoredIds.length > 0) tabs.closeTabs([blank.id]);
+
+    const active = useTabsStore.getState().tabs.find((t) => t.path === session.activePath);
+    const activeId = active?.id ?? restoredIds[0];
+
+    if (activeId) tabs.setActiveTab(activeId);
+
+    if (restoredIds.length > 0) {
+      // Store the restored tabs under their new ids before dropping the old records
+      await saveDraftsNow();
+      await deleteDrafts(session.drafts.map((d) => d.id));
+    }
 
     const missed = session.paths.length - reopened;
 
@@ -133,15 +177,20 @@ export function dismissLastSession(): void {
 /** Call once at startup. */
 export async function initSession(): Promise<void> {
   startTracking();
+  startDraftTracking();
   const last = useSettingsStore.getState().lastSession;
+  const stored = await listDrafts();
+  const openIds = new Set(useTabsStore.getState().tabs.map((t) => t.id));
+  // A draft written by this run before the read finished belongs to a tab that is still open
+  const drafts = stored.filter((d) => !openIds.has(d.id));
 
-  if (isEmpty(last)) {
+  if (isEmpty(last) && drafts.length === 0) {
     tracking = true;
 
     return;
   }
 
-  useSessionStore.setState({ offer: last });
+  useSessionStore.setState({ offer: { ...(last ?? { rootName: null, paths: [], activePath: null }), drafts } });
 
   // Access still granted (e.g. the browser remembers it): reopen without asking
   if (await hasGrantedAccess()) await restoreLastSession();
