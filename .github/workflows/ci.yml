@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
 
-# Checks out and builds; the token needs nothing more than read access
+# Checks out, lints and builds; the token needs nothing more than read access
 permissions:
   contents: read
 
@@ -19,4 +19,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
