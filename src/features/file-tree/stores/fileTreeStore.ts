@@ -12,6 +12,8 @@ interface FileTreeState {
 
   // Actions
   setNodes: (nodes: FileNode[], root: string | null) => void;
+  /** Drops the shown folder's tree, expanded folders and selection before another folder opens */
+  clearTree: () => void;
   toggleExpanded: (path: string) => void;
   setSelected: (path: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -30,6 +32,14 @@ export const useFileTreeStore = create<FileTreeState>()(
       set((state) => {
         state.nodes = nodes;
         state.nodesRoot = root;
+      }),
+
+    clearTree: () =>
+      set((state) => {
+        state.nodes = [];
+        state.nodesRoot = null;
+        state.expandedPaths = new Set<string>();
+        state.selectedPath = null;
       }),
 
     toggleExpanded: (path) =>

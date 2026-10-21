@@ -4,6 +4,7 @@ import { useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore, type LastSession } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
+import { showFolder } from '@/lib/documentActions';
 import { readFile, restoreRememberedFolder } from '@/features/file-tree/api/fileSystem';
 import { ROOT_KEY, hasPermission, recallHandle } from '@/features/file-tree/api/handleStore';
 
@@ -84,11 +85,7 @@ export async function restoreLastSession(): Promise<void> {
       const name = await restoreRememberedFolder();
       folderOk = !!name;
 
-      if (name) {
-        const app = useAppStore.getState();
-        app.setRootPath(name);
-        app.showSidebarView('files');
-      }
+      if (name) showFolder(name);
     }
 
     const tabs = useTabsStore.getState();
