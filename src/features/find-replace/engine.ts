@@ -112,30 +112,27 @@ export function expandReplacement(template: string, exec: RegExpExecArray): stri
   });
 }
 
-/** Per-view doc-change listeners: the editor's static hook calls `notify`, an engine `listen`s while a query is active */
-export interface DocChangeListeners<View extends object> {
-  notify(view: View): void;
-  listen(view: View, listener: () => void): () => void;
-}
-
-export function createDocChangeListeners<View extends object>(): DocChangeListeners<View> {
-  const listeners = new WeakMap<View, () => void>();
-
-  return {
-    notify: (view) => listeners.get(view)?.(),
-    listen(view, listener) {
-      listeners.set(view, listener);
-
-      return () => {
-        // A newer engine on the same view may have taken over; leave its listener alone
-        if (listeners.get(view) === listener) listeners.delete(view);
-      };
-    },
-  };
-}
-
 /** No query: what an engine starts with and returns to on `clear` */
 const NO_SEARCH: SearchOptions = { query: '', replacement: '', caseSensitive: false, wholeWord: false, regex: false };
+
+/** No matches: shared by every engine, never mutated (engines replace `result`, they don't edit it) */
+const NO_RESULT: SearchResult = { count: 0, current: -1, invalid: false };
+
+/**
+ * The engine while no editor is mounted: Rich text still loading, or the gap during a tab or mode
+ * switch. The bar stays mounted with it and shows no result; every action does nothing.
+ */
+export const IDLE_SEARCH_ENGINE: SearchEngine = {
+  update: () => {},
+  next: () => {},
+  previous: () => {},
+  replace: () => {},
+  replaceAll: () => {},
+  clear: () => {},
+  focusEditor: () => {},
+  subscribe: () => () => {},
+  getResult: () => NO_RESULT,
+};
 
 const sameQuery = (a: SearchOptions, b: SearchOptions) =>
   a.query === b.query && a.caseSensitive === b.caseSensitive && a.wholeWord === b.wholeWord && a.regex === b.regex;
@@ -150,8 +147,8 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
   let current = -1;
   /** Whether `current` has been selected since the last recount */
   let revealed = false;
-  let result: SearchResult = { count: 0, current: -1, invalid: false };
-  let stopListening: (() => void) | null = null;
+  let result = NO_RESULT;
+  let unsubscribeDocChange: (() => void) | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const listeners = new Set<() => void>();
 
@@ -205,12 +202,14 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     timer = setTimeout(recountAtCursor, RECOUNT_DELAY_MS);
   };
 
-  const listen = (active: boolean) => {
-    if (active) stopListening ??= adapter.onDocChange(scheduleRecount);
-    else {
-      stopListening?.();
-      stopListening = null;
-    }
+  // Idempotent: `update` calls it on every query change while the pattern is valid
+  const startListening = () => {
+    unsubscribeDocChange ??= adapter.onDocChange(scheduleRecount);
+  };
+
+  const stopListening = () => {
+    unsubscribeDocChange?.();
+    unsubscribeDocChange = null;
   };
 
   const step = (delta: number) => {
@@ -230,7 +229,9 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
 
       if (sameQuery(previous, next)) return;
       regex = buildSearchRegExp(next);
-      listen(regex !== null);
+
+      if (regex) startListening();
+      else stopListening();
       recount(adapter.selectionFrom());
       reveal();
     },
@@ -255,7 +256,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
       recountAtCursor();
     },
     clear() {
-      listen(false);
+      stopListening();
       options = NO_SEARCH;
       regex = null;
       recount(0);
