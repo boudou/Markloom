@@ -35,10 +35,12 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     const anchor = anchorRef.current;
 
-    if (event.button !== 0 || !anchor) return;
+    // One drag at a time: a second finger or pen on a touch-none handle would start another
+    if (event.button !== 0 || !anchor || endRef.current) return;
 
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const { pointerId } = event;
+    event.currentTarget.setPointerCapture(pointerId);
     const rect = anchor.getBoundingClientRect();
     let latest: number | null = null;
     document.body.style.cursor = 'col-resize';
@@ -46,16 +48,22 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
     setLocal(stored);
 
     const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+
       const next = Math.min(max, Math.max(min, toValue(ev.clientX, rect)));
       latest = next;
       setLocal(next);
     };
 
+    const release = (ev: PointerEvent) => {
+      if (ev.pointerId === pointerId) end();
+    };
+
     // Window, not the handle: captured events bubble here and keep arriving if the handle unmounts
     const end = () => {
       window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
       endRef.current = null;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -66,8 +74,8 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
     };
 
     window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
     endRef.current = end;
   };
 
