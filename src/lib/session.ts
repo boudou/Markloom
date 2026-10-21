@@ -1,6 +1,6 @@
 // Remembers what was open (folder + documents) and offers it back on the next launch.
 import { create } from 'zustand';
-import { useTabsStore, selectActiveTab, type Tab } from '@/features/tabs';
+import { useTabsStore, selectActiveTab, selectTabContent, type Tab } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore, type LastSession } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
@@ -26,13 +26,13 @@ export const useSessionStore = create<SessionState>()(() => ({ offer: null, rest
 let tracking = false;
 
 function currentSession(): LastSession {
-  const { tabs, activeTabId } = useTabsStore.getState();
-  const paths = tabs.map((t) => t.path).filter((p): p is string => !!p);
+  const state = useTabsStore.getState();
+  const paths = state.tabs.map((t) => t.path).filter((p): p is string => !!p);
 
   return {
     rootName: useAppStore.getState().rootPath,
     paths,
-    activePath: tabs.find((t) => t.id === activeTabId)?.path ?? null,
+    activePath: selectActiveTab(state)?.path ?? null,
   };
 }
 
@@ -48,7 +48,7 @@ function startTracking() {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
       const session = currentSession();
-      // Typing changes tabs too; only rewrite settings when what's open actually changed
+      // A rename or a dirty flip changes tabs too; only rewrite settings when what's open actually changed
       const serialized = JSON.stringify(session);
 
       if (tracking && serialized === lastWritten) return;
@@ -65,7 +65,10 @@ function startTracking() {
     }, 400);
   };
 
-  useTabsStore.subscribe(save);
+  // Typing changes only `contents`, so it never reaches save
+  useTabsStore.subscribe((state, prev) => {
+    if (state.tabs !== prev.tabs || state.activeTabId !== prev.activeTabId) save();
+  });
   useAppStore.subscribe((state, prev) => {
     if (state.rootPath !== prev.rootPath) save();
   });
@@ -78,8 +81,8 @@ async function hasGrantedAccess(): Promise<boolean> {
 }
 
 /** An Untitled tab nobody has written in, like the one the app starts with */
-function isBlankUntitled(tab: Tab): boolean {
-  return !tab.path && !tab.isDirty && tab.content === '';
+function isBlankUntitled(tab: Tab, content: string): boolean {
+  return !tab.path && !tab.isDirty && content === '';
 }
 
 /** Opens each draft as a dirty Untitled tab and returns the new tab ids */
@@ -130,8 +133,9 @@ export async function restoreLastSession(): Promise<void> {
     }
 
     // No awaits from here to the close, so the user cannot type into the blank tab in between
-    const startTab = selectActiveTab(useTabsStore.getState());
-    const blank = startTab && isBlankUntitled(startTab) ? startTab : undefined;
+    const state = useTabsStore.getState();
+    const startTab = selectActiveTab(state);
+    const blank = startTab && isBlankUntitled(startTab, selectTabContent(state, startTab.id)) ? startTab : undefined;
     const restoredIds = reopenDrafts(session.drafts);
 
     // The empty tab the app starts with would sit in front of the restored drafts

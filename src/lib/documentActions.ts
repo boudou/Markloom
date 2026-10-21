@@ -1,5 +1,5 @@
 // Document-level actions shared by the title bar, keyboard shortcuts and empty states.
-import { useTabsStore } from '@/features/tabs';
+import { useTabsStore, selectTab, selectTabContent } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 import { useFileTreeStore } from '@/features/file-tree/stores/fileTreeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -79,15 +79,17 @@ export async function saveTab(
   // First: `tabs` below is a snapshot, so a later write would not be in what we save
   flushEditorEdits();
   const tabs = useTabsStore.getState();
-  const tab = tabs.tabs.find((t) => t.id === tabId);
+  const tab = selectTab(tabs, tabId);
+  // Read once, before any await: text typed during the write must stay unsaved
+  const content = selectTabContent(tabs, tabId);
 
   if (!tab) return false;
 
   if (tab.path && !options.saveAs) {
     try {
-      await writeFile(tab.path, tab.content);
+      await writeFile(tab.path, content);
       // The user may have kept typing during the write: only what was written counts as saved
-      tabs.markTabSaved(tabId, tab.content);
+      tabs.markTabSaved(tabId, content);
 
       if (!options.quiet) notify({ tone: 'success', title: `Saved ${tab.name}` });
 
@@ -109,11 +111,11 @@ export async function saveTab(
   if (options.quiet) return false;
 
   try {
-    const newPath = await saveFileDialog(tab.content, suggestedFileName(tab.name));
+    const newPath = await saveFileDialog(content, suggestedFileName(tab.name));
 
     if (!newPath) return false;
     tabs.setTabPath(tabId, newPath);
-    tabs.markTabSaved(tabId, tab.content);
+    tabs.markTabSaved(tabId, content);
 
     // Goals are keyed by path once a document has one (see WordCountWidget's useGoalKey)
     if (!tab.path) useSettingsStore.getState().moveWordGoal(tabId, newPath);
