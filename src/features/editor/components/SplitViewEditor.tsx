@@ -75,6 +75,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
   const [view, setView] = useState<EditorView | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const previewContentRef = useRef<HTMLElement>(null);
 
   const isBlank = !activeFilePath && content === '';
 
@@ -114,7 +115,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     return () => onCommands(null);
   }, [view, onCommands]);
 
-  useSyncScroll({ editorView: view, previewRef, previewReady: !isBlank });
+  useSyncScroll({ editorView: view, previewRef, previewContentRef, previewReady: !isBlank });
 
   // The preview's "Show line N" and its diagram error lines; stable per view, because
   // the preview re-renders its diagrams whenever these change
@@ -245,6 +246,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
             <MarkdownPreview
               content={content}
               surfaceRef={previewRef}
+              contentRef={previewContentRef}
               onShowLine={showLine}
               onDiagramErrors={markDiagramErrors}
             />

@@ -14,13 +14,22 @@ interface MarkdownPreviewProps {
   className?: string;
   /** The scrolling surface, shared with scroll sync */
   surfaceRef: React.RefObject<HTMLDivElement>;
+  /** The rendered document inside the surface; scroll sync watches its size */
+  contentRef: React.RefObject<HTMLElement>;
   /** "Show line N" on a diagram error card. Keep stable: it re-runs diagram rendering. */
   onShowLine: (line: number) => void;
   /** Source lines of the diagrams that failed, after each render. Keep stable too. */
   onDiagramErrors: (lines: number[]) => void;
 }
 
-export function MarkdownPreview({ content, className, surfaceRef, onShowLine, onDiagramErrors }: MarkdownPreviewProps) {
+export function MarkdownPreview({
+  content,
+  className,
+  surfaceRef,
+  contentRef,
+  onShowLine,
+  onDiagramErrors,
+}: MarkdownPreviewProps) {
   // Re-parse shortly after typing pauses rather than on every keystroke
   const debouncedContent = useDebouncedValue(content, 120);
   // Code renders plain until the highlighter chunk arrives, then once more with colour
@@ -31,13 +40,12 @@ export function MarkdownPreview({ content, className, surfaceRef, onShowLine, on
   useDocumentLinks(surfaceRef, html);
 
   // Copy buttons on code blocks; one listener serves all of them
-  const articleRef = useRef<HTMLElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    if (articleRef.current) addCopyButtons(articleRef.current);
-  }, [html]);
+    if (contentRef.current) addCopyButtons(contentRef.current);
+  }, [html, contentRef]);
   useEffect(() => {
-    const article = articleRef.current;
+    const article = contentRef.current;
 
     if (!article) return;
 
@@ -49,7 +57,7 @@ export function MarkdownPreview({ content, className, surfaceRef, onShowLine, on
     article.addEventListener('click', onClick);
 
     return () => article.removeEventListener('click', onClick);
-  }, []);
+  }, [contentRef]);
 
   // Fill Mermaid placeholders; unchanged diagrams come straight from the shared cache.
   // Failures become an error card and are reported so the source pane can mark the line.
@@ -108,7 +116,7 @@ export function MarkdownPreview({ content, className, surfaceRef, onShowLine, on
       className={cn('h-full overflow-auto px-8 py-8', className)}
     >
       <article
-        ref={articleRef}
+        ref={contentRef}
         className="prose-markloom reading-column font-editor text-base leading-relaxed"
         dangerouslySetInnerHTML={{ __html: html }}
       />
