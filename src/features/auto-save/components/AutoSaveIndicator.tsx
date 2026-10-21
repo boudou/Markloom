@@ -10,15 +10,18 @@ interface Look {
   icon: React.ElementType;
   /** Visible text */
   text: string;
-  /** Tooltip sentence after "Auto-save on." */
-  detail: string;
   className: string;
   iconClassName?: string;
 }
 
-const off: Look = { icon: CloudOff, text: 'Auto-save off', detail: '', className: 'text-text-muted' };
+interface OnLook extends Look {
+  /** Tooltip sentence after "Auto-save on." */
+  detail: string;
+}
 
-const looks: Record<AutoSaveStatus, Look> = {
+const off: Look = { icon: CloudOff, text: 'Auto-save off', className: 'text-text-muted' };
+
+const looks: Record<AutoSaveStatus, OnLook> = {
   idle: { icon: Cloud, text: 'Auto-save on', detail: '', className: 'text-text-secondary' },
   pending: { icon: Cloud, text: 'Auto-save on', detail: 'Changes waiting to be saved. ', className: 'text-warning' },
   saving: { icon: Loader2, text: 'Saving…', detail: 'Saving… ', className: 'text-accent-primary', iconClassName: 'animate-spin' },
@@ -39,14 +42,14 @@ export function AutoSaveIndicator() {
   const detail =
     status === 'saved' && lastSaved
       ? `Saved at ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. `
-      : look.detail;
+      : looks[status].detail;
 
   // The tooltip is also the button's accessible name, so it starts with the state
-  let tooltip = `Auto-save off. Turn it on to save documents that have a file ${interval} seconds after you stop typing.`;
-
-  if (autoSave && hasFile) tooltip = `Auto-save on. ${detail}Click to turn off.`;
-
-  if (autoSave && !hasFile) tooltip = 'Auto-save on. Save this document once to start auto-saving it. Click to turn off.';
+  const tooltip = !autoSave
+    ? `Auto-save off. Turn it on to save documents that have a file ${interval} seconds after you stop typing.`
+    : hasFile
+      ? `Auto-save on. ${detail}Click to turn off.`
+      : 'Auto-save on. Save this document once to start auto-saving it. Click to turn off.';
 
   return (
     <Tooltip content={tooltip}>
@@ -55,7 +58,7 @@ export function AutoSaveIndicator() {
         aria-pressed={autoSave}
         onClick={toggleAutoSave}
         className={cn(
-          'flex items-center gap-1 h-5 px-1 -mx-1 rounded text-xs hover:text-text-primary transition-colors',
+          'flex items-center gap-1 h-5 px-1 -mx-1 rounded text-xs transition-colors',
           'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
           look.className
         )}
