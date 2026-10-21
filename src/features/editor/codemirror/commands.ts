@@ -1,6 +1,6 @@
 // Markdown formatting for the source editor. Every action is a single CodeMirror
 // transaction, so one Ctrl+Z undoes exactly one formatting step.
-import { EditorSelection, Prec, type ChangeSpec } from '@codemirror/state';
+import { EditorSelection, Prec, type ChangeSpec, type EditorState } from '@codemirror/state';
 import { keymap, EditorView } from '@codemirror/view';
 import { defaultKeymap } from '@codemirror/commands';
 import type { MarkdownAction } from '../types';
@@ -32,21 +32,41 @@ const BLOCK_SNIPPETS: Partial<Record<MarkdownAction, string>> = {
   table: '| Column | Column | Column |\n| ------ | ------ | ------ |\n|        |        |        |',
 };
 
+const INLINE_PAIRS = Object.values(INLINE_MARKERS).map(([open, close]) => [open, close] as const);
+
+/**
+ * Finds the span whose `open`/`close` markers wrap `from..to`, looking outward through other
+ * inline markers, so Bold finds the `**` in `**_text_**` with only `text` selected.
+ */
+function findWrapping(state: EditorState, from: number, to: number, open: string, close: string): { from: number; to: number } | null {
+  const wraps = (start: number, end: number, before: string, after: string) =>
+    state.sliceDoc(start - before.length, start) === before && state.sliceDoc(end, end + after.length) === after;
+
+  for (;;) {
+    if (wraps(from, to, open, close)) return { from, to };
+
+    const outer = INLINE_PAIRS.find(([o, c]) => o !== open && wraps(from, to, o, c));
+
+    if (!outer) return null;
+    from -= outer[0].length;
+    to += outer[1].length;
+  }
+}
+
 function toggleInline(view: EditorView, action: MarkdownAction): void {
   const [open, close, placeholder] = INLINE_MARKERS[action]!;
   const { state } = view;
   view.dispatch(
     state.changeByRange((range) => {
       const text = state.sliceDoc(range.from, range.to);
-      const before = state.sliceDoc(range.from - open.length, range.from);
-      const after = state.sliceDoc(range.to, range.to + close.length);
+      const wrapping = text ? findWrapping(state, range.from, range.to, open, close) : null;
 
-      // Already wrapped: unwrap
-      if (text && before === open && after === close) {
+      // Already wrapped, directly or around other inline markers: unwrap
+      if (wrapping) {
         return {
           changes: [
-            { from: range.from - open.length, to: range.from },
-            { from: range.to, to: range.to + close.length },
+            { from: wrapping.from - open.length, to: wrapping.from },
+            { from: wrapping.to, to: wrapping.to + close.length },
           ],
           range: EditorSelection.range(range.from - open.length, range.to - open.length),
         };
