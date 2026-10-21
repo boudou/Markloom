@@ -13,12 +13,9 @@ interface FileTreeState {
   // Actions
   setNodes: (nodes: FileNode[], root: string | null) => void;
   toggleExpanded: (path: string) => void;
-  setExpanded: (path: string, expanded: boolean) => void;
   setSelected: (path: string | null) => void;
   setLoading: (loading: boolean) => void;
   updateNode: (path: string, updates: Partial<FileNode>) => void;
-  addNode: (parentPath: string, node: FileNode) => void;
-  removeNode: (path: string) => void;
 }
 
 export const useFileTreeStore = create<FileTreeState>()(
@@ -41,15 +38,6 @@ export const useFileTreeStore = create<FileTreeState>()(
           state.expandedPaths.delete(path);
         } else {
           state.expandedPaths.add(path);
-        }
-      }),
-
-    setExpanded: (path, expanded) =>
-      set((state) => {
-        if (expanded) {
-          state.expandedPaths.add(path);
-        } else {
-          state.expandedPaths.delete(path);
         }
       }),
 
@@ -78,50 +66,6 @@ export const useFileTreeStore = create<FileTreeState>()(
           return false;
         };
         updateNodeRecursive(state.nodes);
-      }),
-
-    addNode: (parentPath, newNode) =>
-      set((state) => {
-        const addNodeRecursive = (nodes: FileNode[]): boolean => {
-          for (const node of nodes) {
-            if (node.path === parentPath && node.isDirectory) {
-              // Not loaded yet: the folder lists the new node when it loads
-              if (!node.children) return true;
-
-              node.children.push(newNode);
-              node.children.sort((a, b) => {
-                if (a.isDirectory !== b.isDirectory) {
-                  return a.isDirectory ? -1 : 1;
-                }
-                return a.name.localeCompare(b.name);
-              });
-              return true;
-            }
-            if (node.children && addNodeRecursive(node.children)) {
-              return true;
-            }
-          }
-          return false;
-        };
-        addNodeRecursive(state.nodes);
-      }),
-
-    removeNode: (path) =>
-      set((state) => {
-        const removeNodeRecursive = (nodes: FileNode[]): FileNode[] => {
-          return nodes.filter((node) => {
-            if (node.path === path) return false;
-            if (node.children) {
-              node.children = removeNodeRecursive(node.children);
-            }
-            return true;
-          });
-        };
-        state.nodes = removeNodeRecursive(state.nodes);
-        state.expandedPaths.delete(path);
-        if (state.selectedPath === path) {
-          state.selectedPath = null;
-        }
       }),
   }))
 );

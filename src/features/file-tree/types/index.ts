@@ -6,11 +6,4 @@ export interface FileNode {
   children?: FileNode[];
   /** Why the last read of this directory failed; cleared to retry */
   loadError?: string;
-  isExpanded?: boolean;
-}
-
-export interface FileTreeState {
-  nodes: FileNode[];
-  expandedPaths: Set<string>;
-  selectedPath: string | null;
 }

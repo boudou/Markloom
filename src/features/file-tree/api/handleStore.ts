@@ -50,6 +50,19 @@ export async function recallHandle<T extends FileSystemHandle>(key: string): Pro
 }
 
 /**
+ * Whether access to a remembered handle is already granted. Only queries, never asks,
+ * so it is safe without a user gesture. False when the browser has no permission API.
+ */
+export async function hasPermission(
+  handle: FileSystemHandle,
+  mode: 'read' | 'readwrite' = 'readwrite'
+): Promise<boolean> {
+  if (typeof handle.queryPermission === 'undefined') return false;
+
+  return (await handle.queryPermission({ mode })) === 'granted';
+}
+
+/**
  * Checks (and if needed asks for) access to a remembered handle.
  * Asking only works during a user gesture such as a click.
  */
@@ -57,14 +70,13 @@ export async function ensurePermission(
   handle: FileSystemHandle,
   mode: 'read' | 'readwrite' = 'readwrite'
 ): Promise<boolean> {
-  const withPermissions = handle as FileSystemHandle & {
-    queryPermission?: (d: { mode: string }) => Promise<PermissionState>;
-    requestPermission?: (d: { mode: string }) => Promise<PermissionState>;
-  };
-  if (!withPermissions.queryPermission) return true;
-  if ((await withPermissions.queryPermission({ mode })) === 'granted') return true;
+  if (await hasPermission(handle, mode)) return true;
+
+  // No permission API: nothing to ask, access is allowed
+  if (typeof handle.requestPermission === 'undefined') return true;
+
   try {
-    return (await withPermissions.requestPermission!({ mode })) === 'granted';
+    return (await handle.requestPermission({ mode })) === 'granted';
   } catch {
     return false;
   }
