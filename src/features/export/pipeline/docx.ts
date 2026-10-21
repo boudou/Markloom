@@ -17,6 +17,7 @@ import {
   TextRun,
   WidthType,
   type IParagraphOptions,
+  type IRunOptions,
   type ParagraphChild,
 } from 'docx';
 import { saveAs } from 'file-saver';
@@ -142,11 +143,13 @@ async function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunSty
 
   const push = (run: TextRun) => (link ? link.runs.push(run) : out.push(run));
 
-  const text = (value: string, extra: Record<string, unknown> = {}) =>
+  // docx skips a run property that is undefined, so a run outside a link gets no colour or underline
+  const text = (value: string, extra: IRunOptions = {}) =>
     new TextRun({
       text: value,
       ...style,
-      ...(link ? { color: '1D4ED8', underline: {} } : {}),
+      color: link ? '1D4ED8' : undefined,
+      underline: link ? {} : undefined,
       ...extra,
     });
 
@@ -206,36 +209,37 @@ async function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunSty
 // Block context: lists and quotes decide numbering, indentation and borders
 
 function blockOptions(state: WalkState): Partial<IParagraphOptions> {
-  const options: Record<string, unknown> = {};
   const list = state.lists[state.lists.length - 1];
   const item = state.items[state.items.length - 1];
   const level = Math.max(0, state.lists.length - 1);
+  let numbering: IParagraphOptions['numbering'];
+  let indentLeft = 0;
+  let spacing: IParagraphOptions['spacing'];
+  let border: IParagraphOptions['border'];
 
   if (list && item) {
     if (item.firstParagraph && !item.task) {
-      options.numbering = list.ordered
+      numbering = list.ordered
         ? { reference: 'ordered', level, instance: list.instance }
         : { reference: 'bullets', level };
     } else {
-      options.indent = { left: 720 * (level + 1) };
+      indentLeft = 720 * (level + 1);
     }
 
     item.firstParagraph = false;
-    options.spacing = { after: 60 };
+    spacing = { after: 60 };
   }
 
   if (state.quoteDepth > 0) {
-    // SAFETY: indent is only ever set to `{ left: number }` above.
-    const current = (options.indent as { left: number } | undefined)?.left ?? 0;
-    options.indent = { left: current + 360 * state.quoteDepth };
+    indentLeft += 360 * state.quoteDepth;
     // SAFETY: callouts holds data-callout values, which lib/markdown.ts sets from a CalloutKind, or ''.
     const callout = state.callouts[state.callouts.length - 1] as CalloutKind | '';
     const color = callout ? CALLOUT_COLORS[callout] : 'D9DCE1';
-    options.border = { left: { style: BorderStyle.SINGLE, size: callout ? 18 : 12, color, space: 10 } };
+    border = { left: { style: BorderStyle.SINGLE, size: callout ? 18 : 12, color, space: 10 } };
   }
 
-  // SAFETY: options only receives IParagraphOptions fields above (numbering, indent, spacing, border).
-  return options as Partial<IParagraphOptions>;
+  // docx skips undefined paragraph properties, as it did the keys this function used to leave out
+  return { numbering, indent: indentLeft > 0 ? { left: indentLeft } : undefined, spacing, border };
 }
 
 function codeParagraph(code: string): Paragraph {
