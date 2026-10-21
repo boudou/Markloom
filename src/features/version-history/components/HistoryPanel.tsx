@@ -4,8 +4,11 @@ import * as Popover from '@radix-ui/react-popover';
 import { cn } from '@/lib/utils';
 import { IconButton, Tooltip } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
+import { appCommand, commandHint } from '@/lib/appCommands';
 
 const HistoryBody = lazy(() => import('./HistoryBody'));
+
+const HISTORY = appCommand('history');
 
 export function HistoryPanel() {
   const isOpen = useUiStore((s) => s.historyOpen);
@@ -13,7 +16,7 @@ export function HistoryPanel() {
 
   return (
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
-      <Tooltip content="Version history">
+      <Tooltip content={commandHint(HISTORY)}>
         <Popover.Trigger asChild>
           <IconButton variant="ghost" size="sm" pressed={isOpen}>
             <History className="w-4 h-4" />
