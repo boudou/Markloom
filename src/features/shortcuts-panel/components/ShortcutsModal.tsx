@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Modal, Kbd, Input } from '@/components/ui';
-import { SHORTCUTS, shortcutKeys, type ShortcutId } from '@/lib/shortcuts';
+import { SHORTCUTS, shortcutKeys, shortcutWords, type ShortcutId } from '@/lib/shortcuts';
 
 interface ShortcutsModalProps {
   open: boolean;
@@ -25,7 +25,7 @@ export function ShortcutsModal({ open, onOpenChange }: ShortcutsModalProps) {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
 
     const matches = (id: ShortcutId) => {
-      const text = `${SHORTCUTS[id].label} ${shortcutKeys(id)} ${SHORTCUTS[id].group}`.toLowerCase();
+      const text = `${SHORTCUTS[id].label} ${shortcutKeys(id)} ${shortcutWords(id)} ${SHORTCUTS[id].group}`.toLowerCase();
 
       return words.every((w) => text.includes(w));
     };
