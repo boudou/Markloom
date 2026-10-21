@@ -142,6 +142,8 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
   let regex: RegExp | null = null;
   let matches: SearchMatch[] = [];
   let current = -1;
+  /** Whether `current` has been selected since the last recount */
+  let revealed = false;
   let result: SearchResult = { count: 0, current: -1, invalid: false };
   let stopListening: (() => void) | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -158,6 +160,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     matches = regex ? adapter.matches(regex) : [];
     const first = matches.findIndex((match) => match.from >= from);
     current = matches.length ? Math.max(first, 0) : -1;
+    revealed = false;
   };
 
   // Draws the highlights and tells the bar, if anything it shows changed
@@ -177,6 +180,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     const match = matches[current];
 
     if (match) adapter.select(match);
+    revealed = true;
   };
 
   // Recounting never moves the selection, so typing in the editor isn't hijacked
@@ -207,7 +211,9 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     flush();
 
     if (!matches.length) return;
-    current = (current + delta + matches.length) % matches.length;
+
+    // After a recount `current` is the first match at or after the cursor, not yet shown: Next lands on it
+    if (revealed || delta < 0) current = (current + delta + matches.length) % matches.length;
     reveal();
   };
 
