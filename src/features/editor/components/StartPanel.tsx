@@ -1,6 +1,6 @@
 import { FileText, FolderOpen, LayoutTemplate, History } from 'lucide-react';
 import { openFile, openFolder } from '@/lib/documentActions';
-import { shortcutKeys } from '@/lib/shortcuts';
+import type { ShortcutId } from '@/lib/shortcuts';
 import { Kbd } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
 import { useSessionStore, restoreLastSession, dismissLastSession } from '@/lib/session';
@@ -10,6 +10,13 @@ interface StartPanelProps {
   /** Where the writing happens, so the hint can point at it */
   writeHint: string;
   className?: string;
+}
+
+interface StartAction {
+  icon: typeof FileText;
+  label: string;
+  shortcut?: ShortcutId;
+  run: () => void | Promise<void>;
 }
 
 /** Shown in place of an empty document: say where to type, then offer the other ways in. */
@@ -27,10 +34,10 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
         .join(' and ')
     : '';
 
-  const actions = [
-    { icon: FileText, label: 'Open a file', hint: shortcutKeys('openFile'), run: openFile },
-    { icon: FolderOpen, label: 'Open a folder', hint: shortcutKeys('openFolder'), run: openFolder },
-    { icon: LayoutTemplate, label: 'Start from a template', hint: '', run: () => openDialog('templates') },
+  const actions: StartAction[] = [
+    { icon: FileText, label: 'Open a file', shortcut: 'openFile', run: openFile },
+    { icon: FolderOpen, label: 'Open a folder', shortcut: 'openFolder', run: openFolder },
+    { icon: LayoutTemplate, label: 'Start from a template', run: () => openDialog('templates') },
   ];
 
   return (
@@ -70,7 +77,7 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
       )}
 
       <div className="mt-6 border-t border-rule">
-        {actions.map(({ icon: Icon, label, hint, run }) => (
+        {actions.map(({ icon: Icon, label, shortcut, run }) => (
           <button
             key={label}
             type="button"
@@ -83,7 +90,7 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
           >
             <Icon className="w-4 h-4 text-text-secondary" />
             <span className="flex-1">{label}</span>
-            {hint && <kbd className="font-mono text-xs text-text-muted">{hint}</kbd>}
+            {shortcut && <Kbd id={shortcut} />}
           </button>
         ))}
       </div>

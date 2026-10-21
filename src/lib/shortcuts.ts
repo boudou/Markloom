@@ -92,10 +92,55 @@ const KEY_NAMES: Record<string, string> = {
   Enter: isMac ? '↩' : 'Enter',
 };
 
-// One name per key, e.g. ["Ctrl", "Shift", "O"] or ["⌘", "⇧", "O"]. Splitting on "-" holds
-// while no combo uses "-" as its key; a "Mod--" combo would need a different split.
+/** Spoken names for screen readers, e.g. "Command+Shift+P": glyphs like ⌘ are announced inconsistently */
+const KEY_LABELS = new Map([
+  ['Mod', isMac ? 'Command' : 'Ctrl'],
+  ['Alt', isMac ? 'Option' : 'Alt'],
+  ['Shift', 'Shift'],
+  ['Enter', isMac ? 'Return' : 'Enter'],
+  ['`', 'Backtick'],
+  ['\\', 'Backslash'],
+  ['/', 'Slash'],
+]);
+
+const MODIFIERS = ['Mod', 'Alt', 'Shift'] as const;
+
+type Modifier = (typeof MODIFIERS)[number];
+
+function isModifier(part: string): part is Modifier {
+  return MODIFIERS.some((modifier) => modifier === part);
+}
+
+/** Split a combo like "Mod-Shift-o" into its modifiers (in written order) and key; "Mod--" has key "-" */
+export function parseCombo(combo: string) {
+  const cut = combo.lastIndexOf('-', combo.length - 2);
+  const key = combo.slice(cut + 1);
+
+  const mods = cut < 0 ? [] : combo.slice(0, cut).split('-').map((part) => {
+    if (!isModifier(part)) throw new Error(`Unknown modifier "${part}" in shortcut "${combo}"`);
+
+    return part;
+  });
+
+  return { mods, key };
+}
+
+function comboParts(id: ShortcutId): string[] {
+  const { mods, key } = parseCombo(SHORTCUTS[id].combo);
+
+  return [...mods, key];
+}
+
+/** One name per key, e.g. ["Ctrl", "Shift", "O"] or ["⌘", "⇧", "O"] */
 export function shortcutParts(id: ShortcutId): string[] {
-  return SHORTCUTS[id].combo.split('-').map((part) => KEY_NAMES[part] ?? part.toUpperCase());
+  return comboParts(id).map((part) => KEY_NAMES[part] ?? part.toUpperCase());
+}
+
+/** Spoken keys for assistive tech, e.g. "Ctrl+Shift+P" or "Command+Shift+P" */
+export function shortcutSpokenKeys(id: ShortcutId): string {
+  return comboParts(id)
+    .map((part) => KEY_LABELS.get(part) ??part.toUpperCase())
+    .join('+');
 }
 
 /** Human-readable keys, e.g. "Ctrl+Shift+O" or "⌘⇧O" */
@@ -110,8 +155,7 @@ const KEY_WORDS = new Map([
 
 /** Plain key names for search, e.g. "cmd command enter": macOS shows "Enter" as "↩" */
 export function shortcutWords(id: ShortcutId): string {
-  return SHORTCUTS[id].combo
-    .split('-')
+  return comboParts(id)
     .map((part) => KEY_WORDS.get(part) ?? part.toLowerCase())
     .join(' ');
 }
@@ -123,11 +167,10 @@ export function shortcutHint(label: string, id?: ShortcutId): string {
 
 /** Does a keyboard event match a combo like "Mod-Shift-o"? */
 export function matchesCombo(event: KeyboardEvent, combo: string): boolean {
-  const parts = combo.split('-');
-  const key = parts[parts.length - 1].toLowerCase();
-  const wantMod = parts.includes('Mod');
-  const wantAlt = parts.includes('Alt');
-  const wantShift = parts.includes('Shift');
+  const { mods, key } = parseCombo(combo);
+  const wantMod = mods.includes('Mod');
+  const wantAlt = mods.includes('Alt');
+  const wantShift = mods.includes('Shift');
   const mod = isMac ? event.metaKey : event.ctrlKey;
 
   // event.code keeps Alt/Shift combinations layout-independent (Alt+N types "ñ" on macOS)
@@ -137,7 +180,7 @@ export function matchesCombo(event: KeyboardEvent, combo: string): boolean {
     : event.key.toLowerCase();
 
   return (
-    pressed === key &&
+    pressed === key.toLowerCase() &&
     mod === wantMod &&
     event.altKey === wantAlt &&
     event.shiftKey === wantShift
