@@ -137,7 +137,7 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
   const dirParts = partsBelowRoot(path);
 
   try {
-    const nodes = await inFolder(dirParts, false, async (dir) => {
+    const nodes = await inFolder(dirParts, { create: false }, async (dir) => {
       const entries: FileNode[] = [];
 
       for await (const entry of dir.values()) {
@@ -146,7 +146,7 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
 
         const childPath = `${path}/${entry.name}`;
 
-        // Cache directory handles as we find them, under the keys resolveDir looks up
+        // Cache directory handles as we find them, under the keys inFolder looks up
         if (entry.kind === 'directory') {
           // SAFETY: an entry whose kind is 'directory' is a FileSystemDirectoryHandle
           handleCache.set(childPath, entry as FileSystemDirectoryHandle);
@@ -309,40 +309,52 @@ function forgetFolders(rootName: string, dirParts: string[]): void {
   }
 }
 
-/** The folder at `dirParts` below the open folder, creating missing folders when `create` is set */
-async function resolveDir(dirParts: string[], { create }: { create: boolean }): Promise<FileSystemDirectoryHandle> {
+/**
+ * Runs `use` on the folder at `dirParts` below the open folder, creating missing folders when `create` is set.
+ * A missing folder on the way (a NotFoundError) becomes "Folder not found"; every other error, such as a revoked
+ * permission or a file where a folder should be, passes through unchanged.
+ * When something fails, a cached handle on the way may point at a folder deleted or replaced outside
+ * Markloom, so they are all dropped; a read that only found no such entry in the folder keeps them.
+ */
+async function inFolder<T>(
+  dirParts: string[],
+  { create }: { create: boolean },
+  use: (dir: FileSystemDirectoryHandle) => Promise<T>
+): Promise<T> {
   const root = currentFolder();
   let dir = root;
   let key = root.name;
+  let usedCache = false;
 
   try {
     for (const part of dirParts) {
       key = `${key}/${part}`;
-      dir = handleCache.get(key) ?? (await dir.getDirectoryHandle(part, { create }));
+      const cached = handleCache.get(key);
+
+      usedCache ||= !!cached;
+      dir = cached ?? (await dir.getDirectoryHandle(part, { create }));
       handleCache.set(key, dir);
     }
-  } catch {
-    throw new Error(`Folder not found: ${key}`);
+  } catch (error) {
+    forgetFolders(root.name, dirParts);
+
+    if (error instanceof DOMException && error.name === 'NotFoundError') throw new Error(`Folder not found: ${key}`);
+
+    throw error;
   }
 
-  return dir;
-}
-
-/**
- * Runs `use` on a folder below the open folder. When the walk or `use` fails, a cached handle on
- * the way may point at a folder deleted or replaced outside Markloom, so they are all dropped.
- */
-async function inFolder<T>(
-  dirParts: string[],
-  create: boolean,
-  use: (dir: FileSystemDirectoryHandle) => Promise<T>
-): Promise<T> {
-  const rootName = currentFolder().name;
-
   try {
-    return await use(await resolveDir(dirParts, { create }));
+    return await use(dir);
   } catch (error) {
-    forgetFolders(rootName, dirParts);
+    const notFound = error instanceof DOMException && error.name === 'NotFoundError';
+
+    if (!create && notFound) throw error;
+
+    forgetFolders(root.name, dirParts);
+
+    // A write into a cached folder deleted outside Markloom: walk once more from the open folder, which recreates it
+    if (create && usedCache && notFound) return inFolder(dirParts, { create }, use);
+
     throw error;
   }
 }
@@ -356,8 +368,11 @@ interface DocumentStore {
   read(path: string): Promise<File>;
   /** Creates the file, and any missing folders on the way, when it doesn't exist */
   write(path: string, content: string | Blob): Promise<void>;
-  /** The file's version (see fileVersion) without loading its contents; rejects when the file can't be reached */
-  version(path: string): Promise<string>;
+  /**
+   * The file's version (see fileVersion) without loading its contents; rejects when the file can't be reached.
+   * Left out when `read` already returns a File that loads its bytes only when asked, so its metadata is the version.
+   */
+  version?(path: string): Promise<string>;
 }
 
 const desktopStore: DocumentStore = {
@@ -395,10 +410,6 @@ const standaloneStore: DocumentStore = {
   async write(path, content) {
     await writeHandle(await standaloneHandle(path), content);
   },
-
-  async version(path) {
-    return fileVersion(await standaloneStore.read(path));
-  },
 };
 
 const folderStore: DocumentStore = {
@@ -407,23 +418,21 @@ const folderStore: DocumentStore = {
   async read(path) {
     const { dirParts, name } = folderPartsOf(path);
 
-    return inFolder(dirParts, false, async (dir) => {
-      try {
-        return await (await dir.getFileHandle(name)).getFile();
-      } catch {
-        throw new Error(`File not found: ${path}`);
-      }
-    });
+    try {
+      return await inFolder(dirParts, { create: false }, async (dir) => (await dir.getFileHandle(name)).getFile());
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'NotFoundError') throw new Error(`File not found: ${path}`);
+
+      throw error;
+    }
   },
 
   async write(path, content) {
     const { dirParts, name } = folderPartsOf(path);
 
-    await inFolder(dirParts, true, async (dir) => writeHandle(await dir.getFileHandle(name, { create: true }), content));
-  },
-
-  async version(path) {
-    return fileVersion(await folderStore.read(path));
+    await inFolder(dirParts, { create: true }, async (dir) =>
+      writeHandle(await dir.getFileHandle(name, { create: true }), content)
+    );
   },
 };
 
@@ -454,8 +463,10 @@ export function fileVersion(file: File): string {
 }
 
 /** The version of the file at `path`, read without loading its contents. */
-export function readFileVersion(path: string): Promise<string> {
-  return storeFor(path).version(path);
+export async function readFileVersion(path: string): Promise<string> {
+  const store = storeFor(path);
+
+  return store.version ? store.version(path) : fileVersion(await store.read(path));
 }
 
 // Read file contents
