@@ -1,7 +1,5 @@
 // Where each inline token (paragraph text, list item, heading, table cell) sits in the source.
-import type MarkdownIt from 'markdown-it';
-
-type Token = ReturnType<MarkdownIt['parse']>[number];
+import type { Token } from '@/lib/markdown';
 
 export interface PlacedInline {
   token: Token;

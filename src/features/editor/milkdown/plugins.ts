@@ -12,7 +12,14 @@ import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/ut
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '@/lib/documentPath';
 import { useTabsStore, selectActiveContent, selectActiveTab } from '@/features/tabs';
-import { getMarkdownParser, headingIdAssigner, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
+import {
+  fenceLanguage,
+  getMarkdownParser,
+  headingIdAssigner,
+  isMermaidLanguage,
+  leadingBlankLines,
+  mermaidFences,
+} from '@/lib/markdown';
 
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 
@@ -165,6 +172,12 @@ function documentLineOfDiagram(source: string, occurrence: number): number | und
 // Code blocks: plain code keeps a language label; Mermaid shows the diagram with
 // its source one click away.
 
+// Parsed Markdown gives a one-word language, but pasted <pre data-language="mermaid x"> keeps
+// the whole string, so the first-word rule still applies here.
+function isMermaidBlock(node: ProseNode): boolean {
+  return isMermaidLanguage(fenceLanguage(node.attrs.language));
+}
+
 class CodeBlockView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
@@ -178,7 +191,7 @@ class CodeBlockView implements NodeView {
     private view: EditorView,
     private getPos: () => number | undefined
   ) {
-    const isMermaid = isMermaidFence(node.attrs.language);
+    const isMermaid = isMermaidBlock(node);
     this.dom = document.createElement('div');
     this.dom.className = isMermaid ? 'rt-mermaid' : 'rt-code';
 
@@ -237,7 +250,7 @@ class CodeBlockView implements NodeView {
     let count = 0;
     // Nodes that start before this one
     this.view.state.doc.nodesBetween(0, Math.max(own, 0), (node) => {
-      if (node.type.name === 'code_block' && isMermaidFence(node.attrs.language) && node.textContent.trim() === source) {
+      if (node.type.name === 'code_block' && isMermaidBlock(node) &&node.textContent.trim() === source) {
         count++;
       }
 
@@ -308,7 +321,7 @@ class CodeBlockView implements NodeView {
     // A language change between mermaid and anything else needs a different view
     if (node.type !== this.node.type) return false;
 
-    if (isMermaidFence(node.attrs.language) !== isMermaidFence(this.node.attrs.language)) return false;
+    if (isMermaidBlock(node) !== isMermaidBlock(this.node)) return false;
     this.node = node;
 
     if (this.preview) this.scheduleRender();
