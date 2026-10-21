@@ -174,8 +174,9 @@ export function CommandPalette() {
           <Dialog.Title className="sr-only">Command palette</Dialog.Title>
           <div className="flex items-center gap-2 px-4 border-b border-rule">
             <Search className="w-4 h-4 text-text-muted flex-shrink-0" aria-hidden />
+            {/* No autoFocus: Radix skips onOpenAutoFocus (and so rememberFocus) when focus is
+                already inside, and focuses this first field itself */}
             <input
-              autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}

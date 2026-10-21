@@ -14,6 +14,9 @@ interface ModalProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '3xl';
   showClose?: boolean;
+  /** Where focus goes once the dialog has closed (after its exit animation), instead of
+   *  back to what had focus when it opened. */
+  returnFocus?: () => void;
 }
 
 const sizeClasses = {
@@ -44,21 +47,33 @@ const panel = {
 };
 
 // Dialogs opened from the keyboard have no trigger for Radix to return focus to; remember
-// what had focus and go back there (the editor, usually) when the dialog closes.
-let focusBeforeDialog: HTMLElement | null = null;
+// what had focus and go back there (the editor, usually) when the dialog closes. Each open
+// dialog keeps its own target, keyed by its content element (Radix dispatches both
+// auto-focus events on it), so a dialog closing late can't clear another one's.
+const focusBeforeDialog = new WeakMap<EventTarget, HTMLElement>();
 
-export function rememberFocus() {
-  // SAFETY: focus in this app sits on HTML controls or the editors' contenteditable hosts, never on SVG.
-  const active = document.activeElement as HTMLElement | null;
+export function rememberFocus(event: Event) {
+  const content = event.currentTarget;
+  const active = document.activeElement;
 
-  if (active && active !== document.body) focusBeforeDialog = active;
+  if (!content || !(active instanceof HTMLElement) || active === document.body) return;
+
+  // Opened from a dialog that is still animating out (a palette command): that element is
+  // about to go, so return to where the closing dialog would have.
+  const closing = active.closest('[role="dialog"][data-state="closed"]');
+  const target = closing ? focusBeforeDialog.get(closing) : active;
+
+  if (target) focusBeforeDialog.set(content, target);
 }
 
 export function restoreFocus(event: Event) {
-  const target = focusBeforeDialog;
-  focusBeforeDialog = null;
-  // Something outside the dialog took focus while it closed (Export's Show puts the
-  // cursor on a line): leave it there
+  const content = event.currentTarget;
+  const target = content ? focusBeforeDialog.get(content) : undefined;
+
+  if (content) focusBeforeDialog.delete(content);
+
+  // Something outside the dialog took focus while it closed (the dialog's action moved the
+  // cursor, or another dialog opened): leave it there
   const active = document.activeElement;
 
   if (active && active !== document.body) {
@@ -76,10 +91,9 @@ export function restoreFocus(event: Event) {
 // Start focus on the control marked data-autofocus (e.g. the primary action) instead of
 // the close button, which Radix would pick as the first focusable element.
 function focusPreferred(event: Event) {
-  rememberFocus();
-  // SAFETY: Radix fires onOpenAutoFocus on the dialog content element, an HTMLElement.
-  const content = (event.target ?? event.currentTarget) as HTMLElement | null;
-  const preferred = content?.querySelector<HTMLElement>('[data-autofocus]');
+  rememberFocus(event);
+  const content = event.currentTarget;
+  const preferred = content instanceof HTMLElement ? content.querySelector<HTMLElement>('[data-autofocus]') : null;
 
   if (preferred) {
     event.preventDefault();
@@ -96,7 +110,21 @@ export function Modal({
   className,
   size = 'md',
   showClose = true,
+  returnFocus,
 }: ModalProps) {
+  const onCloseAutoFocus = (event: Event) => {
+    if (!returnFocus) {
+      restoreFocus(event);
+
+      return;
+    }
+
+    if (event.currentTarget) focusBeforeDialog.delete(event.currentTarget);
+
+    event.preventDefault();
+    returnFocus();
+  };
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <AnimatePresence>
@@ -114,7 +142,7 @@ export function Modal({
 
             {/* Centres the panel; clicks on it fall through to the overlay, which closes the dialog */}
             <div className="fixed inset-0 z-50 grid place-items-center p-4 pointer-events-none">
-            <Dialog.Content asChild onOpenAutoFocus={focusPreferred} onCloseAutoFocus={restoreFocus}>
+            <Dialog.Content asChild onOpenAutoFocus={focusPreferred} onCloseAutoFocus={onCloseAutoFocus}>
               <m.div
                 variants={panel}
                 initial="closed"
