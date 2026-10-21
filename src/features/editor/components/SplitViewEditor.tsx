@@ -8,7 +8,7 @@ import { ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useResizeDrag } from '@/lib/useResizeDrag';
 import { useActiveContent, useActivePath, useSetActiveContent, useTabsStore } from '@/features/tabs';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { SPLIT_RATIO, useSettingsStore } from '@/stores/settingsStore';
 import { useUiStore } from '@/stores/uiStore';
 import { MarkdownPreview } from './MarkdownPreview';
 import { StartPanel } from './StartPanel';
@@ -23,10 +23,6 @@ import { formatStateReporter, selectionReporter } from '../codemirror/formatStat
 import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
 import { usePreservedEditorState } from '../codemirror/documentStates';
-
-const MIN_SPLIT = 25;
-
-const MAX_SPLIT = 75;
 
 interface SplitViewEditorProps {
   onCommands: (commands: EditorCommands | null) => void;
@@ -152,25 +148,15 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     useUiStore.getState().clearLineRequest();
   }, [view, lineRequest, activeTabId]);
 
-  const split = useResizeDrag({
+  const resize = useResizeDrag({
     stored: splitRatio,
-    min: MIN_SPLIT,
-    max: MAX_SPLIT,
+    bounds: SPLIT_RATIO,
+    step: 2,
+    shiftStep: 10,
     anchorRef: containerRef,
     toValue: (x, rect) => ((x - rect.left) / rect.width) * 100,
     commit: setSplitRatio,
   });
-
-  const handleResizeKey = (e: React.KeyboardEvent) => {
-    const step = e.shiftKey ? 10 : 2;
-
-    if (e.key === 'ArrowLeft') setSplitRatio(splitRatio - step);
-    else if (e.key === 'ArrowRight') setSplitRatio(splitRatio + step);
-    else if (e.key === 'Home') setSplitRatio(MIN_SPLIT);
-    else if (e.key === 'End') setSplitRatio(MAX_SPLIT);
-    else return;
-    e.preventDefault();
-  };
 
   const { isDragging, handleDragEnter, handleDragLeave, handleDragOver, handleDrop, handlePaste } = useImageDrop({
     onInsert: (imageMarkdown) => {
@@ -189,7 +175,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
         {/* Source pane */}
         <div
           className="h-full overflow-hidden bg-canvas relative"
-          style={{ width: `${split.value}%` }}
+          style={{ width: `${resize.value}%` }}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
@@ -234,13 +220,13 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize source and preview"
-          aria-valuenow={Math.round(split.value)}
-          aria-valuemin={MIN_SPLIT}
-          aria-valuemax={MAX_SPLIT}
+          aria-valuenow={Math.round(resize.value)}
+          aria-valuemin={SPLIT_RATIO.min}
+          aria-valuemax={SPLIT_RATIO.max}
           tabIndex={0}
-          onPointerDown={split.onPointerDown}
-          onKeyDown={handleResizeKey}
-          onDoubleClick={() => setSplitRatio(50)}
+          onPointerDown={resize.onPointerDown}
+          onKeyDown={resize.onKeyDown}
+          onDoubleClick={resize.onDoubleClick}
           className={cn(
             'relative w-px flex-shrink-0 bg-rule cursor-col-resize outline-none touch-none',
             'before:absolute before:inset-y-0 before:-left-1.5 before:-right-1.5 before:content-[""]',
@@ -249,7 +235,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
         />
 
         {/* Preview pane */}
-        <div className="h-full overflow-hidden bg-canvas" style={{ width: `${100 - split.value}%` }}>
+        <div className="h-full overflow-hidden bg-canvas" style={{ width: `${100 - resize.value}%` }}>
           {isBlank ? (
             <div className="h-full overflow-auto flex items-center justify-center p-8 bg-panel">
               <StartPanel writeHint="Type Markdown in the left pane; the formatted document appears here as you write." />

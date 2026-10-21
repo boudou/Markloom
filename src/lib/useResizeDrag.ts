@@ -1,15 +1,31 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from 'react';
+
+/** A handle's range and the value a double-click restores; each store that owns a size defines one */
+export interface ResizeBounds {
+  readonly min: number;
+  readonly max: number;
+  readonly defaultValue: number;
+}
 
 interface ResizeDragOptions {
   /** The persisted value; shown whenever no drag is in progress */
   stored: number;
-  min: number;
-  max: number;
+  bounds: ResizeBounds;
+  /** Arrow key step, and the larger one with Shift held */
+  step: number;
+  shiftStep: number;
   /** Measured once when the drag starts */
   anchorRef: RefObject<HTMLElement>;
   /** Pointer x to value, given the anchor's rect from the start of the drag */
   toValue: (clientX: number, anchor: DOMRect) => number;
-  /** Called once, on release, with the last value (not called when the pointer never moved) */
+  /** Saves a value: once per drag on release (not if the pointer never moved), and on each key or double-click */
   commit: (value: number) => void;
 }
 
@@ -17,17 +33,24 @@ interface ResizeDrag {
   value: number;
   dragging: boolean;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
+  /** Arrow Left/Right (Shift for the larger step), Home and End */
+  onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void;
+  /** Restores the default */
+  onDoubleClick: () => void;
 }
 
 /**
- * Drags a resize handle: the value follows the pointer in local state and is saved once, on
- * release, so persisted stores aren't rewritten on every pointer move. Pointer capture keeps
+ * Owns a resize handle's pointer, keyboard and double-click input. Dragging: the value follows
+ * the pointer in local state and is saved once, on release, so persisted stores aren't
+ * rewritten on every pointer move. Pointer capture keeps
  * the drag alive when the pointer races ahead of the handle (the editor, the desktop title bar
  * region or an iframe would otherwise swallow moves).
  */
-export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: ResizeDragOptions): ResizeDrag {
+export function useResizeDrag({ stored, bounds, step, shiftStep, anchorRef, toValue, commit }: ResizeDragOptions): ResizeDrag {
   const [local, setLocal] = useState<number | null>(null);
   const endRef = useRef<(() => void) | null>(null);
+
+  const clamp = (value: number) => Math.min(bounds.max, Math.max(bounds.min, value));
 
   // Unmounting mid-drag (sidebar closed, mode switched) still saves and resets the cursor
   useEffect(() => () => endRef.current?.(), []);
@@ -50,7 +73,7 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return;
 
-      const next = Math.min(max, Math.max(min, toValue(ev.clientX, rect)));
+      const next = clamp(toValue(ev.clientX, rect));
       latest = next;
       setLocal(next);
     };
@@ -79,5 +102,23 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
     endRef.current = end;
   };
 
-  return { value: local ?? stored, dragging: local !== null, onPointerDown };
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    // A key mid-drag would be overwritten by the pointer's value on release
+    if (endRef.current) return;
+
+    const delta = event.shiftKey ? shiftStep : step;
+
+    if (event.key === 'ArrowLeft') commit(clamp(stored - delta));
+    else if (event.key === 'ArrowRight') commit(clamp(stored + delta));
+    else if (event.key === 'Home') commit(bounds.min);
+    else if (event.key === 'End') commit(bounds.max);
+    // Tab and Escape keep their default and move focus on
+    else return;
+
+    event.preventDefault();
+  };
+
+  const onDoubleClick = () => commit(bounds.defaultValue);
+
+  return { value: local ?? stored, dragging: local !== null, onPointerDown, onKeyDown, onDoubleClick };
 }

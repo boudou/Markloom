@@ -32,13 +32,16 @@ interface AppState {
   showSidebarView: (view: SidebarView) => void;
 }
 
+/** Sidebar width in px: the store clamp, the resize handle and its double-click reset read this */
+export const SIDEBAR_WIDTH = { min: 200, max: 500, defaultValue: 280 } as const;
+
 // Layout and mode. Document state lives in the tabs store (`@/features/tabs`).
 export const useAppStore = create<AppState>()(
   persist(
   immer((set) => ({
     // Initial state
     sidebarOpen: true,
-    sidebarWidth: 280,
+    sidebarWidth: SIDEBAR_WIDTH.defaultValue,
     rootPath: null,
     editorMode: 'split',
     sidebarView: 'files',
@@ -51,7 +54,7 @@ export const useAppStore = create<AppState>()(
 
     setSidebarWidth: (width) =>
       set((state) => {
-        state.sidebarWidth = Math.max(200, Math.min(500, width));
+        state.sidebarWidth = Math.max(SIDEBAR_WIDTH.min, Math.min(SIDEBAR_WIDTH.max, width));
       }),
 
     setRootPath: (path) =>

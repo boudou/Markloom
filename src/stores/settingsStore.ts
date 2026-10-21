@@ -73,6 +73,9 @@ const MAX_RECENT_FILES = 10;
 
 const SETTINGS_VERSION = 1;
 
+/** Source pane share in percent: the store clamp, the split handle and its double-click reset read this */
+export const SPLIT_RATIO = { min: 25, max: 75, defaultValue: 50 } as const;
+
 const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   wordWrap: true,
   lineNumbers: true,
@@ -126,7 +129,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoSave: false,
       autoSaveInterval: 30, // 30 seconds
       syncScroll: true,
-      splitRatio: 50,
+      splitRatio: SPLIT_RATIO.defaultValue,
       lastSession: null,
       recentFiles: [],
       wordGoals: {},
@@ -166,7 +169,7 @@ export const useSettingsStore = create<SettingsState>()(
 
       setSplitRatio: (ratio) =>
         set((state) => {
-          state.splitRatio = Math.max(25, Math.min(75, ratio));
+          state.splitRatio = Math.max(SPLIT_RATIO.min, Math.min(SPLIT_RATIO.max, ratio));
         }),
 
       setLastSession: (session) =>
