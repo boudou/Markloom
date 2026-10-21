@@ -1,11 +1,8 @@
 export {
+  listVersions,
+  readVersionContent,
   saveVersion,
-  getVersionsForFile,
-  getVersion,
   deleteVersion,
-  deleteVersionsForFile,
-  cleanupOldVersions,
-  getVersionCount,
-  updateVersionLabel,
-  type VersionEntry,
+  MAX_VERSIONS,
+  type VersionMeta,
 } from './historyDb';
