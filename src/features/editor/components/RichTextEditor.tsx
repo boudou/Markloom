@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Editor,
+  EditorStatus,
   rootCtx,
   defaultValueCtx,
   editorViewCtx,
@@ -133,7 +134,10 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     [tabId]
   );
 
-  // The editor once created; the same instance for this surface's lifetime
+  // The editor as of this render. Milkdown can swap the instance behind `get()` without
+  // a re-render (a second create finishing after the first), so anything the user
+  // triggers (toolbar, palette, shortcuts, dialogs, drops) calls `get()` when it runs.
+  // `get` itself changes identity per render but reads the provider's one ref.
   const editor = loading ? undefined : get();
 
   // Remember the normalized form of what was loaded, so viewing alone never edits the file
@@ -160,19 +164,35 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   const applyLink = (url: string, text: string) => {
     const request = linkRequest;
     setLinkRequest(null);
+    const current = get();
 
-    if (editor && request && url) applyRichLink(editor, request, url, text);
+    if (current && request && url) applyRichLink(current, request, url, text);
   };
 
   // Expose commands to the shared toolbar, once per editor: a new object on every
-  // render would make the Find bar re-run (and re-select its input) on every keystroke
+  // render would make the Find bar re-run (and re-select its input) on every keystroke.
+  // `get` is left out of the deps for that reason (see above).
   useEffect(() => {
     if (!editor) return;
-    const view = editor.action((ctx) => ctx.get(editorViewCtx));
+
+    const withEditor = (run: (current: Editor) => void) => {
+      const current = get();
+
+      if (current) run(current);
+    };
+
+    // `get()` keeps returning the editor after it is destroyed, and Milkdown removes the view
+    // from ctx on destroy (reading it then throws), so only a created editor has a view.
+    const liveView = () => {
+      const current = get();
+
+      return current?.status === EditorStatus.Created ? current.action((ctx) => ctx.get(editorViewCtx)) : undefined;
+    };
+
     onCommands({
-      run: (action) => runRichAction(editor, action, setLinkRequest),
-      search: prosemirrorSearchEngine(view),
-      insert: (markdown) => insertRichSnippet(editor, markdown),
+      run: (action) => withEditor((current) => runRichAction(current, action, setLinkRequest)),
+      search: prosemirrorSearchEngine(liveView),
+      insert: (markdown) => withEditor((current) => insertRichSnippet(current, markdown)),
     });
 
     return () => onCommands(null);
@@ -180,7 +200,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
 
   // Dropped or pasted images are stored beside the document, then inserted as Markdown
   const imageDrop = useImageDrop({
-    onInsert: (markdown) => editor?.action(insert(markdown, true)),
+    onInsert: (markdown) => get()?.action(insert(markdown, true)),
   });
 
   const hasImageFiles = (items: DataTransferItemList) =>
@@ -188,14 +208,16 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
 
   // Ctrl+K opens the link dialog (Milkdown has no binding for it)
   const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (!editor) return;
+    const current = get();
+
+    if (!current) return;
 
     if (matchesCombo(event.nativeEvent, SHORTCUTS.link.combo)) {
       event.preventDefault();
-      runRichAction(editor, 'link', setLinkRequest);
+      runRichAction(current, 'link', setLinkRequest);
     } else if (matchesCombo(event.nativeEvent, SHORTCUTS.taskList.combo)) {
       event.preventDefault();
-      runRichAction(editor, 'checkbox', setLinkRequest);
+      runRichAction(current, 'checkbox', setLinkRequest);
     }
   };
 
