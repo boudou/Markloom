@@ -1,1 +1,1 @@
-export { highlightCode, isLanguageSupported, getRegisteredLanguages, loadHighlighter, onHighlighterReady, isHighlighterReady } from './utils';
+export { highlightCode, loadHighlighter, onHighlighterReady, isHighlighterReady } from './utils';

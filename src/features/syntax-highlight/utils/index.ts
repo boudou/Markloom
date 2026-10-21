@@ -1,8 +1,1 @@
-export {
-  highlightCode,
-  isLanguageSupported,
-  getRegisteredLanguages,
-  loadHighlighter,
-  onHighlighterReady,
-  isHighlighterReady,
-} from './highlightPlugin';
+export { highlightCode, loadHighlighter, onHighlighterReady, isHighlighterReady } from './highlightPlugin';

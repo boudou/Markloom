@@ -70,20 +70,6 @@ export function highlightCode(code: string, language: string): string {
 }
 
 /**
- * Check if a language is supported
- */
-export function isLanguageSupported(language: string): boolean {
-  return !!hljs?.getLanguage(language);
-}
-
-/**
- * Get list of all registered languages
- */
-export function getRegisteredLanguages(): string[] {
-  return hljs?.listLanguages() ?? [];
-}
-
-/**
  * Escape HTML special characters
  */
 function escapeHtml(text: string): string {
