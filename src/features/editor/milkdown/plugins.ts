@@ -4,7 +4,8 @@
 import { $prose, $view } from '@milkdown/kit/utils';
 import { codeBlockAttr, codeBlockSchema, headingSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
-import type { Node as ProseNode } from '@milkdown/kit/prose/model';
+import type { Node as ProseNode, NodeType } from '@milkdown/kit/prose/model';
+import type { Transform } from '@milkdown/kit/prose/transform';
 import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
@@ -43,20 +44,26 @@ async function resolveImageSrc(src: string): Promise<string> {
 // Uses the preview's assigner so a #a-1 link lands on the same heading in both modes.
 // Empty headings take a number too, as they do in the preview.
 
+/** Gives every heading in `tr.doc` the id the preview gives it */
+export function setHeadingIds(tr: Transform, heading: NodeType): void {
+  const nextId = headingIdAssigner();
+
+  // setNodeMarkup keeps positions, so the walk over the starting doc stays valid
+  tr.doc.descendants((node, pos) => {
+    if (node.type !== heading) return;
+    const id = nextId(node.textContent);
+
+    if (node.attrs.id !== id) tr.setNodeMarkup(pos, undefined, { ...node.attrs, id });
+  });
+}
+
 export const headingIds = $prose((ctx) => {
   const assign = (view: EditorView) => {
     if (view.composing) return;
 
-    const nextId = headingIdAssigner();
-    const heading = headingSchema.type(ctx);
     const tr = view.state.tr.setMeta('addToHistory', false);
 
-    view.state.doc.descendants((node, pos) => {
-      if (node.type !== heading) return;
-      const id = nextId(node.textContent);
-
-      if (node.attrs.id !== id) tr.setNodeMarkup(pos, undefined, { ...node.attrs, id });
-    });
+    setHeadingIds(tr, headingSchema.type(ctx));
 
     // Without this check every update would dispatch again, forever
     if (tr.docChanged) view.dispatch(tr);

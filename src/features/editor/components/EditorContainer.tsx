@@ -43,6 +43,14 @@ export function EditorContainer() {
 
   const [formatState, setFormatState] = useState<FormatState>(EMPTY_FORMAT_STATE);
 
+  // The document the Rich text editor last showed. It stays mounted, hidden, while that
+  // document is open in Markdown mode; another document in Markdown mode drops it.
+  const [richLoadId, setRichLoadId] = useState<string | undefined>(undefined);
+
+  const nextRichLoadId = editorMode === 'wysiwyg' || richLoadId === loadId ? loadId : undefined;
+
+  if (nextRichLoadId !== richLoadId) setRichLoadId(nextRichLoadId);
+
   if (!activeTabId) return null;
 
   // .mmd files get the dedicated diagram editor
@@ -53,6 +61,9 @@ export function EditorContainer() {
       </div>
     );
   }
+
+  const showRich = editorMode === 'wysiwyg';
+  const keepRich = showRich || (loadId !== undefined && richLoadId === loadId);
 
   return (
     <div className="h-full flex flex-col bg-canvas">
@@ -69,15 +80,25 @@ export function EditorContainer() {
 
       <FindReplaceBar engine={commands?.search ?? IDLE_SEARCH_ENGINE} />
 
-      {/* Each loaded document gets its own editor instance, so undo history never crosses documents */}
+      {/* One editor instance per loaded document and mode, so undo history never crosses
+          documents. Rich text stays mounted while hidden, so its history survives a mode switch. */}
       <div className="flex-1 min-h-0 flex">
         <div className="flex-1 min-w-0">
-        {editorMode === 'split' ? (
+        {editorMode === 'split' && (
           <SplitViewEditor key={loadId} onCommands={handleCommands} onFormatState={setFormatState} />
-        ) : (
-          <Suspense fallback={<div className="h-full bg-canvas" />}>
-            <RichTextEditor key={loadId} tabId={activeTabId} onCommands={handleCommands} onFormatState={setFormatState} />
-          </Suspense>
+        )}
+        {keepRich && (
+          <div className={showRich ? 'h-full' : 'hidden'}>
+            <Suspense fallback={<div className="h-full bg-canvas" />}>
+              <RichTextEditor
+                key={loadId}
+                tabId={activeTabId}
+                active={showRich}
+                onCommands={handleCommands}
+                onFormatState={setFormatState}
+              />
+            </Suspense>
+          </div>
         )}
         </div>
       </div>

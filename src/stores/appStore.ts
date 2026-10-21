@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { flushEditorEdits } from './uiStore';
 
 export type EditorMode = 'split' | 'wysiwyg';
 
@@ -58,10 +59,14 @@ export const useAppStore = create<AppState>()(
         state.rootPath = path;
       }),
 
-    setEditorMode: (mode) =>
+    setEditorMode: (mode) => {
+      // The leaving editor's pending edit reaches the tabs store before the other editor
+      // renders, so it arrives there as outside text and never as that editor's undo step
+      flushEditorEdits();
       set((state) => {
         state.editorMode = mode;
-      }),
+      });
+    },
 
     toggleSidebarView: (view) =>
       set((state) => {
