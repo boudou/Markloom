@@ -61,4 +61,6 @@ export interface EditorCommands {
   insert: (markdown: string) => void;
   /** Puts keyboard focus back in the document, e.g. after a toolbar menu closes */
   focus: () => void;
+  /** Writes any edit the editor still holds into the tabs store, synchronously. Called before the store's text or dirty state is read (save, export, close). */
+  flush: () => void;
 }

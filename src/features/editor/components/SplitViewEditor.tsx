@@ -110,6 +110,8 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       search: codemirrorSearchEngine(view),
       insert: (text) => insertSnippet(view, text),
       focus: () => view.focus(),
+      // CodeMirror's onChange already wrote every edit
+      flush: () => {},
     });
 
     return () => onCommands(null);
