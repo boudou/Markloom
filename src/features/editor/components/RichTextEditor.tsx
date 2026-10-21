@@ -193,6 +193,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
       run: (action) => withEditor((current) => runRichAction(current, action, setLinkRequest)),
       search: prosemirrorSearchEngine(liveView),
       insert: (markdown) => withEditor((current) => insertRichSnippet(current, markdown)),
+      focus: () => liveView()?.focus(),
     });
 
     return () => onCommands(null);

@@ -105,6 +105,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       run: (action) => runMarkdownAction(view, action),
       search: codemirrorSearchEngine(view),
       insert: (text) => insertSnippet(view, text),
+      focus: () => view.focus(),
     });
 
     return () => onCommands(null);
