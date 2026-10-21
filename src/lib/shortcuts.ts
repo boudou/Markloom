@@ -103,6 +103,19 @@ export function shortcutKeys(id: ShortcutId): string {
   return shortcutParts(id).join(isMac ? '' : '+');
 }
 
+const KEY_WORDS = new Map([
+  ['Mod', isMac ? 'cmd command' : 'ctrl'],
+  ['Alt', isMac ? 'option alt' : 'alt'],
+]);
+
+/** Plain key names for search, e.g. "cmd command enter": macOS shows "Enter" as "↩" */
+export function shortcutWords(id: ShortcutId): string {
+  return SHORTCUTS[id].combo
+    .split('-')
+    .map((part) => KEY_WORDS.get(part) ?? part.toLowerCase())
+    .join(' ');
+}
+
 /** "Bold (Ctrl+B)" for tooltips */
 export function shortcutHint(label: string, id?: ShortcutId): string {
   return id ? `${label} (${shortcutKeys(id)})` : label;
