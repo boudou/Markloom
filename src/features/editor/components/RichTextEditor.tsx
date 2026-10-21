@@ -58,6 +58,8 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   const reportFormat = useRef(onFormatState);
   reportFormat.current = onFormatState;
 
+  // Created once per mount: EditorContainer keys this editor by the tab's loadId, so a
+  // different tab or a freshly loaded document always gets a new component
   const { get, loading } = useEditor(
     (root) =>
       Editor.make()
@@ -130,8 +132,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
               }),
             });
           })
-        ),
-    [tabId]
+        )
   );
 
   // The editor as of this render. Milkdown can swap the instance behind `get()` without

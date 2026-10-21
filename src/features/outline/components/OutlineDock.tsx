@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getMarkdownParser, headingText } from '@/lib/markdown';
 import { cn } from '@/lib/utils';
-import { useActiveContent, useTabsStore } from '@/features/tabs';
+import { selectActiveTab, useActiveContent, useTabsStore } from '@/features/tabs';
 import { useAppStore, type EditorMode } from '@/stores/appStore';
 
 interface Heading {
@@ -51,7 +51,9 @@ function renderedHeadings(surface: HTMLElement, mode: EditorMode, headings: Head
 /** The document's headings, following the reader's position (shown in the sidebar) */
 export function OutlineDock() {
   const content = useActiveContent();
-  const activeTabId = useTabsStore((s) => s.activeTabId);
+  // The editor remounts by loadId (another tab, or a document loaded into this one), so
+  // its scrolling surface is a new element; re-attach to it
+  const loadId = useTabsStore((s) => selectActiveTab(s)?.loadId);
   // Switching modes swaps the scrolling surface; re-attach to the new one
   const editorMode = useAppStore((s) => s.editorMode);
   // Re-parse shortly after typing pauses (a deferred value can stall behind the lazy editor's Suspense)
@@ -70,6 +72,7 @@ export function OutlineDock() {
   const holdUntil = useRef(0);
 
   // Highlight the section whose heading was scrolled past last
+  // (recomputed, too, when sections are added or removed)
   useEffect(() => {
     let surface: HTMLElement | null = null;
     let frame = 0;
@@ -77,20 +80,18 @@ export function OutlineDock() {
     const update = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const shown = surface;
+        if (!surface || Date.now() < holdUntil.current) return;
 
-        if (!shown || Date.now() < holdUntil.current) return;
-
-        const top = shown.getBoundingClientRect().top + 96;
+        const top = surface.getBoundingClientRect().top + 96;
         const outline = headingsRef.current;
         let index = 0;
         // Headings whose element isn't rendered yet (the preview lags typing) are skipped
-        renderedHeadings(shown, editorMode, outline).forEach((el, i) => {
+        renderedHeadings(surface, editorMode, outline).forEach((el, i) => {
           if (el && el.getBoundingClientRect().top <= top) index = i;
         });
 
         // At the very end the last sections can't reach the top; the reader is in the last one
-        const atBottom = shown.scrollTop + shown.clientHeight >= shown.scrollHeight - 4;
+        const atBottom = surface.scrollTop + surface.clientHeight >= surface.scrollHeight - 4;
         setCurrent(atBottom && outline.length ? outline.length - 1 : index);
       });
     };
@@ -113,7 +114,7 @@ export function OutlineDock() {
       cancelAnimationFrame(frame);
       surface?.removeEventListener('scroll', update);
     };
-  }, [activeTabId, headings.length, editorMode]);
+  }, [loadId, headings.length, editorMode]);
 
   const go = (index: number) => {
     setCurrent(index);
