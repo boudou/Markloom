@@ -119,7 +119,7 @@ export function MarkdownPreview({
       data-doc-surface
       role="region"
       aria-label="Preview"
-      className={cn('h-full overflow-auto px-8 py-8', className)}
+      className={cn('relative h-full overflow-auto px-8 py-8', className)}
     >
       <article
         ref={contentRef}

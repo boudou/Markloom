@@ -3,6 +3,7 @@ import { getMarkdownParser, headingText } from '@/lib/markdown';
 import { cn } from '@/lib/utils';
 import { selectActiveTab, useActiveContent, useTabsStore } from '@/features/tabs';
 import { useAppStore, type EditorMode } from '@/stores/appStore';
+import { useUiStore } from '@/stores/uiStore';
 
 interface Heading {
   level: number;
@@ -120,10 +121,18 @@ export function OutlineDock() {
     setCurrent(index);
     holdUntil.current = Date.now() + 900;
     // Scroll the rendered document only; in split view, scroll sync brings the source along.
-    // (Moving both panes at once made them fight and land a section off.)
+    // (Moving both panes at once made them fight and land a section off.) The source gets
+    // the cursor on the heading's line, without scrolling or taking focus from this list.
     const surface = documentSurface();
     const target = surface ? renderedHeadings(surface, editorMode, headings)[index] : undefined;
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Only Markdown mode reads line requests; elsewhere one would linger until the next switch
+    const { activeTabId } = useTabsStore.getState();
+
+    if (editorMode === 'split' && activeTabId) useUiStore.getState().placeCursorAtLine(activeTabId, headings[index].line);
   };
 
   const minLevel = Math.min(...headings.map((h) => h.level), 6);

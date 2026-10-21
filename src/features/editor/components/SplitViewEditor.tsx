@@ -16,7 +16,7 @@ import { codemirrorSearchEngine, findHighlights } from '@/features/find-replace'
 import { useImageDrop } from '@/features/image-drop';
 import { useSyncScroll } from '@/features/sync-scroll';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
-import { markdownKeymap, editingKeymap, runMarkdownAction, insertSnippet, revealLine } from '../codemirror/commands';
+import { markdownKeymap, editingKeymap, runMarkdownAction, insertSnippet, revealLine, placeCursor } from '../codemirror/commands';
 import { diagramErrorLines, diagramErrorTheme, setDiagramErrorLines } from '../codemirror/diagramErrors';
 import type { EditorCommands, FormatState } from '../types';
 import { formatStateReporter, selectionReporter } from '../codemirror/formatState';
@@ -141,7 +141,11 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
   useEffect(() => {
     if (!view || lineRequest === null) return;
 
-    if (lineRequest.tabId === activeTabId) revealLine(view, lineRequest.line);
+    if (lineRequest.tabId === activeTabId) {
+      if (lineRequest.kind === 'reveal') revealLine(view, lineRequest.line);
+      else placeCursor(view, lineRequest.line);
+    }
+
     useUiStore.getState().clearLineRequest();
   }, [view, lineRequest, activeTabId]);
 
