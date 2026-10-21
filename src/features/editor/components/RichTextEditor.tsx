@@ -171,9 +171,17 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     if (current && request && url) applyRichLink(current, request, url, text);
   };
 
+  // `get()` keeps returning the editor after it is destroyed, and Milkdown removes the view
+  // from ctx on destroy (reading it then throws), so only a created editor has a view.
+  const liveView = () => {
+    const current = get();
+
+    return current?.status === EditorStatus.Created ? current.action((ctx) => ctx.get(editorViewCtx)) : undefined;
+  };
+
   // Expose commands to the shared toolbar, once per editor: a new object on every
   // render would make the Find bar re-run (and re-select its input) on every keystroke.
-  // `get` is left out of the deps for that reason (see above).
+  // `get` (and `liveView`, which only reads it) is left out of the deps for that reason (see above).
   useEffect(() => {
     if (!editor) return;
 
@@ -181,14 +189,6 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
       const current = get();
 
       if (current) run(current);
-    };
-
-    // `get()` keeps returning the editor after it is destroyed, and Milkdown removes the view
-    // from ctx on destroy (reading it then throws), so only a created editor has a view.
-    const liveView = () => {
-      const current = get();
-
-      return current?.status === EditorStatus.Created ? current.action((ctx) => ctx.get(editorViewCtx)) : undefined;
     };
 
     onCommands({
@@ -263,7 +263,12 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
         )}
       </div>
 
-      <LinkDialog request={linkRequest} onCancel={() => setLinkRequest(null)} onSubmit={applyLink} />
+      <LinkDialog
+        request={linkRequest}
+        onCancel={() => setLinkRequest(null)}
+        onSubmit={applyLink}
+        onClosed={() => liveView()?.focus()}
+      />
     </div>
     </div>
   );
@@ -273,10 +278,12 @@ function LinkDialog({
   request,
   onCancel,
   onSubmit,
+  onClosed,
 }: {
   request: LinkRequest | null;
   onCancel: () => void;
   onSubmit: (url: string, text: string) => void;
+  onClosed: () => void;
 }) {
   const [url, setUrl] = useState('');
   const [text, setText] = useState('');
@@ -295,6 +302,8 @@ function LinkDialog({
       onOpenChange={(open) => !open && onCancel()}
       title={isImage ? 'Insert image' : 'Insert link'}
       size="md"
+      // Opened from the toolbar, a menu or Ctrl+K: whatever had focus then, typing continues in the document
+      returnFocus={onClosed}
     >
       <form
         onSubmit={(e) => {
