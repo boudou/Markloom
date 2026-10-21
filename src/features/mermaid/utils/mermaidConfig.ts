@@ -290,16 +290,3 @@ export function renderMermaid(code: string, mode: DiagramMode): Promise<DiagramR
 
   return result;
 }
-
-/** Checks diagram syntax without drawing it; returns the error message, or null when valid. */
-export function diagramSyntaxError(code: string): Promise<string | null> {
-  return enqueue(async () => {
-    try {
-      await (await loadMermaid()).parse(code);
-
-      return null;
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-  });
-}

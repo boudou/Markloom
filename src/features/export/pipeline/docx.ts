@@ -21,9 +21,10 @@ import {
   type ParagraphChild,
 } from 'docx';
 import { saveAs } from 'file-saver';
-import { getMarkdownParser, mermaidFence, type Token } from '@/lib/markdown';
+import { getMarkdownParser, mermaidFence, mermaidFences, type Token } from '@/lib/markdown';
 import { CALLOUT_COLORS, CALLOUT_LABELS, type CalloutKind } from '@/lib/callouts';
-import { loadDocumentImage, renderDiagram, svgDataUrl, toPngBytes, type ExportImage } from './assets';
+import { loadDocumentImage, loadUnique, renderDiagram, svgDataUrl, toPngBytes, type ExportImage } from './assets';
+import { imageSources } from './inlineLines';
 import type { ExportRequest } from './exporters';
 
 const MAX_IMAGE_WIDTH = 600; // px, fits A4/Letter text width
@@ -52,7 +53,10 @@ interface ItemFrame {
 }
 
 interface WalkState {
-  docPath: string | null;
+  /** Every image source in the document; null when it couldn't be loaded */
+  images: Map<string, ImageMaker | null>;
+  /** Every diagram's source */
+  diagrams: Map<string, DiagramMaker>;
   lists: ListFrame[];
   items: ItemFrame[];
   quoteDepth: number;
@@ -76,9 +80,16 @@ function fitted(width: number, height: number) {
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
-async function imageRun(image: ExportImage, alt: string): Promise<ImageRun> {
+/** Builds a new run for each occurrence of an image, with that occurrence's alt text. */
+type ImageMaker = (alt: string) => ImageRun;
+
+/** Builds a new paragraph for each occurrence of a diagram. */
+type DiagramMaker = () => Paragraph;
+
+/** Converts an image once (rasterizing what Word can't show natively), for every place it's used. */
+async function prepareImage(image: ExportImage): Promise<ImageMaker> {
   const transformation = fitted(image.width, image.height);
-  const altText = { name: alt || 'Image', title: alt || 'Image', description: alt || '' };
+  const altTextFor = (alt: string) => ({ name: alt || 'Image', title: alt || 'Image', description: alt || '' });
 
   const regular: Record<string, 'png' | 'jpg' | 'gif' | 'bmp'> = {
     'image/png': 'png',
@@ -89,24 +100,45 @@ async function imageRun(image: ExportImage, alt: string): Promise<ImageRun> {
 
   const type = regular[image.mime];
 
-  if (type) return new ImageRun({ type, data: image.bytes, transformation, altText });
+  if (type) return (alt) => new ImageRun({ type, data: image.bytes, transformation, altText: altTextFor(alt) });
 
   const png = await toPngBytes(image.dataUrl, image.width, image.height);
 
   if (image.mime === 'image/svg+xml') {
-    return new ImageRun({ type: 'svg', data: image.bytes, fallback: { type: 'png', data: png }, transformation, altText });
+    return (alt) =>
+      new ImageRun({ type: 'svg', data: image.bytes, fallback: { type: 'png', data: png }, transformation, altText: altTextFor(alt) });
   }
 
-  return new ImageRun({ type: 'png', data: png, transformation, altText });
+  return (alt) => new ImageRun({ type: 'png', data: png, transformation, altText: altTextFor(alt) });
 }
 
-async function diagramParagraph(code: string): Promise<Paragraph> {
-  try {
-    const { svg, width, height } = await renderDiagram(code);
-    const dataUrl = svgDataUrl(svg);
-    const png = await toPngBytes(dataUrl, width, height);
+function diagramError(message: string): DiagramMaker {
+  return () =>
+    new Paragraph({
+      shading: { type: ShadingType.CLEAR, fill: 'FEF2F2', color: 'auto' },
+      children: [
+        new TextRun({ text: 'Diagram could not be rendered: ', bold: true, color: '991B1B' }),
+        new TextRun({ text: message, color: '991B1B' }),
+      ],
+    });
+}
 
-    return new Paragraph({
+async function prepareDiagram(code: string): Promise<DiagramMaker> {
+  const diagram = await renderDiagram(code);
+
+  if (!diagram.ok) return diagramError(diagram.error);
+
+  const { svg, width, height } = diagram;
+  let png: Uint8Array;
+
+  try {
+    png = await toPngBytes(svgDataUrl(svg), width, height);
+  } catch (error) {
+    return diagramError(error instanceof Error ? error.message : String(error));
+  }
+
+  return () =>
+    new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 120, after: 200 },
       children: [
@@ -119,21 +151,12 @@ async function diagramParagraph(code: string): Promise<Paragraph> {
         }),
       ],
     });
-  } catch (error) {
-    return new Paragraph({
-      shading: { type: ShadingType.CLEAR, fill: 'FEF2F2', color: 'auto' },
-      children: [
-        new TextRun({ text: 'Diagram could not be rendered: ', bold: true, color: '991B1B' }),
-        new TextRun({ text: error instanceof Error ? error.message : String(error), color: '991B1B' }),
-      ],
-    });
-  }
 }
 
 // ---------------------------------------------------------------------------
 // Inline content
 
-async function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunStyle = {}): Promise<ParagraphChild[]> {
+function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunStyle = {}): ParagraphChild[] {
   const out: ParagraphChild[] = [];
   const style: RunStyle = { ...base };
   let link: { href: string; runs: TextRun[] } | null = null;
@@ -185,9 +208,9 @@ async function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunSty
       case 'image': {
         const src = token.attrGet('src') ?? '';
         const alt = token.content;
-        const image = await loadDocumentImage(src, state.docPath);
+        const make = state.images.get(src);
 
-        if (image) out.push(await imageRun(image, alt));
+        if (make) out.push(make(alt));
         else push(text(`[Image not found: ${alt || src}]`, { italics: true, color: '991B1B' }));
         break;
       }
@@ -256,7 +279,7 @@ function codeParagraph(code: string): Paragraph {
   });
 }
 
-async function buildTable(tokens: Token[], start: number, state: WalkState): Promise<{ table: Table; end: number }> {
+function buildTable(tokens: Token[], start: number, state: WalkState) {
   const rows: { cells: { inline: Token; header: boolean; align: string | null }[] }[] = [];
   let i = start + 1;
 
@@ -278,35 +301,31 @@ async function buildTable(tokens: Token[], start: number, state: WalkState): Pro
 
   const border = { style: BorderStyle.SINGLE, size: 4, color: 'D9DCE1' };
 
-  const tableRows = await Promise.all(
-    rows.map(
-      async (row, rowIndex) =>
-        new TableRow({
-          tableHeader: rowIndex === 0,
-          children: await Promise.all(
-            row.cells.map(
-              async (cell) =>
-                new TableCell({
-                  shading: cell.header ? { type: ShadingType.CLEAR, fill: 'F1F3F5', color: 'auto' } : undefined,
-                  margins: { top: 60, bottom: 60, left: 100, right: 100 },
-                  borders: { top: border, bottom: border, left: border, right: border },
-                  children: [
-                    new Paragraph({
-                      alignment: cell.align ? alignments[cell.align] : undefined,
-                      children: await inlineRuns(cell.inline.children, state, { bold: cell.header }),
-                    }),
-                  ],
-                })
-            )
-          ),
-        })
-    )
+  const tableRows = rows.map(
+    (row, rowIndex) =>
+      new TableRow({
+        tableHeader: rowIndex === 0,
+        children: row.cells.map(
+          (cell) =>
+            new TableCell({
+              shading: cell.header ? { type: ShadingType.CLEAR, fill: 'F1F3F5', color: 'auto' } : undefined,
+              margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              borders: { top: border, bottom: border, left: border, right: border },
+              children: [
+                new Paragraph({
+                  alignment: cell.align ? alignments[cell.align] : undefined,
+                  children: inlineRuns(cell.inline.children, state, { bold: cell.header }),
+                }),
+              ],
+            })
+        ),
+      })
   );
 
   return { table: new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }), end: i };
 }
 
-async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Table)[]> {
+function walk(tokens: Token[], state: WalkState): (Paragraph | Table)[] {
   const blocks: (Paragraph | Table)[] = [];
 
   for (let i = 0; i < tokens.length; i++) {
@@ -319,7 +338,7 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
           new Paragraph({
             heading: HEADINGS[level],
             keepNext: true,
-            children: await inlineRuns(tokens[i + 1].children, state),
+            children: inlineRuns(tokens[i + 1].children, state),
           })
         );
         i += 2;
@@ -339,7 +358,7 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         blocks.push(
           new Paragraph({
             ...blockOptions(state),
-            children: [...prefix, ...(await inlineRuns(inline.children, state))],
+            children: [...prefix, ...inlineRuns(inline.children, state)],
           })
         );
         i += 2;
@@ -371,7 +390,9 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
       case 'fence':
       case 'code_block': {
         const diagram = mermaidFence(token);
-        blocks.push(diagram ? await diagramParagraph(diagram.code) : codeParagraph(token.content));
+        // Every diagram's source is in the map, so only ordinary code has no maker
+        const make = diagram && state.diagrams.get(diagram.code);
+        blocks.push(make ? make() : codeParagraph(token.content));
         break;
       }
 
@@ -385,7 +406,7 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         );
         break;
       case 'table_open': {
-        const { table, end } = await buildTable(tokens, i, state);
+        const { table, end } = buildTable(tokens, i, state);
         blocks.push(table, new Paragraph({ children: [], spacing: { after: 120 } }));
         i = end;
         break;
@@ -424,8 +445,19 @@ const ORDERED_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFor
 
 export async function exportDocx(request: ExportRequest): Promise<void> {
   const tokens = getMarkdownParser().parse(request.markdown, {});
-  const state: WalkState = { docPath: request.docPath, lists: [], items: [], quoteDepth: 0, callouts: [], nextListInstance: 0 };
-  const children = await walk(tokens, state);
+
+  // Every distinct image and diagram is prepared at once; the document is then built without waiting
+  const [images, diagrams] = await Promise.all([
+    loadUnique(tokens.flatMap(imageSources), async (src) => {
+      const image = await loadDocumentImage(src, request.docPath);
+
+      return image ? prepareImage(image) : null;
+    }),
+    loadUnique(mermaidFences(tokens).map(({ code }) => code), prepareDiagram),
+  ]);
+
+  const state: WalkState = { images, diagrams, lists: [], items: [], quoteDepth: 0, callouts: [], nextListInstance: 0 };
+  const children = walk(tokens, state);
 
   const levels = (ordered: boolean) =>
     Array.from({ length: 6 }, (_, level) => ({

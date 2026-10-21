@@ -29,3 +29,8 @@ export function placedInlines(tokens: Token[]): PlacedInline[] {
 
   return placed;
 }
+
+/** The sources of the images in an inline token; block tokens have no children, so none. */
+export function imageSources(token: Token): string[] {
+  return (token.children ?? []).flatMap((child) => (child.type === 'image' ? [child.attrGet('src') ?? ''] : []));
+}

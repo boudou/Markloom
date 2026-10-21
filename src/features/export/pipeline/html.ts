@@ -2,7 +2,7 @@
 // markup, diagrams as inline SVG, images embedded, the app's fonts included.
 import { parseMarkdown } from '@/lib/markdown';
 import { loadHighlighter } from '@/features/syntax-highlight';
-import { blobToDataUrl, loadDocumentImage, renderDiagram } from './assets';
+import { blobToDataUrl, loadDocumentImage, loadUnique, renderDiagram } from './assets';
 import { EXPORT_STYLES } from './styles';
 
 const EXPORT_FONT_FAMILIES = ['Literata', 'Fraunces', 'IBM Plex Mono'];
@@ -111,16 +111,31 @@ export async function renderExportBody(markdown: string, docPath: string | null)
   const template = document.createElement('template');
   template.innerHTML = parseMarkdown(markdown);
   const root = template.content;
+
+  const slots = Array.from(root.querySelectorAll<HTMLElement>('.mermaid-container[data-mermaid]'), (slot) => ({
+    slot,
+    code: decodeURIComponent(slot.getAttribute('data-mermaid') ?? ''),
+  }));
+
+  const images = Array.from(root.querySelectorAll('img'), (img) => ({ img, src: img.getAttribute('src') ?? '' }));
+
+  // Every distinct diagram and image is requested at once; the markup is then built without waiting
+  const [diagrams, loaded] = await Promise.all([
+    loadUnique(slots.map(({ code }) => code), renderDiagram),
+    loadUnique(images.map(({ src }) => src), (src) => loadDocumentImage(src, docPath)),
+  ]);
+
   const diagramCopies = new Map<string, number>();
 
-  for (const slot of Array.from(root.querySelectorAll<HTMLElement>('.mermaid-container[data-mermaid]'))) {
-    const code = decodeURIComponent(slot.getAttribute('data-mermaid') ?? '');
+  for (const { slot, code } of slots) {
+    // SAFETY: loadUnique returns a result for every code in slots
+    const diagram = diagrams.get(code)!;
     const figure = document.createElement('figure');
     figure.className = 'diagram';
 
-    try {
-      // Sanitized by Mermaid itself (strict security level)
-      figure.innerHTML = (await renderDiagram(code)).svg;
+    if (diagram.ok) {
+      // Sanitized by Mermaid itself (strict security level). Parsed per slot, so each copy has its own nodes
+      figure.innerHTML = diagram.svg;
       const svg = figure.querySelector('svg');
 
       if (svg?.id) {
@@ -130,22 +145,19 @@ export async function renderExportBody(markdown: string, docPath: string | null)
         // The first copy keeps Mermaid's ids; later ones become `…x2`, `…x3`
         if (copies > 1) suffixDiagramIds(svg, `x${copies}`);
       }
-    } catch (error) {
-      figure.append(errorBox('Diagram could not be rendered', error instanceof Error ? error.message : String(error)));
+    } else {
+      figure.append(errorBox('Diagram could not be rendered', diagram.error));
     }
 
     slot.replaceWith(figure);
   }
 
-  await Promise.all(
-    Array.from(root.querySelectorAll('img')).map(async (img) => {
-      const src = img.getAttribute('src') ?? '';
-      const image = await loadDocumentImage(src, docPath);
+  for (const { img, src } of images) {
+    const image = loaded.get(src);
 
-      if (image) img.setAttribute('src', image.dataUrl);
-      else img.replaceWith(errorBox('Image not found', src));
-    })
-  );
+    if (image) img.setAttribute('src', image.dataUrl);
+    else img.replaceWith(errorBox('Image not found', src));
+  }
 
   const holder = document.createElement('div');
   holder.append(root);
