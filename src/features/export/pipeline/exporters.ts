@@ -78,8 +78,8 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
 
       if (/^(data|https?):/i.test(rawSrc)) continue;
 
-      // markdown-it keeps the normalized form, which is also what Word and HTML export load
-      const src = md.normalizeLink(rawSrc);
+      // markdown-it unescapes and then normalizes the destination; Word and HTML export load that form
+      const src = md.normalizeLink(md.utils.unescapeAll(rawSrc));
 
       if (!wanted.has(src)) continue;
 
@@ -94,11 +94,14 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
     lines.splice(start, end - start, ...text.split('\n'));
   }
 
-  // Replace each Mermaid fence (bottom-up so line numbers stay valid)
+  // Replace each Mermaid fence (bottom-up so line numbers stay valid). The image keeps the
+  // fence's container prefix ("> ", a list marker or indent), which never holds ` or ~.
   for (const { range: [start, end], code } of mermaidFences(tokens).reverse()) {
     try {
       const { svg } = await renderDiagram(code);
-      lines.splice(start, end - start, `![Diagram](${svgDataUrl(svg)})`);
+      const prefix = /^[^`~]*/.exec(lines[start])?.[0] ?? '';
+
+      lines.splice(start, end - start, `${prefix}![Diagram](${svgDataUrl(svg)})`);
     } catch {
       // Leave the source in place; it still renders wherever Mermaid is supported
     }
