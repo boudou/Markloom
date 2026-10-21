@@ -60,16 +60,6 @@ export function getExtensionFromMimeType(mimeType: string): string {
 }
 
 /**
- * Generate markdown image syntax
- */
-export function generateMarkdownImage(
-  altText: string,
-  dataUrl: string
-): string {
-  return `![${altText}](${dataUrl})`;
-}
-
-/**
  * Extract alt text from filename
  */
 export function getAltTextFromFilename(filename: string): string {

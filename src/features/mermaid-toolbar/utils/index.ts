@@ -1,1 +1,1 @@
-export { mermaidTemplates, getMermaidTemplate, type MermaidTemplate } from './mermaidTemplates';
+export { mermaidTemplates, type MermaidTemplate } from './mermaidTemplates';

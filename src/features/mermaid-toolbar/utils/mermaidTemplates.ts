@@ -141,7 +141,3 @@ mindmap
 \`\`\``,
   },
 ];
-
-export function getMermaidTemplate(id: string): MermaidTemplate | undefined {
-  return mermaidTemplates.find((t) => t.id === id);
-}
