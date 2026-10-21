@@ -94,13 +94,10 @@ export function createMarkdownParser(): MarkdownIt {
   // after inline parsing, before the typographer turns "--" into a dash or "(c)" into ©:
   // ids come from the text as written, like GitHub's and the rich-text editor's.
   md.core.ruler.after('inline', 'heading_ids', (state) => {
-    const used = new Map<string, number>();
+    const nextId = headingIdAssigner();
     state.tokens.forEach((token, i) => {
       if (token.type !== 'heading_open' || token.attrGet('id')) return;
-      const base = slugify(headingText(state.tokens[i + 1]));
-      const count = used.get(base) ?? 0;
-      used.set(base, count + 1);
-      token.attrSet('id', count === 0 ? base : `${base}-${count}`);
+      token.attrSet('id', nextId(headingText(state.tokens[i + 1])));
     });
   });
 
@@ -235,6 +232,31 @@ export function slugify(text: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, '')
     .replace(/\s/g, '-');
+}
+
+/**
+ * Gives the headings of one document their ids, in document order: the slug of the text,
+ * numbered -1, -2, … when an earlier heading already has that id (GitHub's rule).
+ * The preview and the rich-text editor both use it, so #links resolve the same in both.
+ */
+export function headingIdAssigner(): (text: string) => string {
+  const occurrences = new Map<string, number>();
+
+  return (text) => {
+    const base = slugify(text);
+    let id = base;
+    let count = occurrences.get(base) ?? 0;
+
+    while (occurrences.has(id)) {
+      count += 1;
+      id = `${base}-${count}`;
+    }
+
+    occurrences.set(base, count);
+    occurrences.set(id, 0);
+
+    return id;
+  };
 }
 
 // Singleton instance
