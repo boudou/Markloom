@@ -9,7 +9,7 @@ import { Decoration, DecorationSet, type EditorProps, type EditorView, type Node
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveSourcePath } from '../hooks/useDocumentLinks';
+import { resolveSourcePath } from '@/lib/documentPath';
 import { useTabsStore } from '@/features/tabs';
 import { getMarkdownParser, headingIdAssigner, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
 

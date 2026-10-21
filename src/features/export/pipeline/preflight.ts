@@ -3,7 +3,7 @@ import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
 import { diagramSyntaxError } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveSourcePath, safeDecode } from '@/features/editor/hooks/useDocumentLinks';
+import { resolveSourcePath, safeDecode } from '@/lib/documentPath';
 import { placedInlines } from './inlineLines';
 
 export interface ExportIssue {

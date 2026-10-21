@@ -3,6 +3,7 @@
 import { useTabsStore } from '@/features/tabs';
 import { notify } from '@/stores/uiStore';
 import { canResolveRelative, fileExists, writeFile } from '@/features/file-tree/api/fileSystem';
+import { dirname } from '@/lib/documentPath';
 import { fileToBase64, getAltTextFromFilename, getExtensionFromMimeType } from './utils';
 
 const ASSETS_DIR = 'assets';
@@ -30,7 +31,7 @@ export async function storeImageForDocument(file: File): Promise<string> {
 
   // Folder documents and desktop-opened documents have a real directory we can write to
   if (canResolveRelative(docPath)) {
-    const docDir = docPath.slice(0, docPath.lastIndexOf('/'));
+    const docDir = dirname(docPath);
     const base = safeBaseName(file);
     const ext = extensionOf(file);
     let name = `${base}.${ext}`;
