@@ -19,6 +19,15 @@ interface StartAction {
   run: () => void | Promise<void>;
 }
 
+function countOf(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+/** "a", "a and b", "a, b and c" */
+function joinList(parts: string[]): string {
+  return parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
 /** Shown in place of an empty document: say where to type, then offer the other ways in. */
 export function StartPanel({ writeHint, className }: StartPanelProps) {
   const openDialog = useUiStore((s) => s.openDialog);
@@ -26,12 +35,13 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
   const restoring = useSessionStore((s) => s.restoring);
 
   const offerLabel = offer
-    ? [
-        offer.rootName && `“${offer.rootName}”`,
-        offer.paths.length > 0 && `${offer.paths.length} document${offer.paths.length === 1 ? '' : 's'}`,
-      ]
-        .filter(Boolean)
-        .join(' and ')
+    ? joinList(
+        [
+          offer.rootName && `“${offer.rootName}”`,
+          offer.paths.length > 0 && countOf(offer.paths.length, 'document'),
+          offer.drafts.length > 0 && countOf(offer.drafts.length, 'unsaved draft'),
+        ].filter((part): part is string => !!part)
+      )
     : '';
 
   const actions: StartAction[] = [
