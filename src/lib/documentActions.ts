@@ -12,10 +12,7 @@ import {
   writeFile,
   documentName,
 } from '@/features/file-tree/api/fileSystem';
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { errorMessage } from '@/lib/utils';
 
 function suggestedFileName(name: string): string {
   return /\.(md|markdown|mdx)$/i.test(name) ? name : `${name}.md`;

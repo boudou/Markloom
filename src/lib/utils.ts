@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** The message of a caught value: an Error's message, anything else as a string. */
+export function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 export function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf('.');
 

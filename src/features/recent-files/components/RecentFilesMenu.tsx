@@ -2,7 +2,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Clock, FileText, X, Trash2 } from 'lucide-react';
 import { IconButton, Tooltip } from '@/components/ui';
 import { useMenuHighlight } from '@/components/ui/useMenuHighlight';
-import { cn } from '@/lib/utils';
+import { cn, errorMessage } from '@/lib/utils';
 import { useRecentFiles } from '../hooks';
 import { notify } from '@/stores/uiStore';
 import { documentName } from '@/features/file-tree/api/fileSystem';
@@ -38,7 +38,7 @@ export function RecentFilesMenu() {
       notify({
         tone: 'error',
         title: `Couldn't open ${name}`,
-        detail: `${error instanceof Error ? error.message : error}. It was removed from Recent files.`,
+        detail: `${errorMessage(error)}. It was removed from Recent files.`,
       });
     });
   };

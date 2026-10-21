@@ -4,6 +4,7 @@ import { useTabsStore } from '@/features/tabs';
 import { notify } from '@/stores/uiStore';
 import { canResolveRelative, fileExists, writeFile } from '@/features/file-tree/api/fileSystem';
 import { dirname } from '@/lib/documentPath';
+import { errorMessage } from '@/lib/utils';
 import { fileToBase64, getAltTextFromFilename, getExtensionFromMimeType } from './utils';
 
 const ASSETS_DIR = 'assets';
@@ -48,7 +49,7 @@ export async function storeImageForDocument(file: File): Promise<string> {
       notify({
         tone: 'error',
         title: `Couldn't save ${name} to ${ASSETS_DIR}/`,
-        detail: `${error instanceof Error ? error.message : error}. The image was embedded in the document instead.`,
+        detail: `${errorMessage(error)}. The image was embedded in the document instead.`,
       });
     }
   } else if (file.size > LARGE_INLINE_IMAGE) {
