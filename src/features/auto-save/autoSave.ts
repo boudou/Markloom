@@ -7,30 +7,32 @@ import { saveTab } from '@/lib/documentActions';
 
 export type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
-/** Facts about the scheduler; the status shown to the user is derived from them by `autoSaveStatus`. */
+/** Result of the most recent write, with the tab it belongs to */
+type LastResult = { tabId: string; result: 'saved'; at: Date } | { tabId: string; result: 'error' };
+
+/** Facts about the scheduler; the status shown for a tab is derived from them by `autoSaveStatus`. */
 interface AutoSaveState {
-  /** A timer is waiting to write some tab */
-  pending: boolean;
-  /** A write is in flight for some tab */
-  saving: boolean;
+  /** Tabs with a timer waiting to write them */
+  pending: ReadonlySet<string>;
+  /** Tabs being written now */
+  saving: ReadonlySet<string>;
   /** Result of the most recent write */
-  last: 'saved' | 'error' | null;
-  lastSaved: Date | null;
+  last: LastResult | null;
 }
 
 export const useAutoSaveStatus = create<AutoSaveState>(() => ({
-  pending: false,
-  saving: false,
+  pending: new Set(),
+  saving: new Set(),
   last: null,
-  lastSaved: null,
 }));
 
-export function autoSaveStatus({ pending, saving, last }: AutoSaveState): AutoSaveStatus {
-  if (saving) return 'saving';
+/** What auto-save is doing for this tab; other tabs' timers, writes and results don't show. */
+export function autoSaveStatus({ pending, saving, last }: AutoSaveState, tabId: string): AutoSaveStatus {
+  if (saving.has(tabId)) return 'saving';
 
-  if (pending) return 'pending';
+  if (pending.has(tabId)) return 'pending';
 
-  return last ?? 'idle';
+  return last?.tabId === tabId ? last.result : 'idle';
 }
 
 const timers = new Map<string, number>();
@@ -38,21 +40,11 @@ const timers = new Map<string, number>();
 // Tabs being written now: a second write to the same file could finish first and leave older text
 const saving = new Set<string>();
 
-// The tab whose write `last` reports on
-let lastTabId: string | null = null;
-
 let started = false;
 
-/** Writes the counters, and any other fields given, in one update. */
+/** Writes the pending and saving tabs, and any other fields given, in one update. */
 function publish(fields: Partial<AutoSaveState> = {}) {
-  useAutoSaveStatus.setState({ ...fields, pending: timers.size > 0, saving: saving.size > 0 });
-}
-
-/** Drops the last result, so the indicator stops reporting a save that no longer describes the file. */
-function forgetLast(): Pick<AutoSaveState, 'last'> {
-  lastTabId = null;
-
-  return { last: null };
+  useAutoSaveStatus.setState({ ...fields, pending: new Set(timers.keys()), saving: new Set(saving) });
 }
 
 /**
@@ -60,6 +52,8 @@ function forgetLast(): Pick<AutoSaveState, 'last'> {
  * Auto-save's own write is still in `saving` when its markTabSaved lands, so it doesn't count.
  */
 function lastOutdated(tabs: Tab[], prevTabs: Tab[]): boolean {
+  const lastTabId = useAutoSaveStatus.getState().last?.tabId;
+
   if (!lastTabId || saving.has(lastTabId)) return false;
 
   const now = tabs.find((t) => t.id === lastTabId);
@@ -98,8 +92,7 @@ async function flush(tabId: string) {
   publish();
   const ok = await saveTab(tabId, { quiet: true });
   saving.delete(tabId);
-  lastTabId = tabId;
-  publish(ok ? { last: 'saved', lastSaved: new Date() } : { last: 'error' });
+  publish({ last: ok ? { tabId, result: 'saved', at: new Date() } : { tabId, result: 'error' } });
 }
 
 function rearmAll(fields: Partial<AutoSaveState>) {
@@ -132,13 +125,14 @@ export function startAutoSave(): void {
     // What is left was closed
     for (const tabId of previous.keys()) clearTimer(tabId);
 
-    publish(lastOutdated(state.tabs, prev.tabs) ? forgetLast() : {});
+    // Drop the last result, so the indicator stops reporting a save that no longer describes the file
+    publish(lastOutdated(state.tabs, prev.tabs) ? { last: null } : {});
   });
 
   useSettingsStore.subscribe((state, prev) => {
     if (state.autoSave === prev.autoSave && state.autoSaveInterval === prev.autoSaveInterval) return;
 
     // Turning auto-save off forgets the last result, so turning it on again starts at "Auto-save on"
-    rearmAll(state.autoSave ? {} : forgetLast());
+    rearmAll(state.autoSave ? {} : { last: null });
   });
 }

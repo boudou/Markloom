@@ -33,8 +33,11 @@ const looks: Record<AutoSaveStatus, OnLook> = {
 export function AutoSaveIndicator() {
   const autoSave = useSettingsStore((s) => s.autoSave);
   const interval = useSettingsStore((s) => s.autoSaveInterval);
+  const activeTabId = useTabsStore((s) => s.activeTabId);
   const hasFile = useTabsStore((s) => !!selectActiveTab(s)?.path);
-  const { status, lastSaved } = useAutoSave();
+  const { status: tabStatus, lastSaved } = useAutoSave(activeTabId);
+  // A tab without a file is never auto-saved: it keeps the idle look its tooltip describes
+  const status = hasFile ? tabStatus : 'idle';
 
   const look = autoSave ? looks[status] : off;
   const Icon = look.icon;
