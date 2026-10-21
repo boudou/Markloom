@@ -74,12 +74,44 @@ function errorBox(title: string, detail: string): HTMLElement {
   return box;
 }
 
+const ID_LIST_ATTRIBUTES = ['aria-labelledby', 'aria-describedby'];
+
+/**
+ * Appends `suffix` to every id in an inline diagram and to the references to them (`#id`,
+ * `url(#id)`, stylesheet selectors, ARIA id lists). Identical diagrams share one cached
+ * render, so a repeated copy would otherwise duplicate the ids and its markers would
+ * resolve to the first copy.
+ */
+function suffixDiagramIds(svg: SVGSVGElement, suffix: string) {
+  const elements = [svg, ...Array.from(svg.querySelectorAll('*'))];
+  const ids = new Set(elements.flatMap((element) => (element.id ? [element.id] : [])));
+  const renameRefs = (text: string) => text.replace(/#([\w-]+)/g, (ref, id: string) => (ids.has(id) ? `${ref}${suffix}` : ref));
+
+  for (const element of elements) {
+    for (const attribute of Array.from(element.attributes)) {
+      if (attribute.name === 'id') {
+        attribute.value += suffix;
+      } else if (ID_LIST_ATTRIBUTES.includes(attribute.name)) {
+        attribute.value = attribute.value.replace(/\S+/g, (id) => (ids.has(id) ? `${id}${suffix}` : id));
+      } else if (attribute.value.includes('#')) {
+        attribute.value = renameRefs(attribute.value);
+      }
+    }
+  }
+
+  // Label text stays as written: only the stylesheet's selectors name ids
+  for (const style of Array.from(svg.querySelectorAll('style'))) {
+    style.textContent = renameRefs(style.textContent ?? '');
+  }
+}
+
 /** The document body as self-contained HTML. */
 export async function renderExportBody(markdown: string, docPath: string | null): Promise<string> {
   await loadHighlighter();
   const template = document.createElement('template');
   template.innerHTML = parseMarkdown(markdown);
   const root = template.content;
+  const diagramCopies = new Map<string, number>();
 
   for (const slot of Array.from(root.querySelectorAll<HTMLElement>('.mermaid-container[data-mermaid]'))) {
     const code = decodeURIComponent(slot.getAttribute('data-mermaid') ?? '');
@@ -89,6 +121,15 @@ export async function renderExportBody(markdown: string, docPath: string | null)
     try {
       // Sanitized by Mermaid itself (strict security level)
       figure.innerHTML = (await renderDiagram(code)).svg;
+      const svg = figure.querySelector('svg');
+
+      if (svg?.id) {
+        const copies = (diagramCopies.get(svg.id) ?? 0) + 1;
+        diagramCopies.set(svg.id, copies);
+
+        // The first copy keeps Mermaid's ids; later ones become `…x2`, `…x3`
+        if (copies > 1) suffixDiagramIds(svg, `x${copies}`);
+      }
     } catch (error) {
       figure.append(errorBox('Diagram could not be rendered', error instanceof Error ? error.message : String(error)));
     }
