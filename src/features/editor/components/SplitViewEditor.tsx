@@ -7,7 +7,7 @@ import { AnimatePresence, m } from 'framer-motion';
 import { ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useResizeDrag } from '@/lib/useResizeDrag';
-import { useActiveContent, useActivePath, useSetActiveContent } from '@/features/tabs';
+import { useActiveContent, useActivePath, useSetActiveContent, useTabsStore } from '@/features/tabs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUiStore } from '@/stores/uiStore';
 import { MarkdownPreview } from './MarkdownPreview';
@@ -119,15 +119,14 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
 
   useSyncScroll({ editorView: view, previewRef, previewContentRef, previewReady: !isBlank });
 
-  // The preview's "Show line N" and its diagram error lines; stable per view, because
-  // the preview re-renders its diagrams whenever these change
-  const showLine = useCallback(
-    (line: number) => {
-      if (view) revealLine(view, line);
-    },
-    [view]
-  );
+  // The preview's "Show line N" goes through the same request as Export's "Show"
+  const showLine = useCallback((line: number) => {
+    const { activeTabId } = useTabsStore.getState();
 
+    if (activeTabId) useUiStore.getState().navigateToLine(activeTabId, line);
+  }, []);
+
+  // Stable per view, because the preview re-renders its diagrams whenever this changes
   const markDiagramErrors = useCallback(
     (lines: number[]) => {
       view?.dispatch({ effects: setDiagramErrorLines.of(lines) });
@@ -135,13 +134,16 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     [view]
   );
 
-  // A line asked for from outside (Export's "Show"), taken once this editor exists
+  // A requested line is revealed once this editor shows its tab; a request for any other
+  // tab is stale (the document it was meant for is not here) and is dropped
+  const activeTabId = useTabsStore((s) => s.activeTabId);
   const lineRequest = useUiStore((s) => s.lineRequest);
   useEffect(() => {
     if (!view || lineRequest === null) return;
-    revealLine(view, lineRequest);
+
+    if (lineRequest.tabId === activeTabId) revealLine(view, lineRequest.line);
     useUiStore.getState().clearLineRequest();
-  }, [view, lineRequest]);
+  }, [view, lineRequest, activeTabId]);
 
   const split = useResizeDrag({
     stored: splitRatio,
