@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useSyncExternalStore } from 'react';
 import { m } from 'framer-motion';
 import { parseMarkdown } from '@/lib/markdown';
 import { isHighlighterReady, onHighlighterReady } from '@/features/syntax-highlight';
@@ -24,8 +24,7 @@ export function MarkdownPreview({ content, className, surfaceRef, onShowLine, on
   // Re-parse shortly after typing pauses rather than on every keystroke
   const debouncedContent = useDebouncedValue(content, 120);
   // Code renders plain until the highlighter chunk arrives, then once more with colour
-  const [highlighterReady, setHighlighterReady] = useState(isHighlighterReady);
-  useEffect(() => onHighlighterReady(() => setHighlighterReady(true)), []);
+  const highlighterReady = useSyncExternalStore(onHighlighterReady, isHighlighterReady);
   const html = useMemo(() => parseMarkdown(debouncedContent), [debouncedContent, highlighterReady]);
 
   // Resolve relative images and make links navigable

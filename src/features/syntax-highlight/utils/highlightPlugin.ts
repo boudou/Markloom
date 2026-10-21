@@ -6,29 +6,36 @@ let hljs: HLJSApi | null = null;
 
 let loading: Promise<void> | null = null;
 
-const listeners = new Set<() => void>();
+// Settles once, when the grammars are in; every readiness subscriber waits on it
+let markReady = () => {};
+
+const ready = new Promise<void>((resolve) => {
+  markReady = resolve;
+});
 
 export function loadHighlighter(): Promise<void> {
   loading ??= import('./grammars').then(({ default: api }) => {
     hljs = api;
-    listeners.forEach((listener) => listener());
-    listeners.clear();
+    markReady();
   });
 
   return loading;
 }
 
-/** Called once, when highlighting becomes available (so plain-rendered code can be redrawn); at once if it already is */
+/**
+ * Subscribe to the highlighter becoming available, so plain-rendered code can be redrawn.
+ * Shaped for useSyncExternalStore with isHighlighterReady as the snapshot.
+ */
 export function onHighlighterReady(listener: () => void): () => void {
-  if (hljs) {
-    listener();
+  let subscribed = true;
 
-    return () => undefined;
-  }
+  void ready.then(() => {
+    if (subscribed) listener();
+  });
 
-  listeners.add(listener);
-
-  return () => listeners.delete(listener);
+  return () => {
+    subscribed = false;
+  };
 }
 
 export function isHighlighterReady(): boolean {
