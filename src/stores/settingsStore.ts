@@ -82,6 +82,8 @@ interface SettingsState {
   removeRecentFile: (path: string) => void;
   clearRecentFiles: () => void;
   setWordGoal: (key: string, goal: number | null) => void;
+  /** Re-keys a goal, e.g. from an unsaved tab's id to the path it was first saved to */
+  moveWordGoal: (fromKey: string, toKey: string) => void;
   setRecentFiles: (files: RecentFile[]) => void;
 
   // Panels
@@ -126,6 +128,16 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => {
           if (goal && goal > 0) state.wordGoals[key] = Math.round(goal);
           else delete state.wordGoals[key];
+        }),
+
+      // A tab without a goal leaves any goal already stored for the target alone
+      moveWordGoal: (fromKey, toKey) =>
+        set((state) => {
+          const goal = state.wordGoals[fromKey];
+
+          if (goal === undefined || fromKey === toKey) return;
+          state.wordGoals[toKey] = goal;
+          delete state.wordGoals[fromKey];
         }),
 
       // Theme

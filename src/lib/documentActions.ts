@@ -112,6 +112,9 @@ export async function saveTab(
     if (!newPath) return false;
     tabs.setTabPath(tabId, newPath);
     tabs.markTabSaved(tabId, tab.content);
+
+    // Goals are keyed by path once a document has one (see WordCountWidget's useGoalKey)
+    if (!tab.path) useSettingsStore.getState().moveWordGoal(tabId, newPath);
     notify({ tone: 'success', title: `Saved ${documentName(newPath)}` });
 
     return true;
