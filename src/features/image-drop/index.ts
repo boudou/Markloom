@@ -4,6 +4,5 @@ export {
   fileToBase64,
   isImageFile,
   isSupportedImageType,
-  generateMarkdownImage,
   getAltTextFromFilename,
 } from './utils';

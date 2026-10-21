@@ -1,1 +1,0 @@
-export { MermaidTemplateMenu } from './MermaidTemplateMenu';

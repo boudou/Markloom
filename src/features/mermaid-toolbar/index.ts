@@ -1,3 +1,1 @@
-export { MermaidTemplateMenu } from './components';
-
-export { mermaidTemplates, getMermaidTemplate, type MermaidTemplate } from './utils';
+export { mermaidTemplates, type MermaidTemplate } from './utils';
