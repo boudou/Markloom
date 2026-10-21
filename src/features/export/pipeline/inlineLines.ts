@@ -20,6 +20,8 @@ export function placedInlines(tokens: Token[]): PlacedInline[] {
   for (const token of tokens) {
     if (token.type === 'tr_open') rowLines = token.map;
 
+    if (token.type === 'tbody_close' || token.type === 'table_close') rowLines = null;
+
     if (token.type !== 'inline') continue;
 
     const lines = token.map ?? rowLines;
