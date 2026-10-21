@@ -6,7 +6,7 @@ import { useSettingsStore, type LastSession } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
 import { showFolder } from '@/lib/documentActions';
 import { readFile, restoreRememberedFolder } from '@/features/file-tree/api/fileSystem';
-import { ROOT_KEY, hasPermission, recallHandle } from '@/features/file-tree/api/handleStore';
+import { ROOT_KEY, hasPermission, recallDirectoryHandle } from '@/features/file-tree/api/handleStore';
 
 interface SessionState {
   /** Last session that can still be reopened, or null once handled */
@@ -66,7 +66,7 @@ function startTracking() {
 }
 
 async function hasGrantedAccess(): Promise<boolean> {
-  const root = await recallHandle<FileSystemDirectoryHandle>(ROOT_KEY);
+  const root = await recallDirectoryHandle(ROOT_KEY);
 
   return !!root && (await hasPermission(root));
 }

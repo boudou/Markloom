@@ -1,7 +1,7 @@
 // Browser-based File System Access API implementation
 import { nanoid } from 'nanoid';
 import type { FileNode } from '../types';
-import { ROOT_KEY, ensurePermission, recallHandle, rememberHandle } from './handleStore';
+import { ROOT_KEY, ensurePermission, recallDirectoryHandle, recallFileHandle, rememberHandle } from './handleStore';
 
 // The three kinds of document path. Only this file tells them apart (see storeFor):
 // - "desktop:C:/Users/me/notes/plan.md": a file the OS handed to the desktop app, read through the Electron bridge
@@ -248,7 +248,7 @@ async function standaloneHandle(path: string): Promise<FileSystemFileHandle> {
 
   if (cached) return cached;
 
-  const remembered = await recallHandle<FileSystemFileHandle>(path);
+  const remembered = await recallFileHandle(path);
 
   if (!remembered || !(await ensurePermission(remembered))) {
     throw new Error(`No access to ${documentName(path)}; open it again with Open file`);
@@ -264,7 +264,7 @@ async function standaloneHandle(path: string): Promise<FileSystemFileHandle> {
  * when the browser needs to ask for permission again. Returns the folder name.
  */
 export async function restoreRememberedFolder(): Promise<string | null> {
-  const handle = await recallHandle<FileSystemDirectoryHandle>(ROOT_KEY);
+  const handle = await recallDirectoryHandle(ROOT_KEY);
 
   if (!handle || !(await ensurePermission(handle))) return null;
   openRoot(handle);
