@@ -38,10 +38,34 @@ const timers = new Map<string, number>();
 // Tabs being written now: a second write to the same file could finish first and leave older text
 const saving = new Set<string>();
 
+// The tab whose write `last` reports on
+let lastTabId: string | null = null;
+
 let started = false;
 
-function publish() {
-  useAutoSaveStatus.setState({ pending: timers.size > 0, saving: saving.size > 0 });
+/** Writes the counters, and any other fields given, in one update. */
+function publish(fields: Partial<AutoSaveState> = {}) {
+  useAutoSaveStatus.setState({ ...fields, pending: timers.size > 0, saving: saving.size > 0 });
+}
+
+/** Drops the last result, so the indicator stops reporting a save that no longer describes the file. */
+function forgetLast(): Pick<AutoSaveState, 'last'> {
+  lastTabId = null;
+
+  return { last: null };
+}
+
+/**
+ * The tab `last` reports on was closed, or saved or reloaded by another path (e.g. Ctrl+S).
+ * Auto-save's own write is still in `saving` when its markTabSaved lands, so it doesn't count.
+ */
+function lastOutdated(tabs: Tab[], prevTabs: Tab[]): boolean {
+  if (!lastTabId || saving.has(lastTabId)) return false;
+
+  const now = tabs.find((t) => t.id === lastTabId);
+  const before = prevTabs.find((t) => t.id === lastTabId);
+
+  return !now || now.originalContent !== before?.originalContent;
 }
 
 function clearTimer(tabId: string) {
@@ -74,13 +98,13 @@ async function flush(tabId: string) {
   publish();
   const ok = await saveTab(tabId, { quiet: true });
   saving.delete(tabId);
-  useAutoSaveStatus.setState(ok ? { last: 'saved', lastSaved: new Date() } : { last: 'error' });
-  publish();
+  lastTabId = tabId;
+  publish(ok ? { last: 'saved', lastSaved: new Date() } : { last: 'error' });
 }
 
-function rearmAll() {
+function rearmAll(fields: Partial<AutoSaveState>) {
   for (const tab of useTabsStore.getState().tabs) arm(tab);
-  publish();
+  publish(fields);
 }
 
 /** Turns auto-save on or off; the choice is remembered. */
@@ -107,10 +131,14 @@ export function startAutoSave(): void {
 
     // What is left was closed
     for (const tabId of previous.keys()) clearTimer(tabId);
-    publish();
+
+    publish(lastOutdated(state.tabs, prev.tabs) ? forgetLast() : {});
   });
 
   useSettingsStore.subscribe((state, prev) => {
-    if (state.autoSave !== prev.autoSave || state.autoSaveInterval !== prev.autoSaveInterval) rearmAll();
+    if (state.autoSave === prev.autoSave && state.autoSaveInterval === prev.autoSaveInterval) return;
+
+    // Turning auto-save off forgets the last result, so turning it on again starts at "Auto-save on"
+    rearmAll(state.autoSave ? {} : forgetLast());
   });
 }
