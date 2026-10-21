@@ -2,7 +2,7 @@
 // Mermaid blocks render as diagrams, relative images load from the open folder,
 // and task-list checkboxes can be ticked.
 import { $prose, $view } from '@milkdown/kit/utils';
-import { codeBlockSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
+import { codeBlockAttr, codeBlockSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
 import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
@@ -294,6 +294,63 @@ class CodeBlockView implements NodeView {
     window.clearTimeout(this.renderTimer);
   }
 }
+
+// Code blocks keep the whole info string: Milkdown's schema stores only the language, so
+// ```mermaid title would come back as ```mermaid once the block is edited (or pasted).
+// The rest of the line after the language is the mdast `meta`.
+
+export const codeBlockMetaSchema = codeBlockSchema.extendSchema((prev) => (ctx) => {
+  const base = prev(ctx);
+
+  return {
+    ...base,
+    attrs: {
+      ...base.attrs,
+      meta: { default: '', validate: 'string' },
+    },
+    parseDOM: [
+      {
+        tag: 'pre',
+        preserveWhitespace: 'full',
+        getAttrs: (dom) => ({ language: dom.dataset.language ?? '', meta: dom.dataset.meta ?? '' }),
+      },
+    ],
+    toDOM: (node) => {
+      const attr = ctx.get(codeBlockAttr.key)(node);
+      const { language, meta } = node.attrs;
+      // ProseMirror skips null attributes, so an empty language or meta writes nothing
+      const pre = { ...attr.pre, 'data-language': language || null, 'data-meta': meta || null };
+
+      return ['pre', pre, ['code', attr.code, 0]];
+    },
+    parseMarkdown: {
+      ...base.parseMarkdown,
+      runner: (state, node, type) => {
+        // SAFETY: a remark code node has a string value (null covered by the check below).
+        const value = node.value as string | null;
+        // SAFETY: a remark code node's lang is a string or null (the ?? covers null).
+        const language = (node.lang as string | null) ?? '';
+        // SAFETY: a remark code node's meta is a string or null (the ?? covers null).
+        const meta = (node.meta as string | null) ?? '';
+
+        state.openNode(type, { language, meta });
+
+        if (value) state.addText(value);
+        state.closeNode();
+      },
+    },
+    toMarkdown: {
+      ...base.toMarkdown,
+      runner: (state, node) => {
+        // An empty meta is null so a bare ```js gets no trailing space
+        state.addNode('code', undefined, node.content.firstChild?.text || '', {
+          lang: node.attrs.language,
+          meta: node.attrs.meta || null,
+        });
+      },
+    },
+  };
+});
 
 export const codeBlockView = $view(codeBlockSchema.node, () => (node, view, getPos) => new CodeBlockView(node, view, getPos));
 
