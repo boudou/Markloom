@@ -4,7 +4,10 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 interface UseSyncScrollOptions {
   editorView: EditorView | null | undefined;
+  /** The preview's scrolling surface */
   previewRef: React.RefObject<HTMLElement>;
+  /** The rendered document inside it, whose height changes as blocks render and resize */
+  previewContentRef: React.RefObject<HTMLElement>;
   /** False while the preview pane isn't mounted (blank document) */
   previewReady?: boolean;
 }
@@ -67,13 +70,19 @@ function bracket(anchors: Anchor[], key: 'line' | 'top', value: number): [Anchor
   return [anchors[index], anchors[index + 1]];
 }
 
-export function useSyncScroll({ editorView, previewRef, previewReady = true }: UseSyncScrollOptions): void {
+export function useSyncScroll({
+  editorView,
+  previewRef,
+  previewContentRef,
+  previewReady = true,
+}: UseSyncScrollOptions): void {
   const syncScroll = useSettingsStore((s) => s.syncScroll);
 
   useEffect(() => {
     const preview = previewRef.current;
+    const content = previewContentRef.current;
 
-    if (!syncScroll || !editorView || !preview) return;
+    if (!syncScroll || !editorView || !preview || !content) return;
 
     const scroller = editorView.scrollDOM;
     // Which pane the user is moving; the other one follows and must not echo back
@@ -167,8 +176,7 @@ export function useSyncScroll({ editorView, previewRef, previewReady = true }: U
     mutations.observe(preview, { childList: true, subtree: true });
     const resizes = new ResizeObserver(invalidate);
     resizes.observe(preview);
-
-    for (const child of Array.from(preview.children)) resizes.observe(child);
+    resizes.observe(content);
 
     scroller.addEventListener('scroll', handleEditorScroll, { passive: true });
     preview.addEventListener('scroll', handlePreviewScroll, { passive: true });
@@ -185,5 +193,5 @@ export function useSyncScroll({ editorView, previewRef, previewReady = true }: U
       cancelAnimationFrame(frame);
       window.clearTimeout(releaseTimer);
     };
-  }, [syncScroll, editorView, previewRef, previewReady]);
+  }, [syncScroll, editorView, previewRef, previewContentRef, previewReady]);
 }
