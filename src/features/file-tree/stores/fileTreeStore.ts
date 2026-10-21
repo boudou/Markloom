@@ -4,16 +4,21 @@ import type { FileNode } from '../types';
 
 interface FileTreeState {
   nodes: FileNode[];
-  /** The folder `nodes` were read from; null when they belong to no folder */
-  nodesRoot: string | null;
+  /**
+   * Which opening of a folder this is, bumped by openRoot. Paths start with the folder's name,
+   * so this is what tells two folders with the same name apart.
+   */
+  rootId: number;
+  /** The rootId `nodes` were read from; null when they belong to no folder */
+  nodesRoot: number | null;
   expandedPaths: Set<string>;
   selectedPath: string | null;
   isLoading: boolean;
 
   // Actions
-  setNodes: (nodes: FileNode[], root: string | null) => void;
-  /** Drops the shown folder's tree, expanded folders and selection before another folder opens */
-  clearTree: () => void;
+  setNodes: (nodes: FileNode[], root: number | null) => void;
+  /** A folder is opening: gives it a new rootId and drops the previous folder's tree, expanded folders and selection */
+  openRoot: () => void;
   toggleExpanded: (path: string) => void;
   setSelected: (path: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -23,6 +28,7 @@ interface FileTreeState {
 export const useFileTreeStore = create<FileTreeState>()(
   immer((set) => ({
     nodes: [],
+    rootId: 0,
     nodesRoot: null,
     expandedPaths: new Set<string>(),
     selectedPath: null,
@@ -34,9 +40,11 @@ export const useFileTreeStore = create<FileTreeState>()(
         state.nodesRoot = root;
       }),
 
-    clearTree: () =>
+    openRoot: () =>
       set((state) => {
+        state.rootId += 1;
         state.nodes = [];
+        state.isLoading = false;
         state.nodesRoot = null;
         state.expandedPaths = new Set<string>();
         state.selectedPath = null;

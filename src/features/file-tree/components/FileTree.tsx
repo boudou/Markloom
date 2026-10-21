@@ -12,8 +12,13 @@ import { notify } from '@/stores/uiStore';
 import { TreeNode } from './TreeNode';
 import { getFileName } from '@/lib/utils';
 
+// Each read of the open folder takes the next number; only the latest may change the tree or report an error.
+// Kept outside the component so a read from before the sidebar remounted the tree is still superseded.
+let latestLoad = 0;
+
 export function FileTree() {
   const nodes = useFileTreeStore((s) => s.nodes);
+  const rootId = useFileTreeStore((s) => s.rootId);
   const nodesRoot = useFileTreeStore((s) => s.nodesRoot);
   const isLoading = useFileTreeStore((s) => s.isLoading);
   const setNodes = useFileTreeStore((s) => s.setNodes);
@@ -25,25 +30,30 @@ export function FileTree() {
   const isSupported = isFileSystemSupported();
 
   const loadDirectory = useCallback(
-    async (path: string) => {
+    async (path: string, root: number) => {
+      const load = ++latestLoad;
+      // A newer read (Refresh, or another folder opening) owns the tree and the spinner
+      const superseded = () => load !== latestLoad || useFileTreeStore.getState().rootId !== root;
+
       setLoading(true);
 
       try {
-        setNodes(await readDirectory(path), path);
-      } catch (error) {
-        // A failed Refresh keeps the tree; a folder that failed to open must not show the previous folder's files
-        if (useFileTreeStore.getState().nodesRoot !== path) {
-          setNodes([], null);
-        }
+        const read = await readDirectory(path);
 
+        if (superseded()) return;
+        setNodes(read, root);
+      } catch (error) {
+        if (superseded()) return;
+
+        // A failed Refresh keeps the tree; a folder that failed to open shows none (openRoot already cleared it)
         notify({
           tone: 'error',
           title: `Couldn't read ${getFileName(path)}`,
           detail: error instanceof Error ? error.message : String(error),
         });
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     },
     [setNodes, setLoading]
   );
@@ -51,16 +61,16 @@ export function FileTree() {
   // Reads the folder only when the store doesn't hold it yet, so the tree (and its expanded folders)
   // survives the sidebar switching to Outline and back; Refresh is the way to re-read it
   useEffect(() => {
-    if (rootPath && nodesRoot !== rootPath) {
-      loadDirectory(rootPath);
+    if (rootPath && nodesRoot !== rootId) {
+      void loadDirectory(rootPath, rootId);
     }
-  }, [rootPath, nodesRoot, loadDirectory]);
+  }, [rootPath, rootId, nodesRoot, loadDirectory]);
 
   const handleRefresh = useCallback(() => {
     if (rootPath) {
-      loadDirectory(rootPath);
+      void loadDirectory(rootPath, rootId);
     }
-  }, [rootPath, loadDirectory]);
+  }, [rootPath, rootId, loadDirectory]);
 
   const handleFileSelect = useCallback(
     async (path: string) => {
@@ -145,7 +155,8 @@ export function FileTree() {
             </button>
           </m.div>
         ) : (
-          <div className="px-1">
+          // Keyed by the open folder: a same-name folder's nodes share paths but must not reuse the old TreeNodes
+          <div key={rootId} className="px-1">
             {nodes.map((node) => (
               <TreeNode
                 key={node.path}

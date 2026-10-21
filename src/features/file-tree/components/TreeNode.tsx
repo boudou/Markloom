@@ -29,7 +29,9 @@ export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: Tr
   useEffect(() => {
     if (!isLoading) return;
 
-    // Dropped after cleanup: collapse or Refresh while loading, or the StrictMode double mount
+    // Dropped after cleanup: collapse while loading, another folder opening (the tree remounts), or the
+    // StrictMode double mount. Refresh doesn't cancel it: the replaced node keeps its path, so the read
+    // goes on and its result lands on the new node.
     let cancelled = false;
     readDirectory(node.path).then(
       (children) => {
