@@ -1,7 +1,9 @@
 export {
   calculateTextStats,
-  calculateSelectionStats,
+  countText,
+  readingMinutes,
   formatReadingTime,
   formatNumber,
+  type TextCount,
   type TextStats,
 } from './textStats';

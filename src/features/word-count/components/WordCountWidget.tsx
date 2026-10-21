@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { Clock, FileText, Type, AlignLeft, BookOpen, Mic, Target, Check } from 'lucide-react';
 import { Button, Input, Modal } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { useTabsStore } from '@/features/tabs';
+import { useActiveContent, useTabsStore } from '@/features/tabs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useWordCount } from '../hooks';
 import { useSelectedText } from '../stores/selection';
-import { calculateTextStats, formatReadingTime, formatNumber } from '../utils';
+import { calculateTextStats, countText, readingMinutes, formatReadingTime, formatNumber } from '../utils';
 
 const plural = (n: number, word: string) => `${formatNumber(n)} ${n === 1 ? word : `${word}s`}`;
 
@@ -21,9 +21,9 @@ function useGoalKey(): string | null {
 
 export function WordCountWidget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const stats = useWordCount();
+  const count = useWordCount();
   const selectedText = useSelectedText((s) => s.text);
-  const selection = useMemo(() => (selectedText ? calculateTextStats(selectedText) : null), [selectedText]);
+  const selection = useMemo(() => (selectedText ? countText(selectedText) : null), [selectedText]);
   const goalKey = useGoalKey();
   const goal = useSettingsStore((s) => (goalKey ? s.wordGoals[goalKey] : undefined));
 
@@ -39,10 +39,10 @@ export function WordCountWidget() {
         title="Document statistics"
       >
         {/* Reading time only means something once there's a page or so to read */}
-        {stats.words >= 200 && (
+        {count.words >= 200 && (
           <span className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            <span>{formatReadingTime(stats.readingTime)} read</span>
+            <span>{formatReadingTime(readingMinutes(count.words))} read</span>
           </span>
         )}
         {selection && selection.characters > 0 ? (
@@ -51,8 +51,8 @@ export function WordCountWidget() {
           </span>
         ) : (
           <>
-            {goal ? <GoalProgress words={stats.words} goal={goal} /> : <span>{plural(stats.words, 'word')}</span>}
-            <span>{plural(stats.characters, 'character')}</span>
+            {goal ? <GoalProgress words={count.words} goal={goal} /> : <span>{plural(count.words, 'word')}</span>}
+            <span>{plural(count.characters, 'character')}</span>
           </>
         )}
       </button>
@@ -62,49 +62,61 @@ export function WordCountWidget() {
         onOpenChange={setIsModalOpen}
         title="Document statistics"
       >
-        {goalKey && <GoalSetting goalKey={goalKey} goal={goal} words={stats.words} />}
-        <div className="grid grid-cols-2 gap-4">
-          <StatCard
-            icon={Type}
-            label="Characters"
-            value={formatNumber(stats.characters)}
-            subValue={`${formatNumber(stats.charactersNoSpaces)} without spaces`}
-          />
-          <StatCard
-            icon={FileText}
-            label="Words"
-            value={formatNumber(stats.words)}
-          />
-          <StatCard
-            icon={AlignLeft}
-            label="Lines"
-            value={formatNumber(stats.lines)}
-          />
-          <StatCard
-            icon={BookOpen}
-            label="Paragraphs"
-            value={formatNumber(stats.paragraphs)}
-          />
-          <StatCard
-            icon={Clock}
-            label="Reading time"
-            value={formatReadingTime(stats.readingTime)}
-            subValue="~200 words/min"
-          />
-          <StatCard
-            icon={Mic}
-            label="Speaking time"
-            value={formatReadingTime(stats.speakingTime)}
-            subValue="~150 words/min"
-          />
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-rule">
-          <p className="text-xs text-text-muted">
-            Sentences: {formatNumber(stats.sentences)}
-          </p>
-        </div>
+        {goalKey && <GoalSetting goalKey={goalKey} goal={goal} words={count.words} />}
+        <DocumentStats />
       </Modal>
+    </>
+  );
+}
+
+// The full statistics walk the document several times; this mounts only while the dialog is open
+function DocumentStats() {
+  const content = useActiveContent();
+  const stats = useMemo(() => calculateTextStats(content), [content]);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          icon={Type}
+          label="Characters"
+          value={formatNumber(stats.characters)}
+          subValue={`${formatNumber(stats.charactersNoSpaces)} without spaces`}
+        />
+        <StatCard
+          icon={FileText}
+          label="Words"
+          value={formatNumber(stats.words)}
+        />
+        <StatCard
+          icon={AlignLeft}
+          label="Lines"
+          value={formatNumber(stats.lines)}
+        />
+        <StatCard
+          icon={BookOpen}
+          label="Paragraphs"
+          value={formatNumber(stats.paragraphs)}
+        />
+        <StatCard
+          icon={Clock}
+          label="Reading time"
+          value={formatReadingTime(stats.readingTime)}
+          subValue="~200 words/min"
+        />
+        <StatCard
+          icon={Mic}
+          label="Speaking time"
+          value={formatReadingTime(stats.speakingTime)}
+          subValue="~150 words/min"
+        />
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-rule">
+        <p className="text-xs text-text-muted">
+          Sentences: {formatNumber(stats.sentences)}
+        </p>
+      </div>
     </>
   );
 }
