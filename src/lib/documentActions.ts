@@ -60,9 +60,9 @@ export async function openFolder(): Promise<void> {
 
 /** Shows a just-opened folder in the sidebar. Used by Open Folder and by restoring the last session. */
 export function showFolder(name: string): void {
-  // rootPath is the folder's name: drop the old tree so a folder with the same name is read too,
-  // and so a failed read doesn't change nodesRoot under the FileTree effect and read the folder again
-  useFileTreeStore.getState().clearTree();
+  // rootPath is only the folder's name: the new rootId makes even a folder with the same name a new one,
+  // which the FileTree reads, dropping whatever reads of the previous folder still return
+  useFileTreeStore.getState().openRoot();
   const app = useAppStore.getState();
   app.setRootPath(name);
   app.showSidebarView('files');

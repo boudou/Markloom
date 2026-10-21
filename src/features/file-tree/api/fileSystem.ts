@@ -11,10 +11,16 @@ const DESKTOP_PREFIX = 'desktop:';
 
 const STANDALONE_PREFIX = 'file://';
 
-// The open folder, and the handles of folders inside it, keyed by path ("notes/sub")
-let rootDirectoryHandle: FileSystemDirectoryHandle | null = null;
+/**
+ * The open folder and the handles of folders inside it, keyed by path ("notes/sub"). Opening a folder
+ * replaces the whole object, so a walk still running in the previous folder fills a cache nobody reads.
+ */
+interface OpenFolder {
+  readonly handle: FileSystemDirectoryHandle;
+  readonly folders: Map<string, FileSystemDirectoryHandle>;
+}
 
-const handleCache = new Map<string, FileSystemDirectoryHandle>();
+let openFolder: OpenFolder | null = null;
 
 // Store for individual file handles (for files opened via Open File dialog)
 const fileHandleCache = new Map<string, FileSystemFileHandle>();
@@ -25,9 +31,7 @@ export function isFileSystemSupported(): boolean {
 }
 
 function openRoot(handle: FileSystemDirectoryHandle): void {
-  rootDirectoryHandle = handle;
-  handleCache.clear();
-  handleCache.set(handle.name, handle);
+  openFolder = { handle, folders: new Map() };
 }
 
 // Open folder dialog using File System Access API
@@ -137,7 +141,7 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
   const dirParts = partsBelowRoot(path);
 
   try {
-    const nodes = await inFolder(dirParts, { create: false }, async (dir) => {
+    const nodes = await inFolder(dirParts, { create: false }, async (dir, folders) => {
       const entries: FileNode[] = [];
 
       for await (const entry of dir.values()) {
@@ -149,7 +153,7 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
         // Cache directory handles as we find them, under the keys inFolder looks up
         if (entry.kind === 'directory') {
           // SAFETY: an entry whose kind is 'directory' is a FileSystemDirectoryHandle
-          handleCache.set(childPath, entry as FileSystemDirectoryHandle);
+          folders.set(childPath, entry as FileSystemDirectoryHandle);
         }
 
         entries.push({
@@ -275,17 +279,17 @@ export async function restoreRememberedFolder(): Promise<string | null> {
 // ---------------------------------------------------------------------------
 // Walking the open folder
 
-function currentFolder(): FileSystemDirectoryHandle {
-  if (!rootDirectoryHandle) throw new Error('No folder is open');
+function currentFolder(): OpenFolder {
+  if (!openFolder) throw new Error('No folder is open');
 
-  return rootDirectoryHandle;
+  return openFolder;
 }
 
 // The segments below the open folder: "notes/sub/b.md" → ["sub", "b.md"]. A path from another folder is refused.
 function partsBelowRoot(path: string): string[] {
   const [first, ...rest] = path.split('/').filter(Boolean);
 
-  if (first !== currentFolder().name) throw new Error(`Not in the open folder: ${path}`);
+  if (first !== currentFolder().handle.name) throw new Error(`Not in the open folder: ${path}`);
 
   return rest;
 }
@@ -300,12 +304,12 @@ function folderPartsOf(path: string): { dirParts: string[]; name: string } {
 }
 
 // Drops the cached handles on the way to a folder, so the next walk starts from the open folder again
-function forgetFolders(rootName: string, dirParts: string[]): void {
-  let key = rootName;
+function forgetFolders({ handle, folders }: OpenFolder, dirParts: string[]): void {
+  let key = handle.name;
 
   for (const part of dirParts) {
     key = `${key}/${part}`;
-    handleCache.delete(key);
+    folders.delete(key);
   }
 }
 
@@ -319,24 +323,24 @@ function forgetFolders(rootName: string, dirParts: string[]): void {
 async function inFolder<T>(
   dirParts: string[],
   { create }: { create: boolean },
-  use: (dir: FileSystemDirectoryHandle) => Promise<T>
+  use: (dir: FileSystemDirectoryHandle, folders: OpenFolder['folders']) => Promise<T>
 ): Promise<T> {
   const root = currentFolder();
-  let dir = root;
-  let key = root.name;
+  let dir = root.handle;
+  let key = root.handle.name;
   let usedCache = false;
 
   try {
     for (const part of dirParts) {
       key = `${key}/${part}`;
-      const cached = handleCache.get(key);
+      const cached = root.folders.get(key);
 
       usedCache ||= !!cached;
       dir = cached ?? (await dir.getDirectoryHandle(part, { create }));
-      handleCache.set(key, dir);
+      root.folders.set(key, dir);
     }
   } catch (error) {
-    forgetFolders(root.name, dirParts);
+    forgetFolders(root, dirParts);
 
     if (error instanceof DOMException && error.name === 'NotFoundError') throw new Error(`Folder not found: ${key}`);
 
@@ -344,13 +348,13 @@ async function inFolder<T>(
   }
 
   try {
-    return await use(dir);
+    return await use(dir, root.folders);
   } catch (error) {
     const notFound = error instanceof DOMException && error.name === 'NotFoundError';
 
     if (!create && notFound) throw error;
 
-    forgetFolders(root.name, dirParts);
+    forgetFolders(root, dirParts);
 
     // A write into a cached folder deleted outside Markloom: walk once more from the open folder, which recreates it
     if (create && usedCache && notFound) return inFolder(dirParts, { create }, use);
