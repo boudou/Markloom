@@ -14,6 +14,7 @@ export interface Toast {
 export interface LineRequest {
   tabId: string;
   line: number;
+  kind: 'reveal' | 'cursor';
 }
 
 export type AppDialog = 'export' | 'shortcuts' | 'templates' | 'palette' | null;
@@ -32,11 +33,14 @@ interface UiState {
   editorCommands: EditorCommands | null;
   setEditorCommands: (commands: EditorCommands | null) => void;
 
-  // A 1-based source line to reveal in the Markdown view ("Show line N", Export's "Show").
-  // Stamped with its tab: the view reveals it once its editor shows that tab, and drops it
+  // A 1-based source line for the Markdown view. 'reveal' scrolls the source to it and
+  // focuses it ("Show line N", Export's "Show"); 'cursor' only moves the cursor there
+  // (a Contents click, where the preview scrolls and scroll sync brings the source along).
+  // Stamped with its tab: the view acts on it once its editor shows that tab, and drops it
   // if another tab is showing, so it never lands in a different document.
   lineRequest: LineRequest | null;
   navigateToLine: (tabId: string, line: number) => void;
+  placeCursorAtLine: (tabId: string, line: number) => void;
   clearLineRequest: () => void;
 
   // Tabs waiting on a "save changes?" decision before they close
@@ -67,7 +71,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setEditorCommands: (editorCommands) => set({ editorCommands }),
 
   lineRequest: null,
-  navigateToLine: (tabId, line) => set({ lineRequest: { tabId, line } }),
+  navigateToLine: (tabId, line) => set({ lineRequest: { tabId, line, kind: 'reveal' } }),
+  placeCursorAtLine: (tabId, line) => set({ lineRequest: { tabId, line, kind: 'cursor' } }),
   clearLineRequest: () => set({ lineRequest: null }),
 
   pendingClose: null,

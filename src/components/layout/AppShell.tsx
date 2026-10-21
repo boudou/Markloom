@@ -82,7 +82,7 @@ export function AppShell() {
   return (
     <LazyMotion features={loadMotionFeatures} strict>
     <MotionConfig reducedMotion="user">
-      <div className="h-screen flex flex-col bg-canvas overflow-hidden">
+      <div className="relative h-screen flex flex-col bg-canvas overflow-clip">
         {/* First Tab stop: straight to the writing surface */}
         <a
           href="#document"

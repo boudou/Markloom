@@ -181,16 +181,30 @@ export function insertSnippet(view: EditorView, text: string): void {
   view.focus();
 }
 
+/** The cursor position for a 1-based line: clamped to the document, after the indentation. */
+function lineAnchor(view: EditorView, line: number): number {
+  const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines));
+
+  // Land after the indentation, where typing actually fixes the line
+  return target.from + (target.text.match(/^\s*/)?.[0].length ?? 0);
+}
+
 /** Puts the cursor on a 1-based document line, scrolled to the top of the pane. */
 export function revealLine(view: EditorView, line: number): void {
-  const target = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines));
-  // Land after the indentation, where typing actually fixes the line
-  const anchor = target.from + (target.text.match(/^\s*/)?.[0].length ?? 0);
+  const anchor = lineAnchor(view, line);
   view.dispatch({
     selection: { anchor },
-    effects: EditorView.scrollIntoView(target.from, { y: 'start', yMargin: 24 }),
+    effects: EditorView.scrollIntoView(view.state.doc.lineAt(anchor).from, { y: 'start', yMargin: 24 }),
   });
   view.focus();
+}
+
+/**
+ * Puts the cursor on a 1-based document line without scrolling or focusing the editor,
+ * for when another pane is already scrolling there and scroll sync brings this one along.
+ */
+export function placeCursor(view: EditorView, line: number): void {
+  view.dispatch({ selection: { anchor: lineAnchor(view, line) } });
 }
 
 /** Ticks or unticks the task item on the cursor's line ("- [ ]" <-> "- [x]") */
