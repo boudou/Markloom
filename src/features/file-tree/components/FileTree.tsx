@@ -10,7 +10,7 @@ import { openFolder } from '@/lib/documentActions';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
 import { TreeNode } from './TreeNode';
-import { getFileName } from '@/lib/utils';
+import { errorMessage, getFileName } from '@/lib/utils';
 
 // Each read of the open folder takes the next number; only the latest may change the tree or report an error.
 // Kept outside the component so a read from before the sidebar remounted the tree is still superseded.
@@ -49,7 +49,7 @@ export function FileTree() {
         notify({
           tone: 'error',
           title: `Couldn't read ${getFileName(path)}`,
-          detail: error instanceof Error ? error.message : String(error),
+          detail: errorMessage(error),
         });
       }
 
@@ -82,7 +82,7 @@ export function FileTree() {
         notify({
           tone: 'error',
           title: `Couldn't open ${documentName(path)}`,
-          detail: error instanceof Error ? error.message : String(error),
+          detail: errorMessage(error),
         });
       }
     },

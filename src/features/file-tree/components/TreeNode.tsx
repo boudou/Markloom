@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
-import { cn, isMarkdownFile, isMermaidFile } from '@/lib/utils';
+import { cn, errorMessage, isMarkdownFile, isMermaidFile } from '@/lib/utils';
 import { FileIcon } from './FileIcon';
 import { useFileTreeStore } from '../stores/fileTreeStore';
 import { readDirectory } from '../api/fileSystem';
@@ -38,7 +38,7 @@ export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: Tr
         if (!cancelled) updateNode(node.path, { children });
       },
       (error) => {
-        if (!cancelled) updateNode(node.path, { loadError: error instanceof Error ? error.message : String(error) });
+        if (!cancelled) updateNode(node.path, { loadError: errorMessage(error) });
       }
     );
 

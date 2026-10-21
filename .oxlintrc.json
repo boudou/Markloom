@@ -26,9 +26,7 @@
     // FileReader's string | ArrayBuffer); none of them parses untyped input
     "anti-slop/no-runtime-typeof": "warn",
     "anti-slop/no-shape-in-symbol-names": "error",
-    // warn: errorMessage() takes a caught value, which is unknown by nature; setFeatureSetting
-    // belongs to the unused feature-settings API in settingsStore
-    "anti-slop/no-unknown-parameters": "warn",
+    "anti-slop/no-unknown-parameters": "error",
     "anti-slop/no-unknown-returns": "error",
     "anti-slop/no-unknown-type-aliases": "error",
     "anti-slop/no-unsafe-dictionary-type": "error",

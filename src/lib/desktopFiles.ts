@@ -4,6 +4,7 @@ import { useTabsStore } from '@/features/tabs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
 import { desktopPathFor, documentName, readFile } from '@/features/file-tree/api/fileSystem';
+import { errorMessage } from '@/lib/utils';
 
 async function openFromOs(osPaths: string[]) {
   for (const osPath of osPaths) {
@@ -16,7 +17,7 @@ async function openFromOs(osPaths: string[]) {
       notify({
         tone: 'error',
         title: `Couldn't open ${documentName(path)}`,
-        detail: error instanceof Error ? error.message : String(error),
+        detail: errorMessage(error),
       });
     }
   }
