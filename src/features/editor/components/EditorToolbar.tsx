@@ -100,6 +100,7 @@ export function EditorToolbar({ commands, active = EMPTY_FORMAT_STATE, trailing,
       default: return false;
     }
   };
+
   const styleLabel = active.heading ? `H${active.heading}` : 'Body';
 
   const renderButton = ({ action, icon: Icon, label, shortcut }: ToolbarButton) => (

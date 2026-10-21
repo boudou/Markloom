@@ -52,6 +52,7 @@ function toggleInline(view: EditorView, action: MarkdownAction): void {
       }
 
       const inner = text || placeholder;
+
       return {
         changes: { from: range.from, to: range.to, insert: open + inner + close },
         range: EditorSelection.range(range.from + open.length, range.from + open.length + inner.length),
@@ -71,19 +72,26 @@ function toggleLinePrefix(view: EditorView, action: MarkdownAction): void {
   // Toggle off when every selected line already has this exact prefix
   const lines = state.selection.ranges.flatMap((range) => {
     const out = [];
+
     for (let pos = range.from; pos <= range.to; ) {
       const line = state.doc.lineAt(pos);
+
       if (!seen.has(line.number)) {
         seen.add(line.number);
         out.push(line);
       }
+
       pos = line.to + 1;
     }
+
     return out;
   });
+
   const isOrdered = action === 'ol';
+
   const alreadyApplied = lines.every((line) => {
     const current = line.text.match(BLOCK_PREFIX)?.[2] ?? '';
+
     return isOrdered ? /^\d+[.)]\s+$/.test(current) : current === prefix;
   });
 
@@ -168,17 +176,20 @@ export function revealLine(view: EditorView, line: number): void {
 function toggleTaskAtCursor(view: EditorView): boolean {
   const line = view.state.doc.lineAt(view.state.selection.main.head);
   const match = line.text.match(/^(\s*(?:>\s*)*[-*+]\s+\[)([ xX])\]/);
+
   if (!match) return false;
   const at = line.from + match[1].length;
   view.dispatch({
     changes: { from: at, to: at + 1, insert: match[2] === ' ' ? 'x' : ' ' },
     userEvent: 'input.format',
   });
+
   return true;
 }
 
 const run = (action: MarkdownAction) => (view: EditorView) => {
   runMarkdownAction(view, action);
+
   return true;
 };
 

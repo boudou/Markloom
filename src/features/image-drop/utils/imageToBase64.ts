@@ -11,6 +11,7 @@ export function fileToBase64(file: File): Promise<string> {
         reject(new Error('Failed to read file as data URL'));
       }
     };
+
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
@@ -54,6 +55,7 @@ export function getExtensionFromMimeType(mimeType: string): string {
     'image/svg+xml': 'svg',
     'image/bmp': 'bmp',
   };
+
   return map[mimeType] || 'png';
 }
 

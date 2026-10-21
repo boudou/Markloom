@@ -144,6 +144,7 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoSave: (enabled, interval) =>
         set((state) => {
           state.autoSave = enabled;
+
           if (interval !== undefined) {
             state.autoSaveInterval = interval;
           }
@@ -176,11 +177,14 @@ export const useSettingsStore = create<SettingsState>()(
           if (!state.featureSettings[featureId]) {
             state.featureSettings[featureId] = {};
           }
+
           state.featureSettings[featureId][key] = value;
         }),
 
       getFeatureSetting: <T = unknown>(featureId: string, key: string): T | undefined => {
         const state = get();
+
+        // SAFETY: unchecked; callers read a key back as the type they wrote with setFeatureSetting (no caller today).
         return state.featureSettings[featureId]?.[key] as T | undefined;
       },
 

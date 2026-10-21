@@ -11,10 +11,14 @@ interface FindReplaceBarProps {
 
 const inputBox =
   'flex-1 min-w-0 flex items-center gap-1 bg-canvas rounded-md border border-rule focus-within:border-accent-primary transition-colors';
+
 const inputField = 'flex-1 min-w-0 bg-transparent py-1.5 px-2 text-sm text-text-primary placeholder:text-text-muted outline-none';
+
 // Stand-ins for useSyncExternalStore while no editor is mounted
 const NO_RESULT: SearchResult = { count: 0, current: -1, invalid: false };
+
 const subscribeNothing = () => () => {};
+
 const noResult = () => NO_RESULT;
 
 const textButton =
@@ -37,6 +41,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
     toggleRegex,
     toggleWholeWord,
   } = useFindReplaceStore();
+
   // The engine pushes recounts (after edits in the editor too), so the status stays live
   const result = useSyncExternalStore(engine?.subscribe ?? subscribeNothing, engine?.getResult ?? noResult);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +53,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
     }
+
     wasOpen.current = isOpen;
   }, [isOpen]);
 
@@ -60,6 +66,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
   // Clear highlights when closing, and on the old editor when the editor is swapped
   useEffect(() => {
     if (!isOpen || !engine) return;
+
     return () => engine.clear();
   }, [isOpen, engine]);
 
@@ -73,6 +80,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
   const onFindKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+
       if (e.shiftKey) engine?.previous();
       else engine?.next();
     } else if (e.key === 'Escape') {

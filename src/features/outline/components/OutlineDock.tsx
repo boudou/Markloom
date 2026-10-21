@@ -20,6 +20,7 @@ function parseHeadings(markdown: string): Heading[] {
     const text = headingText(tokens[i + 1]);
     headings.push({ level: Number(token.tag.slice(1)), text: text || 'Untitled section', line: token.map[0] + 1 });
   });
+
   return headings;
 }
 
@@ -57,6 +58,7 @@ export function OutlineDock() {
   const [settled, setSettled] = useState(content);
   useEffect(() => {
     const timer = window.setTimeout(() => setSettled(content), 150);
+
     return () => window.clearTimeout(timer);
   }, [content]);
   const headings = useMemo(() => parseHeadings(settled), [settled]);
@@ -71,10 +73,12 @@ export function OutlineDock() {
   useEffect(() => {
     let surface: HTMLElement | null = null;
     let frame = 0;
+
     const update = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const shown = surface;
+
         if (!shown || Date.now() < holdUntil.current) return;
 
         const top = shown.getBoundingClientRect().top + 96;
@@ -90,15 +94,20 @@ export function OutlineDock() {
         setCurrent(atBottom && outline.length ? outline.length - 1 : index);
       });
     };
+
     // The surface mounts after the editor; look for it until it's there
     const attach = () => {
       surface = documentSurface();
+
       if (!surface) return false;
       surface.addEventListener('scroll', update, { passive: true });
       update();
+
       return true;
     };
+
     const timer = attach() ? undefined : window.setInterval(() => attach() && window.clearInterval(timer), 300);
+
     return () => {
       window.clearInterval(timer);
       cancelAnimationFrame(frame);
@@ -132,6 +141,7 @@ export function OutlineDock() {
             {headings.map((heading, index) => {
               const depth = heading.level - minLevel;
               const isCurrent = index === current;
+
               return (
                 <li key={`${heading.line}-${index}`}>
                   <button

@@ -55,6 +55,7 @@ export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: Tr
       toggleExpanded(node.path);
     } else {
       setSelected(node.path);
+
       if (isMarkdownFile(node.name) || isMermaidFile(node.name)) {
         onFileSelect(node.path);
       }

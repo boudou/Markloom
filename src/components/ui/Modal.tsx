@@ -26,7 +26,9 @@ const sizeClasses = {
 
 // Motion after interior.dev: the panel springs up from just below; leaving is quicker
 const EASE = [0.23, 1, 0.32, 1] as const;
+
 const LEAVE = [0.4, 0, 1, 1] as const;
+
 const SURFACE = { type: 'spring', stiffness: 420, damping: 36, mass: 0.9 } as const;
 
 const backdrop = {
@@ -46,7 +48,9 @@ const panel = {
 let focusBeforeDialog: HTMLElement | null = null;
 
 export function rememberFocus() {
+  // SAFETY: focus in this app sits on HTML controls or the editors' contenteditable hosts, never on SVG.
   const active = document.activeElement as HTMLElement | null;
+
   if (active && active !== document.body) focusBeforeDialog = active;
 }
 
@@ -56,6 +60,7 @@ export function restoreFocus(event: Event) {
   // Something outside the dialog took focus while it closed (Export's Show puts the
   // cursor on a line): leave it there
   const active = document.activeElement;
+
   if (active && active !== document.body) {
     event.preventDefault();
 
@@ -72,8 +77,10 @@ export function restoreFocus(event: Event) {
 // the close button, which Radix would pick as the first focusable element.
 function focusPreferred(event: Event) {
   rememberFocus();
+  // SAFETY: Radix fires onOpenAutoFocus on the dialog content element, an HTMLElement.
   const content = (event.target ?? event.currentTarget) as HTMLElement | null;
   const preferred = content?.querySelector<HTMLElement>('[data-autofocus]');
+
   if (preferred) {
     event.preventDefault();
     preferred.focus();

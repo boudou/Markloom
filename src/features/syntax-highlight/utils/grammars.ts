@@ -33,36 +33,64 @@ import graphql from 'highlight.js/lib/languages/graphql';
 
 // Register languages
 hljs.registerLanguage('javascript', javascript);
+
 hljs.registerLanguage('typescript', typescript);
+
 hljs.registerLanguage('python', python);
+
 hljs.registerLanguage('java', java);
+
 hljs.registerLanguage('csharp', csharp);
+
 hljs.registerLanguage('cpp', cpp);
+
 hljs.registerLanguage('c', c);
+
 hljs.registerLanguage('go', go);
+
 hljs.registerLanguage('rust', rust);
+
 hljs.registerLanguage('ruby', ruby);
+
 hljs.registerLanguage('php', php);
+
 hljs.registerLanguage('swift', swift);
+
 hljs.registerLanguage('kotlin', kotlin);
+
 hljs.registerLanguage('scala', scala);
+
 hljs.registerLanguage('sql', sql);
+
 hljs.registerLanguage('bash', bash);
+
 hljs.registerLanguage('shell', shell);
+
 hljs.registerLanguage('powershell', powershell);
+
 hljs.registerLanguage('json', json);
+
 hljs.registerLanguage('xml', xml);
+
 hljs.registerLanguage('yaml', yaml);
+
 hljs.registerLanguage('markdown', markdown);
+
 hljs.registerLanguage('css', css);
+
 hljs.registerLanguage('scss', scss);
+
 hljs.registerLanguage('less', less);
+
 hljs.registerLanguage('dockerfile', dockerfile);
+
 hljs.registerLanguage('nginx', nginx);
+
 hljs.registerLanguage('graphql', graphql);
 
 // The grammars already carry their usual short names (js, sh, html …); these two are Markloom's additions
 hljs.registerAliases('node', { languageName: 'javascript' });
+
 hljs.registerAliases('terminal', { languageName: 'shell' });
 
 export default hljs;

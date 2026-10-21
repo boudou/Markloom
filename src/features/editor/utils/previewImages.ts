@@ -14,18 +14,21 @@ const missing = new Set<string>();
 /** Reads the image at `path` into a fresh object URL, replacing (and freeing) its cached one. */
 function readImage(path: string): Promise<string> {
   const inFlight = pending.get(path);
+
   if (inFlight) return inFlight;
 
   const read = readFileBlob(path)
     .then((file) => {
       const url = URL.createObjectURL(file);
       const previous = cache.get(path);
+
       if (previous) URL.revokeObjectURL(previous.url);
       cache.set(path, { url, version: fileVersion(file) });
 
       return url;
     })
     .finally(() => pending.delete(path));
+
   pending.set(path, read);
 
   return read;
@@ -33,7 +36,9 @@ function readImage(path: string): Promise<string> {
 
 async function imageUrl(path: string): Promise<string> {
   const cached = cache.get(path);
+
   if (cached) return cached.url;
+
   if (missing.has(path)) throw new Error(`Image not found: ${path}`);
 
   try {
@@ -48,6 +53,7 @@ async function imageUrl(path: string): Promise<string> {
 export async function showImage(img: HTMLImageElement, path: string): Promise<void> {
   img.dataset.imagePath = path;
   const url = await imageUrl(path);
+
   // A later render may have pointed this element at another file meanwhile
   if (img.dataset.imagePath === path) img.src = url;
 }
@@ -71,6 +77,7 @@ export function refreshImages(container: HTMLElement): void {
   const shownPaths = new Set<string>();
   container.querySelectorAll<HTMLImageElement>('img[data-image-path]').forEach((img) => {
     const path = img.dataset.imagePath;
+
     if (path && cache.has(path)) shownPaths.add(path);
   });
 

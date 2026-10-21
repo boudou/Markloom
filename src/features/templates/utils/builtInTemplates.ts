@@ -498,6 +498,7 @@ Wrap up your post and include a call to action.
 // Search templates
 export function searchTemplates(query: string): Template[] {
   const lowerQuery = query.toLowerCase();
+
   return builtInTemplates.filter(
     t =>
       t.name.toLowerCase().includes(lowerQuery) ||

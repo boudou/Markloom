@@ -3,7 +3,9 @@ import type { HLJSApi } from 'highlight.js';
 // The grammars (~145 KB) aren't needed to show the window, so they load in their own chunk:
 // in the background after startup, or as soon as a code block needs them
 let hljs: HLJSApi | null = null;
+
 let loading: Promise<void> | null = null;
+
 const listeners = new Set<() => void>();
 
 export function loadHighlighter(): Promise<void> {
@@ -12,6 +14,7 @@ export function loadHighlighter(): Promise<void> {
     listeners.forEach((listener) => listener());
     listeners.clear();
   });
+
   return loading;
 }
 
@@ -24,6 +27,7 @@ export function onHighlighterReady(listener: () => void): () => void {
   }
 
   listeners.add(listener);
+
   return () => listeners.delete(listener);
 }
 
@@ -38,6 +42,7 @@ export function highlightCode(code: string, language: string): string {
   // Not loaded yet: show plain code now; listeners re-render once the grammars arrive
   if (!hljs) {
     void loadHighlighter();
+
     return escapeHtml(code);
   }
 
@@ -45,6 +50,7 @@ export function highlightCode(code: string, language: string): string {
     // getLanguage and highlight lowercase the name and resolve aliases themselves
     if (hljs.getLanguage(language)) {
       const result = hljs.highlight(code, { language, ignoreIllegals: true });
+
       return result.value;
     }
   } catch (e) {
@@ -81,6 +87,7 @@ function escapeHtml(text: string): string {
     '"': '&quot;',
     "'": '&#039;',
   };
+
   return text.replace(/[&<>"']/g, (m) => map[m]);
 }
 

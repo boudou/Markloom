@@ -81,12 +81,14 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
           ctx.update(remarkStringifyOptionsCtx, (prev) => ({ ...prev, bullet: '-' as const, emphasis: '_' as const, rule: '-' as const }));
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
             if (applyingExternal.current || loadedBaseline.current === null) return;
+
             // Back to the loaded document (e.g. after undo): restore the original text exactly
             // Otherwise keep the user's own formatting for every block they didn't change
             const next =
               markdown === loadedBaseline.current
                 ? loadedSource.current
                 : preserveUnchangedBlocks(knownMarkdown.current, markdown);
+
             knownMarkdown.current = next;
             useTabsStore.getState().updateTabContent(tabId, next);
           });
@@ -109,14 +111,17 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
           // Tell the toolbar what applies at the cursor, and the status bar what is selected
           $prose(() => {
             let last = EMPTY_FORMAT_STATE;
+
             return new Plugin({
               view: () => ({
                 update: (view) => {
                   const next = richFormatState(view.state);
+
                   if (!sameFormatState(next, last)) {
                     last = next;
                     reportFormat.current(next);
                   }
+
                   const { from, to, empty } = view.state.selection;
                   setSelectedText(empty ? '' : view.state.doc.textBetween(from, to, '\n', ' '));
                 },
@@ -142,6 +147,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     if (!editor || content === knownMarkdown.current) return;
     knownMarkdown.current = content;
     applyingExternal.current = true;
+
     try {
       editor.action(replaceAll(content));
       loadedBaseline.current = editor.action(getMarkdown());
@@ -154,6 +160,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   const applyLink = (url: string, text: string) => {
     const request = linkRequest;
     setLinkRequest(null);
+
     if (editor && request && url) applyRichLink(editor, request, url, text);
   };
 
@@ -175,6 +182,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   const imageDrop = useImageDrop({
     onInsert: (markdown) => editor?.action(insert(markdown, true)),
   });
+
   const hasImageFiles = (items: DataTransferItemList) =>
     Array.from(items).some((item) => item.kind === 'file' && item.type.startsWith('image/'));
 

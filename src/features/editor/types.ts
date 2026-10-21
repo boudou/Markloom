@@ -20,6 +20,9 @@ export type MarkdownAction =
   | 'table'
   | 'codeblock';
 
+/** The on/off formats of FormatState, which the editors set from marks and syntax nodes */
+export type FormatFlag = 'bold' | 'italic' | 'strikethrough' | 'code' | 'link';
+
 /** What applies at the cursor, so the toolbar can show it */
 export interface FormatState {
   bold: boolean;
@@ -45,6 +48,7 @@ export const EMPTY_FORMAT_STATE: FormatState = {
 };
 
 export function sameFormatState(a: FormatState, b: FormatState): boolean {
+  // SAFETY: format states are copies of EMPTY_FORMAT_STATE, so their keys are exactly keyof FormatState.
   return (Object.keys(a) as (keyof FormatState)[]).every((key) => a[key] === b[key]);
 }
 

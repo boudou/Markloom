@@ -47,6 +47,7 @@ export const APP_COMMANDS: readonly AppCommand[] = [
     shortcut: 'closeTab',
     run: () => {
       const { activeTabId } = useTabsStore.getState();
+
       if (activeTabId) requestCloseTabs([activeTabId]);
     },
   },

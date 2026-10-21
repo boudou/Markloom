@@ -13,6 +13,7 @@ import { useRef } from 'react';
 import { useRovingToolbar } from '@/lib/useRovingToolbar';
 
 const desktop = window.markloomDesktop;
+
 const isMacDesktop = desktop?.platform === 'darwin';
 
 function Separator() {

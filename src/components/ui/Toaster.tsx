@@ -25,6 +25,7 @@ export function Toaster() {
       <AnimatePresence initial={false}>
         {toasts.map((toast) => {
           const Icon = toneIcon[toast.tone];
+
           return (
             <m.div
               key={toast.id}

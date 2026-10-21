@@ -8,10 +8,12 @@ import { ROOT_KEY, ensurePermission, recallHandle, rememberHandle } from './hand
 // - "file://<id>/plan.md": a file opened on its own with Open file (see standalonePathFor)
 // - "<open folder name>/sub/plan.md": a file inside the open folder
 const DESKTOP_PREFIX = 'desktop:';
+
 const STANDALONE_PREFIX = 'file://';
 
 // The open folder, and the handles of folders inside it, keyed by path ("notes/sub")
 let rootDirectoryHandle: FileSystemDirectoryHandle | null = null;
+
 const handleCache = new Map<string, FileSystemDirectoryHandle>();
 
 // Store for individual file handles (for files opened via Open File dialog)
@@ -34,14 +36,17 @@ export async function openFolderDialog(): Promise<string | null> {
     const handle = await window.showDirectoryPicker({
       mode: 'readwrite',
     });
+
     openRoot(handle);
     void rememberHandle(ROOT_KEY, handle);
+
     return handle.name;
   } catch (error) {
-    // User cancelled or error
-    if ((error as Error).name !== 'AbortError') {
+    // The pickers reject with an AbortError when the user cancels them
+    if (!(error instanceof DOMException && error.name === 'AbortError')) {
       console.error('Error opening folder:', error);
     }
+
     return null;
   }
 }
@@ -87,9 +92,10 @@ export async function openFileDialog(): Promise<{ path: string; content: string 
       content,
     };
   } catch (error) {
-    if ((error as Error).name !== 'AbortError') {
+    if (!(error instanceof DOMException && error.name === 'AbortError')) {
       console.error('Error opening file:', error);
     }
+
     return null;
   }
 }
@@ -115,9 +121,10 @@ export async function saveFileDialog(
     const filePath = await standalonePathFor(handle);
     fileHandleCache.set(filePath, handle);
     void rememberHandle(filePath, handle);
+
     return filePath;
   } catch (error) {
-    if ((error as Error).name === 'AbortError') return null;
+    if (error instanceof DOMException && error.name === 'AbortError') return null;
     throw error;
   }
 }
@@ -160,6 +167,7 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
       if (a.isDirectory !== b.isDirectory) {
         return a.isDirectory ? -1 : 1;
       }
+
       return a.name.localeCompare(b.name);
     });
 
@@ -179,6 +187,7 @@ async function standalonePathFor(handle: FileSystemFileHandle): Promise<string> 
   for (const [path, known] of fileHandleCache) {
     if (await known.isSameEntry(handle)) return path;
   }
+
   return `${STANDALONE_PREFIX}${nanoid(8)}/${handle.name}`;
 }
 
@@ -216,7 +225,9 @@ function mimeTypeFor(name: string): string {
 
 function desktopBridge() {
   const bridge = window.markloomDesktop;
+
   if (!bridge?.readFile) throw new Error('Desktop file access is not available');
+
   return bridge;
 }
 
@@ -234,14 +245,17 @@ async function writeHandle(handle: FileSystemFileHandle, content: string | Blob)
 // A file opened on its own (not via a folder): from this session, or remembered from a past one
 async function standaloneHandle(path: string): Promise<FileSystemFileHandle> {
   const cached = fileHandleCache.get(path);
+
   if (cached) return cached;
 
   const remembered = await recallHandle<FileSystemFileHandle>(path);
+
   if (!remembered || !(await ensurePermission(remembered))) {
     throw new Error(`No access to ${documentName(path)}; open it again with Open file`);
   }
 
   fileHandleCache.set(path, remembered);
+
   return remembered;
 }
 
@@ -251,8 +265,10 @@ async function standaloneHandle(path: string): Promise<FileSystemFileHandle> {
  */
 export async function restoreRememberedFolder(): Promise<string | null> {
   const handle = await recallHandle<FileSystemDirectoryHandle>(ROOT_KEY);
+
   if (!handle || !(await ensurePermission(handle))) return null;
   openRoot(handle);
+
   return handle.name;
 }
 
@@ -261,26 +277,32 @@ export async function restoreRememberedFolder(): Promise<string | null> {
 
 function currentFolder(): FileSystemDirectoryHandle {
   if (!rootDirectoryHandle) throw new Error('No folder is open');
+
   return rootDirectoryHandle;
 }
 
 // The segments below the open folder: "notes/sub/b.md" → ["sub", "b.md"]. A path from another folder is refused.
 function partsBelowRoot(path: string): string[] {
   const [first, ...rest] = path.split('/').filter(Boolean);
+
   if (first !== currentFolder().name) throw new Error(`Not in the open folder: ${path}`);
+
   return rest;
 }
 
 function folderPartsOf(path: string): { dirParts: string[]; name: string } {
   const dirParts = partsBelowRoot(path);
   const name = dirParts.pop();
+
   if (!name) throw new Error(`Invalid path: ${path}`);
+
   return { dirParts, name };
 }
 
 // Drops the cached handles on the way to a folder, so the next walk starts from the open folder again
 function forgetFolders(rootName: string, dirParts: string[]): void {
   let key = rootName;
+
   for (const part of dirParts) {
     key = `${key}/${part}`;
     handleCache.delete(key);
@@ -407,7 +429,9 @@ const folderStore: DocumentStore = {
 
 function storeFor(path: string): DocumentStore {
   if (path.startsWith(DESKTOP_PREFIX)) return desktopStore;
+
   if (path.startsWith(STANDALONE_PREFIX)) return standaloneStore;
+
   return folderStore;
 }
 
@@ -437,6 +461,7 @@ export function readFileVersion(path: string): Promise<string> {
 // Read file contents
 export async function readFile(path: string): Promise<string> {
   const file = await readFileBlob(path);
+
   return normalizeLineEndings(await file.text());
 }
 
@@ -449,6 +474,7 @@ export function writeFile(path: string, content: string | Blob): Promise<void> {
 export async function fileExists(path: string): Promise<boolean> {
   try {
     await readFileVersion(path);
+
     return true;
   } catch {
     return false;

@@ -1,7 +1,9 @@
 import { openDB, type IDBPDatabase } from 'idb';
 
 const DB_NAME = 'markloom-history';
+
 const DB_VERSION = 1;
+
 const STORE_NAME = 'versions';
 
 export interface VersionEntry {
@@ -42,6 +44,7 @@ export async function saveVersion(
   label?: string
 ): Promise<VersionEntry> {
   const db = await getDb();
+
   const entry: VersionEntry = {
     id: generateId(),
     filePath,
@@ -51,6 +54,7 @@ export async function saveVersion(
   };
 
   await db.put(STORE_NAME, entry);
+
   return entry;
 }
 
@@ -59,6 +63,7 @@ export async function getVersionsForFile(filePath: string): Promise<VersionEntry
   const db = await getDb();
   const index = db.transaction(STORE_NAME).store.index('by-file');
   const versions = await index.getAll(filePath);
+
   // Sort by timestamp descending (newest first)
   return versions.sort((a, b) => b.timestamp - a.timestamp);
 }
@@ -66,6 +71,7 @@ export async function getVersionsForFile(filePath: string): Promise<VersionEntry
 // Get a specific version
 export async function getVersion(id: string): Promise<VersionEntry | undefined> {
   const db = await getDb();
+
   return db.get(STORE_NAME, id);
 }
 
@@ -82,9 +88,11 @@ export async function deleteVersionsForFile(filePath: string): Promise<void> {
   const versions = await index.getAll(filePath);
 
   const tx = db.transaction(STORE_NAME, 'readwrite');
+
   for (const version of versions) {
     await tx.store.delete(version.id);
   }
+
   await tx.done;
 }
 
@@ -98,15 +106,18 @@ export async function cleanupOldVersions(filePath: string, keepCount: number = 5
   const toDelete = versions.slice(keepCount);
 
   const tx = db.transaction(STORE_NAME, 'readwrite');
+
   for (const version of toDelete) {
     await tx.store.delete(version.id);
   }
+
   await tx.done;
 }
 
 // Get total version count for a file
 export async function getVersionCount(filePath: string): Promise<number> {
   const versions = await getVersionsForFile(filePath);
+
   return versions.length;
 }
 
@@ -114,6 +125,7 @@ export async function getVersionCount(filePath: string): Promise<number> {
 export async function updateVersionLabel(id: string, label: string): Promise<void> {
   const db = await getDb();
   const version = await db.get(STORE_NAME, id);
+
   if (version) {
     version.label = label;
     await db.put(STORE_NAME, version);

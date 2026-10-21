@@ -19,6 +19,7 @@ const RichTextEditor = lazy(() => import('./RichTextEditor').then((m) => ({ defa
 function SyncScrollToggle() {
   const syncScroll = useSettingsStore((s) => s.syncScroll);
   const setSyncScroll = useSettingsStore((s) => s.setSyncScroll);
+
   return (
     <Tooltip content={syncScroll ? 'Scroll panes together: on' : 'Scroll panes together: off'}>
       <IconButton variant="ghost" size="sm" pressed={syncScroll} onClick={() => setSyncScroll(!syncScroll)}>
@@ -34,10 +35,12 @@ export function EditorContainer() {
   const activePath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);
   const loadId = useTabsStore((s) => selectActiveTab(s)?.loadId);
   const [commands, setCommands] = useState<EditorCommands | null>(null);
+
   const handleCommands = useCallback((next: EditorCommands | null) => {
     setCommands(() => next);
     useUiStore.getState().setEditorCommands(next);
   }, []);
+
   const [formatState, setFormatState] = useState<FormatState>(EMPTY_FORMAT_STATE);
 
   if (!activeTabId) return null;

@@ -10,11 +10,13 @@ import { documentName } from '@/features/file-tree/api/fileSystem';
 export function RecentFilesMenu() {
   const { recentFiles, openRecentFile, removeRecentFile, clearRecentFiles } =
     useRecentFiles();
+
   const { onFocusCapture, highlight } = useMenuHighlight();
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
+
     const diffDays = Math.floor(
       (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
     );

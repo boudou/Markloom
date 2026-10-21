@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type EditorMode = 'split' | 'wysiwyg';
+
 /** What the left panel shows: the folder's files, or the document's contents (headings) */
 export type SidebarView = 'files' | 'outline';
 

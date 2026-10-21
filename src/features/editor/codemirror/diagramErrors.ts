@@ -15,12 +15,15 @@ export const diagramErrorLines = StateField.define<DecorationSet>({
       if (!effect.is(setDiagramErrorLines)) continue;
       const builder = new RangeSetBuilder<Decoration>();
       const lines = [...new Set(effect.value)].filter((n) => n >= 1 && n <= tr.state.doc.lines).sort((a, b) => a - b);
+
       for (const n of lines) {
         const line = tr.state.doc.line(n);
         builder.add(line.from, line.from, errorLine);
       }
+
       return builder.finish();
     }
+
     // Keep marks attached to their text while the user edits
     return decorations.map(tr.changes);
   },

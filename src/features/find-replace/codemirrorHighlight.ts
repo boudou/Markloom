@@ -8,6 +8,7 @@ import { createDocChangeListeners } from './engine';
 export const setFindMatches = StateEffect.define<{ ranges: { from: number; to: number }[]; current: number }>();
 
 const match = Decoration.mark({ class: 'cm-searchMatch' });
+
 const currentMatch = Decoration.mark({ class: 'cm-searchMatch cm-searchMatch-selected' });
 
 const highlightField = StateField.define<DecorationSet>({
@@ -21,6 +22,7 @@ const highlightField = StateField.define<DecorationSet>({
         );
       }
     }
+
     return decorations.map(tr.changes);
   },
   provide: (field) => EditorView.decorations.from(field),

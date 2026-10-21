@@ -8,6 +8,7 @@ import { desktopPathFor, documentName, readFile } from '@/features/file-tree/api
 async function openFromOs(osPaths: string[]) {
   for (const osPath of osPaths) {
     const path = desktopPathFor(osPath);
+
     try {
       useTabsStore.getState().openDocument(path, await readFile(path));
       useSettingsStore.getState().addRecentFile({ path, name: documentName(path) });
@@ -24,6 +25,7 @@ async function openFromOs(osPaths: string[]) {
 /** Call once at startup; does nothing outside the desktop app. */
 export async function initDesktopFiles(): Promise<void> {
   const bridge = window.markloomDesktop;
+
   if (!bridge?.takePendingFiles) return;
   bridge.onOpenFiles((files) => void openFromOs(files));
   await openFromOs(await bridge.takePendingFiles());

@@ -73,6 +73,7 @@ export function createMarkdownParser(): MarkdownIt {
     if (isMermaidFence(info)) {
       const code = token.content.trim();
       const firstLine = diagramFirstLine(token);
+
       return `<div class="mermaid-container" data-line="${firstLine ?? ''}" data-fence-line="${token.map ? token.map[0] + 1 : ''}" data-mermaid="${encodeURIComponent(code)}"></div>`;
     }
 
@@ -85,6 +86,7 @@ export function createMarkdownParser(): MarkdownIt {
 
     const langLabel = lang ? ` data-lang="${md.utils.escapeHtml(lang)}"` : '';
     const sourceLine = token.map ? ` data-line="${token.map[0] + 1}"` : '';
+
     return `<pre${langLabel}${sourceLine}><code class="hljs${langClass}">${highlighted}</code></pre>`;
   };
 
@@ -107,6 +109,7 @@ export function createMarkdownParser(): MarkdownIt {
   md.core.ruler.push('source_lines', (state) => {
     for (const token of state.tokens) {
       if (!token.map || token.nesting === -1 || token.type === 'inline') continue;
+
       if (token.type === 'fence') continue; // the fence renderer adds its own
       token.attrSet('data-line', String(token.map[0] + 1));
     }
@@ -117,11 +120,14 @@ export function createMarkdownParser(): MarkdownIt {
   md.core.ruler.push('literal_unknown_tags', (state) => {
     const isUnknownTag = (html: string) => {
       const name = html.match(/^<\/?([A-Za-z][\w-]*)[\s/>]/)?.[1]?.toLowerCase();
+
       return !!name && !KNOWN_HTML_TAGS.has(name);
     };
+
     // HTML comments never display, so drop them here. Left in, a comment next to a literal
     // "<sha>" trips DOMPurify's mutation-XSS guard, which deletes the whole list item.
     const isComment = (html: string) => html.trimStart().startsWith('<!--');
+
     for (const token of state.tokens) {
       if (token.type === 'html_block' && isComment(token.content)) {
         token.type = 'text';
@@ -129,8 +135,10 @@ export function createMarkdownParser(): MarkdownIt {
       } else if (token.type === 'html_block' && isUnknownTag(token.content.trim())) {
         token.type = 'text';
       }
+
       for (const child of token.children ?? []) {
         if (child.type !== 'html_inline') continue;
+
         if (isComment(child.content)) {
           child.type = 'text';
           child.content = '';
@@ -144,13 +152,17 @@ export function createMarkdownParser(): MarkdownIt {
   // GitHub task lists: "- [ ] item" / "- [x] item" render as checkboxes
   md.core.ruler.push('task_lists', (state) => {
     const tokens = state.tokens;
+
     for (let i = 2; i < tokens.length; i++) {
       const inline = tokens[i];
+
       if (inline.type !== 'inline' || tokens[i - 1].type !== 'paragraph_open') continue;
+
       if (tokens[i - 2].type !== 'list_item_open') continue;
 
       const match = inline.content.match(/^\[([ xX])\](\s+|$)/);
       const first = inline.children?.[0];
+
       if (!match || !first || first.type !== 'text') continue;
 
       const checked = match[1].toLowerCase() === 'x';
@@ -165,18 +177,22 @@ export function createMarkdownParser(): MarkdownIt {
   // GitHub callouts: "> [!NOTE]" on a quote's first line turns the quote into a titled box
   md.core.ruler.push('callouts', (state) => {
     const tokens = state.tokens;
+
     for (let i = 0; i < tokens.length - 2; i++) {
       if (tokens[i].type !== 'blockquote_open' || tokens[i + 1].type !== 'paragraph_open') continue;
       const inline = tokens[i + 2];
       const match = inline.content.match(CALLOUT_MARKER);
+
       if (!match) continue;
 
+      // SAFETY: CALLOUT_MARKER's group only matches the CalloutKind names (case-insensitively), and they are lower case.
       const kind = match[1].toLowerCase() as CalloutKind;
       tokens[i].attrJoin('class', `callout callout-${kind}`);
       tokens[i].attrSet('data-callout', kind);
 
       // Drop the marker line: re-parse what follows it, or drop the paragraph if that was all
       const rest = inline.content.slice(match[0].length);
+
       if (rest.trim()) {
         inline.content = rest;
         inline.children = state.md.parseInline(rest, state.env)[0]?.children ?? [];
@@ -228,6 +244,7 @@ export function getMarkdownParser(): MarkdownIt {
   if (!mdInstance) {
     mdInstance = createMarkdownParser();
   }
+
   return mdInstance;
 }
 
@@ -238,6 +255,7 @@ export function getMarkdownParser(): MarkdownIt {
  */
 export function parseMarkdown(content: string): string {
   const html = getMarkdownParser().render(content);
+
   return DOMPurify.sanitize(html, {
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['style', 'form'],

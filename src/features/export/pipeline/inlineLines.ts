@@ -19,9 +19,11 @@ export function placedInlines(tokens: Token[]): PlacedInline[] {
 
   for (const token of tokens) {
     if (token.type === 'tr_open') rowLines = token.map;
+
     if (token.type !== 'inline') continue;
 
     const lines = token.map ?? rowLines;
+
     if (lines) placed.push({ token, lines });
   }
 

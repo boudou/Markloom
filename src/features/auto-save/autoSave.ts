@@ -34,8 +34,10 @@ export function autoSaveStatus({ pending, saving, last }: AutoSaveState): AutoSa
 }
 
 const timers = new Map<string, number>();
+
 // Tabs being written now: a second write to the same file could finish first and leave older text
 const saving = new Set<string>();
+
 let started = false;
 
 function publish() {
@@ -60,9 +62,11 @@ function arm(tab: Tab) {
 async function flush(tabId: string) {
   timers.delete(tabId);
   const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId);
+
   // While a write is in flight, skip: when it ends, markTabSaved changes the tab and re-arms it if still dirty
   if (!tab?.path || !tab.isDirty || !useSettingsStore.getState().autoSave || saving.has(tabId)) {
     publish();
+
     return;
   }
 
@@ -95,6 +99,7 @@ export function startAutoSave(): void {
     if (state.tabs === prev.tabs) return;
 
     const previous = new Map(prev.tabs.map((t) => [t.id, t]));
+
     for (const tab of state.tabs) {
       if (previous.get(tab.id) !== tab) arm(tab);
       previous.delete(tab.id);

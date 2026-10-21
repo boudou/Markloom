@@ -23,18 +23,23 @@ interface Anchor {
 function previewAnchors(preview: HTMLElement): Anchor[] {
   const base = preview.getBoundingClientRect().top - preview.scrollTop;
   const anchors: Anchor[] = [];
+
   for (const el of Array.from(preview.querySelectorAll<HTMLElement>('[data-line]'))) {
     const line = Number(el.dataset.fenceLine || el.dataset.line);
+
     if (!line) continue;
     anchors.push({ line, top: el.getBoundingClientRect().top - base });
   }
+
   anchors.sort((a, b) => a.line - b.line || a.top - b.top);
 
   // Nested blocks share lines with their parents: keep the first (outermost) of each. Blocks
   // drawn above an earlier line (floats) are dropped too, so both keys only ever grow.
   const kept: Anchor[] = [];
+
   for (const anchor of anchors) {
     const last = kept[kept.length - 1];
+
     if (last && (anchor.line === last.line || anchor.top < last.top)) continue;
     kept.push(anchor);
   }
@@ -47,8 +52,10 @@ function bracket(anchors: Anchor[], key: 'line' | 'top', value: number): [Anchor
   let low = 0;
   let high = anchors.length - 1;
   let index = 0;
+
   while (low <= high) {
     const mid = (low + high) >> 1;
+
     if (anchors[mid][key] <= value) {
       index = mid;
       low = mid + 1;
@@ -65,6 +72,7 @@ export function useSyncScroll({ editorView, previewRef, previewReady = true }: U
 
   useEffect(() => {
     const preview = previewRef.current;
+
     if (!syncScroll || !editorView || !preview) return;
 
     const scroller = editorView.scrollDOM;
@@ -94,16 +102,21 @@ export function useSyncScroll({ editorView, previewRef, previewReady = true }: U
         // Ends of the source map to the ends of the preview (padding and first margins included)
         if (scroller.scrollTop <= 1) {
           preview.scrollTop = 0;
+
           return;
         }
+
         if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) {
           preview.scrollTop = preview.scrollHeight;
+
           return;
         }
+
         const block = editorView.lineBlockAtHeight(scroller.scrollTop);
         const line = editorView.state.doc.lineAt(block.from).number;
         const fraction = block.height ? (scroller.scrollTop - block.top) / block.height : 0;
         anchors ??= previewAnchors(preview);
+
         if (!anchors.length) return;
         const [a, b] = bracket(anchors, 'line', line);
         const end = b ?? { line: editorView.state.doc.lines + 1, top: preview.scrollHeight };
@@ -115,17 +128,23 @@ export function useSyncScroll({ editorView, previewRef, previewReady = true }: U
 
     const handlePreviewScroll = () => {
       if (driver === 'editor') return;
+
       if (editorView.hasFocus && !pointerInPreview) return;
       lead('preview', () => {
         if (preview.scrollTop <= 1) {
           scroller.scrollTop = 0;
+
           return;
         }
+
         if (preview.scrollTop + preview.clientHeight >= preview.scrollHeight - 2) {
           scroller.scrollTop = scroller.scrollHeight;
+
           return;
         }
+
         anchors ??= previewAnchors(preview);
+
         if (!anchors.length) return;
         const [a, b] = bracket(anchors, 'top', preview.scrollTop);
         const doc = editorView.state.doc;
@@ -148,6 +167,7 @@ export function useSyncScroll({ editorView, previewRef, previewReady = true }: U
     mutations.observe(preview, { childList: true, subtree: true });
     const resizes = new ResizeObserver(invalidate);
     resizes.observe(preview);
+
     for (const child of Array.from(preview.children)) resizes.observe(child);
 
     scroller.addEventListener('scroll', handleEditorScroll, { passive: true });

@@ -14,6 +14,7 @@ const plural = (n: number, word: string) => `${formatNumber(n)} ${n === 1 ? word
 function useGoalKey(): string | null {
   return useTabsStore((s) => {
     const tab = s.tabs.find((t) => t.id === s.activeTabId);
+
     return tab ? (tab.path ?? tab.id) : null;
   });
 }
@@ -110,6 +111,7 @@ export function WordCountWidget() {
 
 function GoalProgress({ words, goal }: { words: number; goal: number }) {
   const done = words >= goal;
+
   return (
     <span className={cn('flex items-center gap-1.5', done && 'text-[#15803D]')}>
       <span aria-hidden className="relative w-12 h-1 rounded-full bg-rule overflow-hidden">
@@ -141,6 +143,7 @@ function GoalSetting({ goalKey, goal, words }: { goalKey: string; goal: number |
       className="mb-5 flex items-end gap-2"
       onSubmit={(e) => {
         e.preventDefault();
+
         if (valid) setWordGoal(goalKey, value);
       }}
     >

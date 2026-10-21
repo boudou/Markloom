@@ -3,6 +3,7 @@ import { LazyMotion, MotionConfig } from 'framer-motion';
 
 // The animation engine loads after first paint; components use the slim `m.*` elements
 const loadMotionFeatures = () => import('@/lib/motionFeatures').then((mod) => mod.default);
+
 import { TitleBar } from './TitleBar';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
@@ -46,12 +47,15 @@ export function AppShell() {
       if (e.defaultPrevented) return;
 
       const command = commandForKey(e);
+
       if (!command) return;
 
       e.preventDefault();
       command.run();
     };
+
     window.addEventListener('keydown', handleKeyDown);
+
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
@@ -62,7 +66,9 @@ export function AppShell() {
       e.preventDefault();
       e.returnValue = '';
     };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 

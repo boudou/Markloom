@@ -31,16 +31,19 @@ export function describeDiagramError(message: string, code: string, firstLine?: 
   if (lineInDiagram) {
     const source = code.split('\n')[lineInDiagram - 1]?.trim();
     const endsEarly = /got 'EOF'/.test(detail);
+
     const problem = endsEarly
       ? 'the diagram ends before this statement is finished'
       : source
         ? // Parsers notice a problem where they get stuck, which is often just after the mistake
           `the diagram stops making sense at “${source.length > 60 ? `${source.slice(0, 57)}…` : source}”. Check this line and the one above it`
         : 'the diagram stops making sense here. Check this line and the one above it';
+
     return { summary: `${where}: ${problem}.`, line, detail };
   }
 
   const firstSentence = detail.split('\n')[0].replace(/\s+/g, ' ').slice(0, 160);
+
   return { summary: `${where} couldn’t be drawn: ${firstSentence}`, line, detail };
 }
 
@@ -61,6 +64,7 @@ export function diagramErrorElement(error: DiagramError, onShowLine?: (line: num
 
   const actions = document.createElement('div');
   actions.className = 'mermaid-error-actions';
+
   if (onShowLine && error.line) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -68,6 +72,7 @@ export function diagramErrorElement(error: DiagramError, onShowLine?: (line: num
     button.addEventListener('click', () => onShowLine(error.line!));
     actions.append(button);
   }
+
   const details = document.createElement('details');
   const label = document.createElement('summary');
   label.textContent = 'Details';
@@ -76,5 +81,6 @@ export function diagramErrorElement(error: DiagramError, onShowLine?: (line: num
   details.append(label, pre);
   actions.append(details);
   box.append(actions);
+
   return box;
 }
