@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
-export type Theme = 'light';
-
 export interface RecentFile {
   path: string;
   name: string;
@@ -19,18 +17,11 @@ export interface LastSession {
 }
 
 export interface EditorSettings {
-  fontSize: number;
-  fontFamily: string;
-  tabSize: number;
   wordWrap: boolean;
   lineNumbers: boolean;
-  minimap: boolean;
 }
 
 interface SettingsState {
-  // Theme
-  theme: Theme;
-
   // Editor settings
   editor: EditorSettings;
 
@@ -47,35 +38,17 @@ interface SettingsState {
   // What was open last time, so it can be offered again on launch
   lastSession: LastSession | null;
 
-  // Features
-  enabledFeatures: Record<string, boolean>;
-  featureSettings: Record<string, Record<string, unknown>>;
-
   // Recent files
   recentFiles: RecentFile[];
-  maxRecentFiles: number;
 
   /** Word-count goals, keyed by document path (or tab id for unsaved documents) */
   wordGoals: Record<string, number>;
 
-  // Panels
-  leftPanelOpen: boolean;
-  rightPanelOpen: boolean;
-  leftPanelWidth: number;
-  rightPanelWidth: number;
-
   // Actions
-  setTheme: (theme: Theme) => void;
-  setEditorSetting: <K extends keyof EditorSettings>(key: K, value: EditorSettings[K]) => void;
   setAutoSave: (enabled: boolean, interval?: number) => void;
   setSyncScroll: (enabled: boolean) => void;
   setSplitRatio: (ratio: number) => void;
   setLastSession: (session: LastSession | null) => void;
-
-  // Feature settings
-  toggleFeature: (featureId: string, enabled: boolean) => void;
-  setFeatureSetting: (featureId: string, key: string, value: unknown) => void;
-  getFeatureSetting: <T = unknown>(featureId: string, key: string) => T | undefined;
 
   // Recent files
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
@@ -84,44 +57,79 @@ interface SettingsState {
   setWordGoal: (key: string, goal: number | null) => void;
   /** Re-keys a goal, e.g. from an unsaved tab's id to the path it was first saved to */
   moveWordGoal: (fromKey: string, toKey: string) => void;
-  setRecentFiles: (files: RecentFile[]) => void;
-
-  // Panels
-  setLeftPanelOpen: (open: boolean) => void;
-  setRightPanelOpen: (open: boolean) => void;
-  setLeftPanelWidth: (width: number) => void;
-  setRightPanelWidth: (width: number) => void;
 }
 
+type PersistedSettings = Pick<
+  SettingsState,
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'lastSession' | 'recentFiles' | 'wordGoals'
+>;
+
+type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
+
+/** What an older save may hold of today's settings; its other keys are dropped on load. */
+type SavedSettings = KeptTopLevelSettings & { editor?: Partial<EditorSettings> };
+
+const MAX_RECENT_FILES = 10;
+
+const SETTINGS_VERSION = 1;
+
 const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
-  fontSize: 14,
-  fontFamily: 'IBM Plex Mono',
-  tabSize: 2,
   wordWrap: true,
   lineNumbers: true,
-  minimap: false,
 };
+
+const KEPT_TOP_LEVEL_KEYS = [
+  'autoSave',
+  'autoSaveInterval',
+  'syncScroll',
+  'splitRatio',
+  'lastSession',
+  'recentFiles',
+  'wordGoals',
+] as const;
+
+function copyIfPresent<K extends (typeof KEPT_TOP_LEVEL_KEYS)[number]>(
+  from: KeptTopLevelSettings,
+  to: KeptTopLevelSettings,
+  key: K
+): void {
+  const value = from[key];
+
+  if (value !== undefined) to[key] = value;
+}
+
+/**
+ * Version 0 also stored theme, feature, panel and recent-file-limit settings and more editor fields,
+ * none of which are read any more. The default merge is shallow, so a missing key stays omitted
+ * (setting it to undefined would overwrite the default) and `editor` is rebuilt whole.
+ */
+function migrateSettings(saved: SavedSettings): Partial<PersistedSettings> {
+  const kept: Partial<PersistedSettings> = {};
+
+  for (const key of KEPT_TOP_LEVEL_KEYS) copyIfPresent(saved, kept, key);
+
+  if (saved.editor) {
+    kept.editor = {
+      wordWrap: saved.editor.wordWrap ?? DEFAULT_EDITOR_SETTINGS.wordWrap,
+      lineNumbers: saved.editor.lineNumbers ?? DEFAULT_EDITOR_SETTINGS.lineNumbers,
+    };
+  }
+
+  return kept;
+}
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    immer((set, get) => ({
+    immer((set) => ({
       // Initial state
-      theme: 'light',
       editor: DEFAULT_EDITOR_SETTINGS,
       autoSave: false,
       autoSaveInterval: 30, // 30 seconds
       syncScroll: true,
       splitRatio: 50,
       lastSession: null,
-      enabledFeatures: {},
-      featureSettings: {},
       recentFiles: [],
-      maxRecentFiles: 10,
       wordGoals: {},
-      leftPanelOpen: true,
-      rightPanelOpen: false,
-      leftPanelWidth: 280,
-      rightPanelWidth: 280,
 
       // Word-count goals; null or 0 removes the goal
       setWordGoal: (key, goal) =>
@@ -138,18 +146,6 @@ export const useSettingsStore = create<SettingsState>()(
           if (goal === undefined || fromKey === toKey) return;
           state.wordGoals[toKey] = goal;
           delete state.wordGoals[fromKey];
-        }),
-
-      // Theme
-      setTheme: (theme) =>
-        set((state) => {
-          state.theme = theme;
-        }),
-
-      // Editor settings
-      setEditorSetting: (key, value) =>
-        set((state) => {
-          state.editor[key] = value;
         }),
 
       // Auto-save
@@ -178,28 +174,6 @@ export const useSettingsStore = create<SettingsState>()(
           state.lastSession = session;
         }),
 
-      // Feature settings
-      toggleFeature: (featureId, enabled) =>
-        set((state) => {
-          state.enabledFeatures[featureId] = enabled;
-        }),
-
-      setFeatureSetting: (featureId, key, value) =>
-        set((state) => {
-          if (!state.featureSettings[featureId]) {
-            state.featureSettings[featureId] = {};
-          }
-
-          state.featureSettings[featureId][key] = value;
-        }),
-
-      getFeatureSetting: <T = unknown>(featureId: string, key: string): T | undefined => {
-        const state = get();
-
-        // SAFETY: unchecked; callers read a key back as the type they wrote with setFeatureSetting (no caller today).
-        return state.featureSettings[featureId]?.[key] as T | undefined;
-      },
-
       // Recent files
       addRecentFile: (file) =>
         set((state) => {
@@ -213,8 +187,8 @@ export const useSettingsStore = create<SettingsState>()(
           });
 
           // Trim to max
-          if (state.recentFiles.length > state.maxRecentFiles) {
-            state.recentFiles = state.recentFiles.slice(0, state.maxRecentFiles);
+          if (state.recentFiles.length > MAX_RECENT_FILES) {
+            state.recentFiles = state.recentFiles.slice(0, MAX_RECENT_FILES);
           }
         }),
 
@@ -227,57 +201,24 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => {
           state.recentFiles = [];
         }),
-
-      setRecentFiles: (files) =>
-        set((state) => {
-          state.recentFiles = files;
-        }),
-
-      // Panels
-      setLeftPanelOpen: (open) =>
-        set((state) => {
-          state.leftPanelOpen = open;
-        }),
-
-      setRightPanelOpen: (open) =>
-        set((state) => {
-          state.rightPanelOpen = open;
-        }),
-
-      setLeftPanelWidth: (width) =>
-        set((state) => {
-          state.leftPanelWidth = Math.max(200, Math.min(500, width));
-        }),
-
-      setRightPanelWidth: (width) =>
-        set((state) => {
-          state.rightPanelWidth = Math.max(200, Math.min(500, width));
-        }),
     })),
     {
       name: 'markloom-settings',
+      version: SETTINGS_VERSION,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        theme: state.theme,
+      partialize: (state): PersistedSettings => ({
         editor: state.editor,
         autoSave: state.autoSave,
         autoSaveInterval: state.autoSaveInterval,
         syncScroll: state.syncScroll,
         splitRatio: state.splitRatio,
         lastSession: state.lastSession,
-        enabledFeatures: state.enabledFeatures,
-        featureSettings: state.featureSettings,
         recentFiles: state.recentFiles,
-        maxRecentFiles: state.maxRecentFiles,
         wordGoals: state.wordGoals,
-        leftPanelWidth: state.leftPanelWidth,
-        rightPanelWidth: state.rightPanelWidth,
       }),
+      // Only saves from an older version reach here.
+      // SAFETY: this app wrote the save with JSON.stringify, so a present key has the type it was written with.
+      migrate: (saved) => migrateSettings(saved as SavedSettings),
     }
   )
 );
-
-// Helper to get resolved theme (always light)
-export function getResolvedTheme(_theme: Theme): 'light' {
-  return 'light';
-}
