@@ -248,6 +248,21 @@ export function getMarkdownParser(): MarkdownIt {
   return mdInstance;
 }
 
+// DOMPurify drops any id that names a document property (its SANITIZE_DOM clobbering guard),
+// so "## Title" or "## Images" would lose the ids that #title links point at. Headings aren't
+// exposed as named properties on document, and a lowercase slug can't shadow the app's
+// camelCase globals, so heading ids that look like generated slugs are kept. Everything else
+// still goes through the guard.
+const HEADING_TAG = /^H[1-6]$/;
+
+const HEADING_SLUG = /^[a-z0-9_-]+$/;
+
+DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+  if (data.attrName === 'id' && HEADING_TAG.test(node.nodeName) && HEADING_SLUG.test(data.attrValue)) {
+    data.forceKeepAttr = true;
+  }
+});
+
 /**
  * Markdown to safe HTML. Raw HTML in documents is allowed for formatting, but scripts,
  * event handlers and javascript: URLs are stripped: an opened file must never be able
