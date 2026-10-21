@@ -41,21 +41,23 @@ export type ShortcutId =
   | 'toggleOutline'
   | 'versionHistory';
 
+export type ShortcutGroup = 'File' | 'Edit' | 'Format' | 'View';
+
 interface ShortcutDef {
   label: string;
-  group: 'File' | 'Edit' | 'Format' | 'View';
+  group: ShortcutGroup;
   /** CodeMirror-style combo: Mod = Ctrl (Cmd on macOS) */
   combo: string;
 }
 
 export const SHORTCUTS: Record<ShortcutId, ShortcutDef> = {
   newDocument: { label: 'New document', group: 'File', combo: isDesktop ? 'Mod-n' : 'Alt-n' },
-  openFile: { label: 'Open file', group: 'File', combo: 'Mod-o' },
-  openFolder: { label: 'Open folder', group: 'File', combo: 'Mod-Shift-o' },
+  openFile: { label: 'Open file…', group: 'File', combo: 'Mod-o' },
+  openFolder: { label: 'Open folder…', group: 'File', combo: 'Mod-Shift-o' },
   save: { label: 'Save', group: 'File', combo: 'Mod-s' },
   saveAs: { label: 'Save as…', group: 'File', combo: 'Mod-Shift-s' },
   closeTab: { label: 'Close tab', group: 'File', combo: isDesktop ? 'Mod-w' : 'Alt-w' },
-  export: { label: 'Export', group: 'File', combo: 'Mod-e' },
+  export: { label: 'Export…', group: 'File', combo: 'Mod-e' },
 
   undo: { label: 'Undo', group: 'Edit', combo: 'Mod-z' },
   redo: { label: 'Redo', group: 'Edit', combo: 'Mod-Shift-z' },

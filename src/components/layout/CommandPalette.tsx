@@ -7,8 +7,8 @@ import { useUiStore } from '@/stores/uiStore';
 import { useSettingsStore, type RecentFile } from '@/stores/settingsStore';
 import { mermaidTemplates } from '@/features/mermaid-toolbar';
 import { openPath } from '@/lib/documentActions';
-import { APP_COMMANDS, isOffered } from '@/lib/appCommands';
-import { type ShortcutId } from '@/lib/shortcuts';
+import { APP_COMMANDS, commandGroup, commandLabel, isOffered } from '@/lib/appCommands';
+import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
 import type { EditorCommands, MarkdownAction } from '@/features/editor/types';
 
 interface Command {
@@ -22,38 +22,45 @@ interface Command {
 /** Toggle labels and `when` read the stores directly, so the list reflects the moment it's built */
 function buildCommands(editorCommands: EditorCommands | null, recentFiles: RecentFile[]): Command[] {
   const commands: Command[] = APP_COMMANDS.flatMap((c) =>
-    c.keyOnly || !isOffered(c)
+    c.id === 'palette' || !isOffered(c)
       ? []
-      : [{ id: c.id, label: c.stateLabel?.() ?? c.label, group: c.group, shortcut: c.shortcut, run: c.run }]
+      : [{ id: c.id, label: commandLabel(c), group: commandGroup(c), shortcut: c.shortcut, run: c.run }]
   );
 
   if (editorCommands) {
-    const format = (id: MarkdownAction, label: string, shortcut?: ShortcutId): Command => ({
+    const keyed = (id: MarkdownAction, shortcut: ShortcutId): Command => ({
       id: `format-${id}`,
-      label,
-      group: 'Format',
+      label: SHORTCUTS[shortcut].label,
+      group: SHORTCUTS[shortcut].group,
       shortcut,
       run: () => editorCommands.run(id),
     });
 
+    const plain = (id: MarkdownAction, label: string, group: string): Command => ({
+      id: `format-${id}`,
+      label,
+      group,
+      run: () => editorCommands.run(id),
+    });
+
     commands.push(
-      format('bold', 'Bold', 'bold'),
-      format('italic', 'Italic', 'italic'),
-      format('strikethrough', 'Strikethrough', 'strikethrough'),
-      format('code', 'Inline code', 'inlineCode'),
-      format('link', 'Link…', 'link'),
-      format('paragraph', 'Body text'),
-      format('h1', 'Heading 1', 'heading1'),
-      format('h2', 'Heading 2', 'heading2'),
-      format('h3', 'Heading 3', 'heading3'),
-      format('ul', 'Bulleted list', 'bulletList'),
-      format('ol', 'Numbered list', 'orderedList'),
-      format('checkbox', 'Task list', 'taskList'),
-      format('quote', 'Quote', 'blockquote'),
-      { ...format('codeblock', 'Insert code block', 'codeBlock'), group: 'Insert' },
-      { ...format('table', 'Insert table'), group: 'Insert' },
-      { ...format('hr', 'Insert divider'), group: 'Insert' },
-      { ...format('image', 'Insert image…'), group: 'Insert' },
+      keyed('bold', 'bold'),
+      keyed('italic', 'italic'),
+      keyed('strikethrough', 'strikethrough'),
+      keyed('code', 'inlineCode'),
+      keyed('link', 'link'),
+      plain('paragraph', 'Body text', 'Format'),
+      keyed('h1', 'heading1'),
+      keyed('h2', 'heading2'),
+      keyed('h3', 'heading3'),
+      keyed('ul', 'bulletList'),
+      keyed('ol', 'orderedList'),
+      keyed('checkbox', 'taskList'),
+      keyed('quote', 'blockquote'),
+      keyed('codeblock', 'codeBlock'),
+      plain('table', 'Insert table', 'Insert'),
+      plain('hr', 'Insert divider', 'Insert'),
+      plain('image', 'Insert image…', 'Insert'),
       ...mermaidTemplates.map((template) => ({
         id: `diagram-${template.id}`,
         label: `Insert ${template.name.toLowerCase()}`,
@@ -97,7 +104,7 @@ function filterCommands(commands: Command[], query: string): Command[] {
 
   return commands
     .filter((c) => {
-      const haystack = `${c.label} ${c.group}`.toLowerCase();
+      const haystack = `${c.label} ${c.shortcut ? SHORTCUTS[c.shortcut].label : ''} ${c.group}`.toLowerCase();
 
       return words.every((w) => haystack.includes(w));
     })

@@ -4,9 +4,8 @@ import { RecentFilesMenu } from '@/features/recent-files';
 import { HistoryPanel } from '@/features/version-history';
 import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
-import { useUiStore } from '@/stores/uiStore';
-import { openFile, openFolder, saveActiveTab } from '@/lib/documentActions';
-import { shortcutHint, shortcutSpokenKeys } from '@/lib/shortcuts';
+import { appCommand, commandHint } from '@/lib/appCommands';
+import { shortcutSpokenKeys } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { MarkloomMark } from './MarkloomMark';
 import { useRef } from 'react';
@@ -15,6 +14,24 @@ import { useRovingToolbar } from '@/lib/useRovingToolbar';
 const desktop = window.markloomDesktop;
 
 const isMacDesktop = desktop?.platform === 'darwin';
+
+const FILES = appCommand('files');
+
+const OPEN = appCommand('open');
+
+const OPEN_FOLDER = appCommand('open-folder');
+
+const SAVE = appCommand('save');
+
+const EXPORT = appCommand('export');
+
+const TEMPLATES = appCommand('templates');
+
+const OUTLINE = appCommand('outline');
+
+const SHORTCUTS_WINDOW = appCommand('shortcuts');
+
+const PALETTE = appCommand('palette');
 
 function Separator() {
   return <div className="w-px h-4 bg-rule mx-1" aria-hidden />;
@@ -31,12 +48,10 @@ export function TitleBar() {
   const docName = useTabsStore((s) => selectActiveTab(s)?.name ?? 'Untitled');
   const docPath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const toggleSidebarView = useAppStore((s) => s.toggleSidebarView);
   const sidebarView = useAppStore((s) => s.sidebarView);
   const rootPath = useAppStore((s) => s.rootPath);
   const filesVisible = sidebarOpen && sidebarView === 'files' && !!rootPath;
   const outlineOpen = sidebarOpen && sidebarView === 'outline';
-  const openDialog = useUiStore((s) => s.openDialog);
 
   const barRef = useRef<HTMLElement>(null);
   useRovingToolbar(barRef);
@@ -58,17 +73,13 @@ export function TitleBar() {
       {/* Left: brand + file actions */}
       <div className="flex items-center gap-0.5 min-w-0">
         <Tooltip
-          content={
-            rootPath
-              ? shortcutHint(filesVisible ? 'Hide files' : 'Show files', 'toggleSidebar')
-              : 'Open a folder to browse its files'
-          }
+          content={rootPath ? commandHint(FILES) : 'Open a folder to browse its files'}
         >
           <IconButton
             variant="ghost"
             size="sm"
             pressed={filesVisible}
-            onClick={() => (rootPath ? toggleSidebarView('files') : void openFolder())}
+            onClick={() => (rootPath ? FILES.run() : OPEN_FOLDER.run())}
           >
             <PanelLeft className="w-4 h-4" />
           </IconButton>
@@ -80,30 +91,30 @@ export function TitleBar() {
         </div>
 
         <Separator />
-        <Tooltip content={shortcutHint('Open file', 'openFile')}>
-          <IconButton variant="ghost" size="sm" onClick={() => void openFile()}>
+        <Tooltip content={commandHint(OPEN)}>
+          <IconButton variant="ghost" size="sm" onClick={() => OPEN.run()}>
             <FileText className="w-4 h-4" />
           </IconButton>
         </Tooltip>
-        <Tooltip content={shortcutHint('Open folder', 'openFolder')}>
-          <IconButton variant="ghost" size="sm" onClick={() => void openFolder()}>
+        <Tooltip content={commandHint(OPEN_FOLDER)}>
+          <IconButton variant="ghost" size="sm" onClick={() => OPEN_FOLDER.run()}>
             <FolderOpen className="w-4 h-4" />
           </IconButton>
         </Tooltip>
         <RecentFilesMenu />
-        <Tooltip content={shortcutHint('Save', 'save')}>
-          <IconButton variant="ghost" size="sm" onClick={() => void saveActiveTab()} disabled={!hasContent && !isDirty}>
+        <Tooltip content={commandHint(SAVE)}>
+          <IconButton variant="ghost" size="sm" onClick={() => SAVE.run()} disabled={!hasContent && !isDirty}>
             <Save className="w-4 h-4" />
           </IconButton>
         </Tooltip>
         <Separator />
-        <Tooltip content={shortcutHint('Export to Word, PDF or Markdown', 'export')}>
-          <IconButton variant="ghost" size="sm" onClick={() => openDialog('export')} disabled={!hasContent}>
+        <Tooltip content={commandHint(EXPORT)}>
+          <IconButton variant="ghost" size="sm" onClick={() => EXPORT.run()} disabled={!hasContent}>
             <FileDown className="w-4 h-4" />
           </IconButton>
         </Tooltip>
-        <Tooltip content="New from template">
-          <IconButton variant="ghost" size="sm" onClick={() => openDialog('templates')}>
+        <Tooltip content={commandHint(TEMPLATES)}>
+          <IconButton variant="ghost" size="sm" onClick={() => TEMPLATES.run()}>
             <LayoutTemplate className="w-4 h-4" />
           </IconButton>
         </Tooltip>
@@ -123,7 +134,7 @@ export function TitleBar() {
       <div className="flex items-center gap-0.5">
         <button
           type="button"
-          onClick={() => openDialog('palette')}
+          onClick={() => PALETTE.run()}
           aria-label={`Commands (${shortcutSpokenKeys('commandPalette')})`}
           className={cn(
             'hidden md:flex items-center gap-2 h-7 pl-2 pr-1.5 mr-1.5 rounded-md border border-rule bg-canvas',
@@ -135,14 +146,14 @@ export function TitleBar() {
           <span>Commands</span>
           <Kbd id="commandPalette" size="sm" className="ml-1" />
         </button>
-        <Tooltip content={shortcutHint(outlineOpen ? 'Hide contents' : 'Show contents', 'toggleOutline')}>
-          <IconButton variant="ghost" size="sm" pressed={outlineOpen} onClick={() => toggleSidebarView('outline')}>
+        <Tooltip content={commandHint(OUTLINE)}>
+          <IconButton variant="ghost" size="sm" pressed={outlineOpen} onClick={() => OUTLINE.run()}>
             <ListTree className="w-4 h-4" />
           </IconButton>
         </Tooltip>
         <HistoryPanel />
-        <Tooltip content={shortcutHint('Keyboard shortcuts', 'showShortcuts')}>
-          <IconButton variant="ghost" size="sm" onClick={() => openDialog('shortcuts')}>
+        <Tooltip content={commandHint(SHORTCUTS_WINDOW)}>
+          <IconButton variant="ghost" size="sm" onClick={() => SHORTCUTS_WINDOW.run()}>
             <Keyboard className="w-4 h-4" />
           </IconButton>
         </Tooltip>
