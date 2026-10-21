@@ -47,7 +47,7 @@ export function describeDiagramError(message: string, code: string, firstLine?: 
   return { summary: `${where} couldn’t be drawn: ${firstSentence}`, line, detail };
 }
 
-/** Error card shared by the preview and the rich-text editor (DOM, no innerHTML). */
+/** Error card shared by the preview, the rich-text editor and the .mmd editor (DOM, no innerHTML). */
 export function diagramErrorElement(error: DiagramError, onShowLine?: (line: number) => void): HTMLElement {
   const box = document.createElement('div');
   box.className = 'mermaid-error';

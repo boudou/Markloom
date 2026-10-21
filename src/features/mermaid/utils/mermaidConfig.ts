@@ -9,13 +9,13 @@ export type DiagramMode = 'preview' | 'export';
 
 export type DiagramRender = { ok: true; svg: string } | { ok: false; error: string };
 
-// loadMermaid initializes with the preview config. Only queued tasks may change it, so a
-// switch can't land in the middle of another render.
+// The mode Mermaid is initialized for. Only queued tasks may change it, so a switch can't
+// land in the middle of another render.
 let activeMode: DiagramMode = 'preview';
 
 function loadMermaid(): Promise<typeof MermaidAPI> {
   loading ??= import('mermaid').then(({ default: mermaid }) => {
-    mermaid.initialize(buildConfig());
+    mermaid.initialize(configFor(activeMode));
 
     return mermaid;
   });
@@ -206,6 +206,10 @@ function buildExportConfig(): ExtendedMermaidConfig {
   };
 }
 
+function configFor(mode: DiagramMode): ExtendedMermaidConfig {
+  return mode === 'export' ? buildExportConfig() : buildConfig();
+}
+
 // Mermaid keeps global state, so renders run one at a time
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -239,7 +243,7 @@ async function draw(code: string, mode: DiagramMode): Promise<DiagramRender> {
     const mermaid = await loadMermaid();
 
     if (mode !== activeMode) {
-      mermaid.initialize(mode === 'export' ? buildExportConfig() : buildConfig());
+      mermaid.initialize(configFor(mode));
       activeMode = mode;
     }
 
@@ -278,7 +282,11 @@ export function renderMermaid(code: string, mode: DiagramMode): Promise<DiagramR
   const result = enqueue(() => draw(code, mode));
   rendered.set(key, result);
 
-  if (rendered.size > MAX_CACHED_DIAGRAMS) rendered.delete(rendered.keys().next().value!);
+  if (rendered.size > MAX_CACHED_DIAGRAMS) {
+    const oldest = rendered.keys().next();
+
+    if (!oldest.done) rendered.delete(oldest.value);
+  }
 
   return result;
 }
