@@ -11,7 +11,7 @@ import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '@/lib/documentPath';
-import { useTabsStore } from '@/features/tabs';
+import { useTabsStore, selectActiveContent, selectActiveTab } from '@/features/tabs';
 import { getMarkdownParser, headingIdAssigner, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
 
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
@@ -19,9 +19,7 @@ const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 const imageUrlCache = new Map<string, string>();
 
 function activeDocumentPath(): string | null {
-  const { tabs, activeTabId } = useTabsStore.getState();
-
-  return tabs.find((t) => t.id === activeTabId)?.path ?? null;
+  return selectActiveTab(useTabsStore.getState())?.path ?? null;
 }
 
 /** Turns a markdown image src into something the browser can display */
@@ -157,8 +155,7 @@ function lineRange(text: string, line: number): { from: number; to: number; text
  * Undefined while the source isn't in the document yet (an edit not written back).
  */
 function documentLineOfDiagram(source: string, occurrence: number): number | undefined {
-  const { tabs, activeTabId } = useTabsStore.getState();
-  const markdown = tabs.find((t) => t.id === activeTabId)?.content ?? '';
+  const markdown = selectActiveContent(useTabsStore.getState());
   const fences = mermaidFences(getMarkdownParser().parse(markdown, {}));
 
   return fences.filter((fence) => fence.code === source)[occurrence]?.firstLine;

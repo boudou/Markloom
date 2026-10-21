@@ -2,6 +2,7 @@ export { TabBar } from './components';
 
 export {
   useTabsStore,
+  selectTab,
   selectActiveTab,
   selectTabContent,
   selectActiveContent,

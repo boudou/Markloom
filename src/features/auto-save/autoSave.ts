@@ -1,7 +1,7 @@
 // Auto-save runs outside React: re-renders elsewhere in the app can't cancel its timer.
 // Each edited document that already has a file is written after the user pauses, on its own timer.
 import { create } from 'zustand';
-import { useTabsStore, type Tab } from '@/features/tabs';
+import { useTabsStore, selectTab, type Tab } from '@/features/tabs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { saveTab } from '@/lib/documentActions';
 
@@ -79,7 +79,7 @@ function arm(tab: Tab) {
 
 async function flush(tabId: string) {
   timers.delete(tabId);
-  const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId);
+  const tab = selectTab(useTabsStore.getState(), tabId);
 
   // While a write is in flight, skip: when it ends, markTabSaved changes the tab and re-arms it if still dirty
   if (!tab?.path || !tab.isDirty || !useSettingsStore.getState().autoSave || saving.has(tabId)) {
@@ -111,14 +111,15 @@ export function startAutoSave(): void {
   if (started) return;
   started = true;
 
-  // Immer gives only a changed tab a new object, so typing in one tab leaves the other timers alone
+  // A tab is re-armed when its object changes (saved, renamed, dirty flip) or its text changes, so the
+  // timer waits for a pause in typing. Only that tab's object and text change, so other timers are left alone.
   useTabsStore.subscribe((state, prev) => {
-    if (state.tabs === prev.tabs) return;
+    if (state.tabs === prev.tabs && state.contents === prev.contents) return;
 
     const previous = new Map(prev.tabs.map((t) => [t.id, t]));
 
     for (const tab of state.tabs) {
-      if (previous.get(tab.id) !== tab) arm(tab);
+      if (previous.get(tab.id) !== tab || state.contents[tab.id] !== prev.contents[tab.id]) arm(tab);
       previous.delete(tab.id);
     }
 

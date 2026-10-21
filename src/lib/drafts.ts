@@ -1,7 +1,7 @@
 // Keeps a copy of every Untitled tab with unsaved text in IndexedDB, so a crash or a killed
 // process doesn't lose it. The session offer brings the copies back on the next launch.
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { useTabsStore } from '@/features/tabs';
+import { useTabsStore, selectTabContent } from '@/features/tabs';
 
 export interface Draft {
   /** Id of the tab the draft was written for */
@@ -74,9 +74,11 @@ let started = false;
 async function writeDrafts(): Promise<void> {
   const current = new Map<string, Draft>();
 
-  useTabsStore.getState().tabs.forEach((tab, order) => {
+  const state = useTabsStore.getState();
+
+  state.tabs.forEach((tab, order) => {
     if (!tab.path && tab.isDirty) {
-      current.set(tab.id, { id: tab.id, name: tab.name, content: tab.content, order, savedAt: Date.now() });
+      current.set(tab.id, { id: tab.id, name: tab.name, content: selectTabContent(state, tab.id), order, savedAt: Date.now() });
     }
   });
 
@@ -119,7 +121,8 @@ export function startDraftTracking(): void {
   started = true;
 
   useTabsStore.subscribe((state, prev) => {
-    if (state.tabs === prev.tabs) return;
+    // Text lives in `contents`: without it the draft would stop updating after the first keystroke
+    if (state.tabs === prev.tabs && state.contents === prev.contents) return;
 
     window.clearTimeout(timer);
     timer = window.setTimeout(() => void saveDraftsNow(), SAVE_DELAY_MS);

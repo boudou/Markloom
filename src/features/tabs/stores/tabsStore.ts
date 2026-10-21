@@ -8,7 +8,6 @@ export interface Tab {
   id: string;
   path: string | null;
   name: string;
-  content: string;
   originalContent: string;
   isDirty: boolean;
   /** Changes whenever a different file is loaded into this tab; editors are keyed by it so undo history never crosses documents */
@@ -18,6 +17,8 @@ export interface Tab {
 interface TabsState {
   tabs: Tab[];
   activeTabId: string | null;
+  /** Document text by tab id; read it only through selectTabContent/selectActiveContent. Typing changes only this, not `tabs`. */
+  contents: Record<string, string>;
 
   // Actions
   /** Opens a new tab, or switches to the tab that already has this path */
@@ -43,17 +44,19 @@ const createNewTab = (path?: string | null, content?: string, name?: string): Ta
     id: nanoid(),
     path: path || null,
     name: fileName,
-    content: content || '',
     originalContent: content || '',
     isDirty: false,
     loadId: nanoid(),
   };
 };
 
+const firstTab = createNewTab(null, '', 'Untitled');
+
 export const useTabsStore = create<TabsState>()(
   immer((set, get) => ({
-    tabs: [createNewTab(null, '', 'Untitled')],
-    activeTabId: null,
+    tabs: [firstTab],
+    activeTabId: firstTab.id,
+    contents: { [firstTab.id]: '' },
 
     createTab: (path, content, name) => {
       const newTab = createNewTab(path, content, name);
@@ -70,16 +73,17 @@ export const useTabsStore = create<TabsState>()(
         }
 
         state.tabs.push(newTab);
+        state.contents[newTab.id] = content ?? '';
         state.activeTabId = newTab.id;
       });
     },
 
     openDocument: (path, content) => {
       const state = get();
-      const active = state.tabs.find((t) => t.id === state.activeTabId);
+      const active = selectActiveTab(state);
       const alreadyOpen = state.tabs.some((t) => t.path === path);
 
-      if (!alreadyOpen && active && !active.path && !active.isDirty && active.content === '') {
+      if (!alreadyOpen && active && !active.path && !active.isDirty && selectTabContent(state, active.id) === '') {
         get().loadFileIntoTab(active.id, path, content);
       } else {
         get().createTab(path, content);
@@ -93,10 +97,13 @@ export const useTabsStore = create<TabsState>()(
         const activeIndex = state.tabs.findIndex((t) => t.id === state.activeTabId);
         state.tabs = state.tabs.filter((t) => !tabIds.includes(t.id));
 
+        for (const id of tabIds) delete state.contents[id];
+
         if (state.tabs.length === 0) {
           // Always keep one tab so there is somewhere to write
           const newTab = createNewTab();
           state.tabs.push(newTab);
+          state.contents[newTab.id] = '';
           state.activeTabId = newTab.id;
         } else if (!state.tabs.some((t) => t.id === state.activeTabId)) {
           // The active tab was closed: move to its left neighbour
@@ -108,7 +115,7 @@ export const useTabsStore = create<TabsState>()(
 
     setTabPath: (tabId, path) => {
       set((state) => {
-        const tab = state.tabs.find((t) => t.id === tabId);
+        const tab = selectTab(state, tabId);
 
         if (tab) {
           tab.path = path;
@@ -125,15 +132,21 @@ export const useTabsStore = create<TabsState>()(
       });
     },
 
+    // A plain object set, not immer: this runs on every keystroke. Only a dirty flip touches `tabs`.
     updateTabContent: (tabId, content) => {
-      set((state) => {
-        const tab = state.tabs.find((t) => t.id === tabId);
+      const state = get();
+      const tab = selectTab(state, tabId);
 
-        if (tab) {
-          tab.content = content;
-          tab.isDirty = content !== tab.originalContent;
-        }
-      });
+      if (!tab || state.contents[tabId] === content) return;
+
+      const contents = { ...state.contents, [tabId]: content };
+      const isDirty = content !== tab.originalContent;
+
+      if (isDirty === tab.isDirty) {
+        set({ contents });
+      } else {
+        set({ contents, tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, isDirty } : t)) });
+      }
     },
 
     loadFileIntoTab: (tabId, path, content) => {
@@ -141,36 +154,38 @@ export const useTabsStore = create<TabsState>()(
         const index = state.tabs.findIndex((t) => t.id === tabId);
 
         // A freshly loaded document under the same tab id (new loadId, clean state)
-        if (index !== -1) state.tabs[index] = { ...createNewTab(path, content), id: tabId };
+        if (index === -1) return;
+
+        state.tabs[index] = { ...createNewTab(path, content), id: tabId };
+        state.contents[tabId] = content;
       });
     },
 
     markTabSaved: (tabId, savedContent) => {
       set((state) => {
-        const tab = state.tabs.find((t) => t.id === tabId);
+        const tab = selectTab(state, tabId);
 
         if (tab) {
-          tab.originalContent = savedContent ?? tab.content;
-          tab.isDirty = tab.content !== tab.originalContent;
+          const content = selectTabContent(state, tabId);
+          tab.originalContent = savedContent ?? content;
+          tab.isDirty = content !== tab.originalContent;
         }
       });
     },
   }))
 );
 
-// Initialize with active tab
-useTabsStore.setState((state) => ({
-  activeTabId: state.tabs[0]?.id || null,
-}));
+/** The tab with this id. Select fields from it: its object changes when the tab's name, path, saved text or dirty state changes. */
+export const selectTab = (s: TabsState, tabId: string | null): Tab | undefined => s.tabs.find((t) => t.id === tabId);
 
-/** The tab being edited. Select fields from it, not the tab itself: its object changes on every keystroke. */
-export const selectActiveTab = (s: TabsState): Tab | undefined => s.tabs.find((t) => t.id === s.activeTabId);
+/** The tab being edited. Select fields from it: its object changes when the tab's name, path, saved text or dirty state changes. */
+export const selectActiveTab = (s: TabsState): Tab | undefined => selectTab(s, s.activeTabId);
 
-/** A document's text ('' for an unknown tab). Read text through this, never through a tab object. */
-export const selectTabContent = (s: TabsState, tabId: string): string => s.tabs.find((t) => t.id === tabId)?.content ?? '';
+/** A document's text ('' for an unknown tab). The only way to read text, with selectActiveContent. */
+export const selectTabContent = (s: TabsState, tabId: string): string => s.contents[tabId] ?? '';
 
-/** The active document's text ('' when no tab is active). Read text through this, never through a tab object. */
-export const selectActiveContent = (s: TabsState): string => selectActiveTab(s)?.content ?? '';
+/** The active document's text ('' when no tab is active). */
+export const selectActiveContent = (s: TabsState): string => (s.activeTabId ? selectTabContent(s, s.activeTabId) : '');
 
 export const useActiveContent = () => useTabsStore(selectActiveContent);
 
