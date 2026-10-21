@@ -26,6 +26,7 @@ export async function checkDocument(markdown: string, docPath: string | null): P
         const described = describeDiagramError(message, code, firstLine);
         // The list already shows the line number; drop it from the sentence
         const sentence = described.summary.replace(/^Line \d+:\s*/, '');
+
         return {
           kind: 'diagram',
           line: described.line ?? firstLine,
@@ -37,13 +38,16 @@ export async function checkDocument(markdown: string, docPath: string | null): P
 
   for (const { token, lines } of placedInlines(tokens)) {
     const line = lines[0] + 1;
+
     for (const child of token.children ?? []) {
       if (child.type !== 'image') continue;
       const src = child.attrGet('src') ?? '';
+
       if (!src || ABSOLUTE_URL.test(src)) continue;
 
       // markdown-it stores the source percent-encoded; show it as the user typed it
       const typed = safeDecode(src);
+
       if (!canResolveRelative(docPath)) {
         checks.push(
           Promise.resolve({
@@ -65,5 +69,6 @@ export async function checkDocument(markdown: string, docPath: string | null): P
   }
 
   const issues = (await Promise.all(checks)).filter((issue): issue is ExportIssue => issue !== null);
+
   return issues.sort((a, b) => a.line - b.line);
 }

@@ -16,8 +16,10 @@ let activeMode: DiagramMode = 'preview';
 function loadMermaid(): Promise<typeof MermaidAPI> {
   loading ??= import('mermaid').then(({ default: mermaid }) => {
     mermaid.initialize(buildConfig());
+
     return mermaid;
   });
+
   return loading;
 }
 
@@ -190,6 +192,7 @@ function buildConfig(): ExtendedMermaidConfig {
 function buildExportConfig(): ExtendedMermaidConfig {
   const config = buildConfig();
   const fixed = { useMaxWidth: false };
+
   return {
     ...config,
     htmlLabels: false,
@@ -209,6 +212,7 @@ let queue: Promise<unknown> = Promise.resolve();
 function enqueue<T>(task: () => Promise<T>): Promise<T> {
   const run = queue.then(task);
   queue = run.catch(() => undefined);
+
   return run;
 }
 
@@ -221,7 +225,9 @@ function removeRenderLeftovers(id: string) {
 // Every surface (preview, rich text, .mmd editor, export) shares these results, so a mode
 // switch or an unrelated edit reuses diagrams already drawn, errors included
 const MAX_CACHED_DIAGRAMS = 100;
+
 const rendered = new Map<string, Promise<DiagramRender>>();
+
 let renderCount = 0;
 
 async function draw(code: string, mode: DiagramMode): Promise<DiagramRender> {
@@ -231,6 +237,7 @@ async function draw(code: string, mode: DiagramMode): Promise<DiagramRender> {
 
   try {
     const mermaid = await loadMermaid();
+
     if (mode !== activeMode) {
       mermaid.initialize(mode === 'export' ? buildExportConfig() : buildConfig());
       activeMode = mode;
@@ -250,6 +257,7 @@ async function draw(code: string, mode: DiagramMode): Promise<DiagramRender> {
 export function renderMermaid(code: string, mode: DiagramMode): Promise<DiagramRender> {
   const key = `${mode}\n${code}`;
   const hit = rendered.get(key);
+
   if (hit) {
     // Re-insert so the map stays in least-recently-used order
     rendered.delete(key);
@@ -260,6 +268,7 @@ export function renderMermaid(code: string, mode: DiagramMode): Promise<DiagramR
 
   const result = enqueue(() => draw(code, mode));
   rendered.set(key, result);
+
   if (rendered.size > MAX_CACHED_DIAGRAMS) rendered.delete(rendered.keys().next().value!);
 
   return result;
@@ -270,6 +279,7 @@ export function diagramSyntaxError(code: string): Promise<string | null> {
   return enqueue(async () => {
     try {
       await (await loadMermaid()).parse(code);
+
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : String(error);

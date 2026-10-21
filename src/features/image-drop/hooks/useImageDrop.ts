@@ -30,6 +30,7 @@ export function useImageDrop({ onInsert }: UseImageDropOptions): UseImageDropRet
           title: `${file.name} can't be inserted`,
           detail: 'Use a PNG, JPG, GIF, WebP or SVG image.',
         });
+
         return;
       }
 
@@ -54,9 +55,11 @@ export function useImageDrop({ onInsert }: UseImageDropOptions): UseImageDropRet
     e.stopPropagation();
     setDragCounter((prev) => {
       const newCount = prev - 1;
+
       if (newCount === 0) {
         setIsDragging(false);
       }
+
       return newCount;
     });
   }, []);
@@ -64,6 +67,7 @@ export function useImageDrop({ onInsert }: UseImageDropOptions): UseImageDropRet
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
     if (e.dataTransfer.types.includes('Files')) {
       e.dataTransfer.dropEffect = 'copy';
     }
@@ -89,6 +93,7 @@ export function useImageDrop({ onInsert }: UseImageDropOptions): UseImageDropRet
   const handlePaste = useCallback(
     async (e: React.ClipboardEvent) => {
       const items = Array.from(e.clipboardData.items);
+
       const imageItems = items.filter(
         (item) => item.kind === 'file' && item.type.startsWith('image/')
       );
@@ -100,6 +105,7 @@ export function useImageDrop({ onInsert }: UseImageDropOptions): UseImageDropRet
 
       for (const item of imageItems) {
         const file = item.getAsFile();
+
         if (file) {
           await processFile(file);
         }

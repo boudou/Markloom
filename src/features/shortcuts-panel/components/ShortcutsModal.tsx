@@ -9,6 +9,8 @@ interface ShortcutsModalProps {
 }
 
 const GROUPS = ['File', 'Edit', 'Format', 'View'] as const;
+
+// SAFETY: SHORTCUTS is a Record<ShortcutId, ShortcutDef> literal, so its keys are exactly the ShortcutIds.
 const ALL_IDS = Object.keys(SHORTCUTS) as ShortcutId[];
 
 // Generated from the same table the key handlers use, so it can't promise keys that don't work.
@@ -21,14 +23,18 @@ export function ShortcutsModal({ open, onOpenChange }: ShortcutsModalProps) {
 
   const groups = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+
     const matches = (id: ShortcutId) => {
       const text = `${SHORTCUTS[id].label} ${shortcutKeys(id)} ${SHORTCUTS[id].group}`.toLowerCase();
+
       return words.every((w) => text.includes(w));
     };
-    return GROUPS.map((group) => ({
-      group,
-      items: ALL_IDS.filter((id) => SHORTCUTS[id].group === group && matches(id)),
-    })).filter((g) => g.items.length > 0);
+
+    return GROUPS.flatMap((group) => {
+      const items = ALL_IDS.filter((id) => SHORTCUTS[id].group === group && matches(id));
+
+      return items.length > 0 ? [{ group, items }] : [];
+    });
   }, [query]);
 
   return (

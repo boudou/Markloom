@@ -27,6 +27,7 @@ export function newDocument(): void {
 
 export async function openFile(): Promise<void> {
   const result = await openFileDialog();
+
   if (!result) return;
 
   showDocument(result.path, result.content);
@@ -52,6 +53,7 @@ function showDocument(path: string, content: string): void {
 
 export async function openFolder(): Promise<void> {
   const path = await openFolderDialog();
+
   if (!path) return;
   // rootPath is the folder's name: drop the old tree so a folder with the same name is read too
   useFileTreeStore.getState().setNodes([], null);
@@ -70,6 +72,7 @@ export async function saveTab(
 ): Promise<boolean> {
   const tabs = useTabsStore.getState();
   const tab = tabs.tabs.find((t) => t.id === tabId);
+
   if (!tab) return false;
 
   if (tab.path && !options.saveAs) {
@@ -77,7 +80,9 @@ export async function saveTab(
       await writeFile(tab.path, tab.content);
       // The user may have kept typing during the write: only what was written counts as saved
       tabs.markTabSaved(tabId, tab.content);
+
       if (!options.quiet) notify({ tone: 'success', title: `Saved ${tab.name}` });
+
       return true;
     } catch (error) {
       notify({
@@ -87,18 +92,22 @@ export async function saveTab(
           ? `${errorMessage(error)}. Auto-save will try again after your next change.`
           : `${errorMessage(error)}. Choose a location to save a copy instead.`,
       });
+
       if (options.quiet) return false;
       // Fall through to "save as" so the work is not stranded
     }
   }
+
   if (options.quiet) return false;
 
   try {
     const newPath = await saveFileDialog(tab.content, suggestedFileName(tab.name));
+
     if (!newPath) return false;
     tabs.setTabPath(tabId, newPath);
     tabs.markTabSaved(tabId, tab.content);
     notify({ tone: 'success', title: `Saved ${documentName(newPath)}` });
+
     return true;
   } catch (error) {
     notify({
@@ -106,12 +115,14 @@ export async function saveTab(
       title: `Couldn't save ${tab.name}`,
       detail: `${errorMessage(error)}. Your changes are still open here; try saving to another folder.`,
     });
+
     return false;
   }
 }
 
 export function saveActiveTab(options?: { saveAs?: boolean }): Promise<boolean> {
   const { activeTabId } = useTabsStore.getState();
+
   return activeTabId ? saveTab(activeTabId, options) : Promise.resolve(false);
 }
 
@@ -119,6 +130,7 @@ export function saveActiveTab(options?: { saveAs?: boolean }): Promise<boolean> 
 export function requestCloseTabs(tabIds: string[]): void {
   const { tabs, closeTabs } = useTabsStore.getState();
   const hasUnsaved = tabs.some((t) => tabIds.includes(t.id) && t.isDirty);
+
   if (hasUnsaved) {
     useUiStore.getState().setPendingClose(tabIds);
   } else {

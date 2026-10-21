@@ -6,12 +6,14 @@ import { canResolveRelative, fileExists, writeFile } from '@/features/file-tree/
 import { fileToBase64, getAltTextFromFilename, getExtensionFromMimeType } from './utils';
 
 const ASSETS_DIR = 'assets';
+
 const LARGE_INLINE_IMAGE = 500 * 1024;
 
 function safeBaseName(file: File): string {
   // Clipboard images are all called "image.png"; give them a findable, unique-ish name
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
   const raw = /^image\.\w+$/i.test(file.name) ? `pasted-${stamp}` : file.name.replace(/\.[^.]+$/, '');
+
   return raw.replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 80) || `image-${stamp}`;
 }
 
@@ -32,11 +34,14 @@ export async function storeImageForDocument(file: File): Promise<string> {
     const base = safeBaseName(file);
     const ext = extensionOf(file);
     let name = `${base}.${ext}`;
+
     for (let n = 2; await fileExists(`${docDir}/${ASSETS_DIR}/${name}`); n++) name = `${base}-${n}.${ext}`;
 
     const target = `${docDir}/${ASSETS_DIR}/${name}`;
+
     try {
       await writeFile(target, file);
+
       return `![${alt}](${ASSETS_DIR}/${encodeURI(name)})`;
     } catch (error) {
       notify({

@@ -57,14 +57,18 @@ export const useFileTreeStore = create<FileTreeState>()(
           for (const node of nodes) {
             if (node.path === path) {
               Object.assign(node, updates);
+
               return true;
             }
+
             if (node.children && updateNodeRecursive(node.children)) {
               return true;
             }
           }
+
           return false;
         };
+
         updateNodeRecursive(state.nodes);
       }),
   }))

@@ -4,10 +4,12 @@ import { RangeSetBuilder } from '@codemirror/state';
 import { Decoration, ViewPlugin, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
 
 const noSpellLine = Decoration.line({ attributes: { spellcheck: 'false' } });
+
 const noSpellInline = Decoration.mark({ attributes: { spellcheck: 'false' } });
 
 function build(view: EditorView): DecorationSet {
   const ranges: { from: number; to: number; deco: Decoration }[] = [];
+
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
@@ -19,27 +21,35 @@ function build(view: EditorView): DecorationSet {
             ranges.push({ from: line.from, to: line.from, deco: noSpellLine });
             pos = line.to + 1;
           }
+
           return false;
         }
+
         if (node.name === 'InlineCode') {
           ranges.push({ from: node.from, to: node.to, deco: noSpellInline });
+
           return false;
         }
+
         return undefined;
       },
     });
   }
+
   // RangeSetBuilder needs ranges in order, line decorations before marks at the same position
   ranges.sort((a, b) => a.from - b.from || (a.deco === noSpellLine ? -1 : 1));
   const builder = new RangeSetBuilder<Decoration>();
   let lastLine = -1;
+
   for (const r of ranges) {
     if (r.deco === noSpellLine) {
       if (r.from === lastLine) continue;
       lastLine = r.from;
     }
+
     builder.add(r.from, r.to, r.deco);
   }
+
   return builder.finish();
 }
 

@@ -2,6 +2,7 @@
 // the global key handler all read from here, so what we advertise is what works.
 
 const platform = typeof navigator !== 'undefined' ? navigator.platform : '';
+
 export const isMac = /Mac|iPhone|iPad/.test(platform);
 
 // The browser keeps some combinations for itself (Ctrl+N, Ctrl+T, Ctrl+W); the desktop app does not.

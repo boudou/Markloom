@@ -24,6 +24,7 @@ import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
 
 const MIN_SPLIT = 25;
+
 const MAX_SPLIT = 75;
 
 interface SplitViewEditorProps {
@@ -105,6 +106,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       search: codemirrorSearchEngine(view),
       insert: (text) => insertSnippet(view, text),
     });
+
     return () => onCommands(null);
   }, [view, onCommands]);
 
@@ -118,6 +120,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     },
     [view]
   );
+
   const markDiagramErrors = useCallback(
     (lines: number[]) => {
       view?.dispatch({ effects: setDiagramErrorLines.of(lines) });
@@ -144,6 +147,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
 
   const handleResizeKey = (e: React.KeyboardEvent) => {
     const step = e.shiftKey ? 10 : 2;
+
     if (e.key === 'ArrowLeft') setSplitRatio(splitRatio - step);
     else if (e.key === 'ArrowRight') setSplitRatio(splitRatio + step);
     else if (e.key === 'Home') setSplitRatio(MIN_SPLIT);

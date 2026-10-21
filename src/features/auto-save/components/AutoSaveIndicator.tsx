@@ -35,6 +35,7 @@ export function AutoSaveIndicator() {
 
   const look = autoSave ? looks[status] : off;
   const Icon = look.icon;
+
   const detail =
     status === 'saved' && lastSaved
       ? `Saved at ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. `
@@ -42,7 +43,9 @@ export function AutoSaveIndicator() {
 
   // The tooltip is also the button's accessible name, so it starts with the state
   let tooltip = `Auto-save off. Turn it on to save documents that have a file ${interval} seconds after you stop typing.`;
+
   if (autoSave && hasFile) tooltip = `Auto-save on. ${detail}Click to turn off.`;
+
   if (autoSave && !hasFile) tooltip = 'Auto-save on. Save this document once to start auto-saving it. Click to turn off.';
 
   return (

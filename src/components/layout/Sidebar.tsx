@@ -8,6 +8,7 @@ import { FileTree } from '@/features/file-tree/components';
 import { OutlineDock } from '@/features/outline';
 
 const MIN_WIDTH = 200;
+
 const MAX_WIDTH = 500;
 
 const VIEWS: { id: SidebarView; label: string; icon: typeof FolderTree }[] = [
@@ -41,6 +42,7 @@ export function Sidebar() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const step = e.shiftKey ? 40 : 10;
+
     if (e.key === 'ArrowLeft') setSidebarWidth(sidebarWidth - step);
     else if (e.key === 'ArrowRight') setSidebarWidth(sidebarWidth + step);
     else if (e.key === 'Home') setSidebarWidth(MIN_WIDTH);
@@ -63,6 +65,7 @@ export function Sidebar() {
         <div role="tablist" aria-label="Sidebar view" className="flex items-center gap-1 h-10 px-2 border-b border-rule flex-shrink-0">
           {VIEWS.map(({ id, label, icon: Icon }) => {
             const selected = view === id;
+
             return (
               <button
                 key={id}

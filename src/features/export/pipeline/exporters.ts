@@ -19,9 +19,11 @@ export async function exportPdf(request: ExportRequest): Promise<'saved' | 'prin
   const html = await buildStandaloneHtml(body, request);
 
   const bridge = window.markloomDesktop;
+
   if (bridge?.printToPdf) {
     const bytes = await bridge.printToPdf(html, { pageSize: 'A4' });
     saveAs(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `${request.title}.pdf`);
+
     return 'saved';
   }
 
@@ -38,6 +40,7 @@ export async function exportPdf(request: ExportRequest): Promise<'saved' | 'prin
   frame.contentWindow!.focus();
   frame.contentWindow!.print();
   setTimeout(() => frame.remove(), 1000);
+
   return 'print-dialog';
 }
 
@@ -65,18 +68,23 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
     const wanted = new Set(
       (token.children ?? []).flatMap((child) => (child.type === 'image' ? [child.attrGet('src') ?? ''] : []))
     );
+
     if (wanted.size === 0) continue;
 
     let text = lines.slice(start, end).join('\n');
+
     for (const match of [...text.matchAll(IMAGE_SYNTAX)].reverse()) {
       const rawSrc = match[2].replace(/^<|>$/g, '');
+
       if (/^(data|https?):/i.test(rawSrc)) continue;
 
       // markdown-it keeps the normalized form, which is also what Word and HTML export load
       const src = md.normalizeLink(rawSrc);
+
       if (!wanted.has(src)) continue;
 
       const image = await loadDocumentImage(src, request.docPath);
+
       if (!image) continue;
 
       const replacement = `![${match[1]}](${image.dataUrl}${match[3] ?? ''})`;

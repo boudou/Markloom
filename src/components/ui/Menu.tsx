@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useMenuHighlight } from './useMenuHighlight';
 
 export const Menu = DropdownMenu.Root;
+
 export const MenuTrigger = DropdownMenu.Trigger;
 
 export const MenuContent = forwardRef<
@@ -11,6 +12,7 @@ export const MenuContent = forwardRef<
   ComponentPropsWithoutRef<typeof DropdownMenu.Content>
 >(function MenuContent({ className, sideOffset = 6, align = 'start', children, ...props }, ref) {
   const { onFocusCapture, highlight } = useMenuHighlight();
+
   return (
     <DropdownMenu.Portal>
       <DropdownMenu.Content
@@ -102,6 +104,7 @@ export const MenuSubContent = forwardRef<
   ComponentPropsWithoutRef<typeof DropdownMenu.SubContent>
 >(function MenuSubContent({ className, sideOffset = 6, children, ...props }, ref) {
   const { onFocusCapture, highlight } = useMenuHighlight();
+
   return (
     <DropdownMenu.Portal>
       <DropdownMenu.SubContent

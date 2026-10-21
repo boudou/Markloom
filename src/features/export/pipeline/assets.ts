@@ -35,6 +35,7 @@ function measure(dataUrl: string): Promise<{ width: number; height: number }> {
 async function fromBlob(blob: Blob): Promise<ExportImage> {
   const dataUrl = await blobToDataUrl(blob);
   const { width, height } = await measure(dataUrl);
+
   return {
     dataUrl,
     mime: blob.type || dataUrl.slice(5, dataUrl.indexOf(';')),
@@ -51,13 +52,18 @@ async function fromBlob(blob: Blob): Promise<ExportImage> {
 export async function loadDocumentImage(src: string, docPath: string | null): Promise<ExportImage | null> {
   try {
     if (src.startsWith('data:')) return await fromBlob(await (await fetch(src)).blob());
+
     if (/^https?:/i.test(src)) {
       const response = await fetch(src, { mode: 'cors' });
+
       if (!response.ok) return null;
+
       return await fromBlob(await response.blob());
     }
+
     if (ABSOLUTE_URL.test(src) || !canResolveRelative(docPath)) return null;
     const path = resolveSourcePath(docPath, src);
+
     return await fromBlob(await readFileBlob(path));
   } catch {
     return null;
@@ -67,6 +73,7 @@ export async function loadDocumentImage(src: string, docPath: string | null): Pr
 /** Renders a Mermaid diagram to a standalone SVG with real pixel dimensions. */
 export async function renderDiagram(code: string): Promise<{ svg: string; width: number; height: number }> {
   const result = await renderMermaid(code, 'export');
+
   if (!result.ok) throw new Error(result.error);
 
   const doc = new DOMParser().parseFromString(result.svg, 'image/svg+xml');
@@ -77,6 +84,7 @@ export async function renderDiagram(code: string): Promise<{ svg: string; width:
   root.setAttribute('width', String(width));
   root.setAttribute('height', String(height));
   root.style.removeProperty('max-width');
+
   return { svg: new XMLSerializer().serializeToString(root), width, height };
 }
 
@@ -96,8 +104,10 @@ export async function toPngBytes(dataUrl: string, width: number, height: number,
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png')
   );
+
   return new Uint8Array(await blob.arrayBuffer());
 }

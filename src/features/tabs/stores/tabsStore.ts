@@ -61,11 +61,14 @@ export const useTabsStore = create<TabsState>()(
         // Check if file is already open
         if (path) {
           const existingTab = state.tabs.find((t) => t.path === path);
+
           if (existingTab) {
             state.activeTabId = existingTab.id;
+
             return;
           }
         }
+
         state.tabs.push(newTab);
         state.activeTabId = newTab.id;
       });
@@ -75,6 +78,7 @@ export const useTabsStore = create<TabsState>()(
       const state = get();
       const active = state.tabs.find((t) => t.id === state.activeTabId);
       const alreadyOpen = state.tabs.some((t) => t.path === path);
+
       if (!alreadyOpen && active && !active.path && !active.isDirty && active.content === '') {
         get().loadFileIntoTab(active.id, path, content);
       } else {
@@ -105,6 +109,7 @@ export const useTabsStore = create<TabsState>()(
     setTabPath: (tabId, path) => {
       set((state) => {
         const tab = state.tabs.find((t) => t.id === tabId);
+
         if (tab) {
           tab.path = path;
           tab.name = documentName(path);
@@ -123,6 +128,7 @@ export const useTabsStore = create<TabsState>()(
     updateTabContent: (tabId, content) => {
       set((state) => {
         const tab = state.tabs.find((t) => t.id === tabId);
+
         if (tab) {
           tab.content = content;
           tab.isDirty = content !== tab.originalContent;
@@ -142,6 +148,7 @@ export const useTabsStore = create<TabsState>()(
     markTabSaved: (tabId, savedContent) => {
       set((state) => {
         const tab = state.tabs.find((t) => t.id === tabId);
+
         if (tab) {
           tab.originalContent = savedContent ?? tab.content;
           tab.isDirty = tab.content !== tab.originalContent;
@@ -173,6 +180,7 @@ export const useActivePath = () => useTabsStore((s) => selectActiveTab(s)?.path 
 /** Editor onChange: writes into the tab that was active when the editor rendered */
 export function useSetActiveContent() {
   const tabId = useTabsStore((s) => s.activeTabId);
+
   return useCallback(
     (content: string) => {
       if (tabId) useTabsStore.getState().updateTabContent(tabId, content);

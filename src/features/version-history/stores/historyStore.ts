@@ -27,11 +27,14 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       isLoading: true,
       selectedVersionId: state.filePath === filePath ? state.selectedVersionId : null,
     }));
+
     try {
       const versions = await getVersionsForFile(filePath);
+
       if (get().filePath === filePath) set({ versions, isLoading: false });
     } catch (error) {
       console.error('Failed to load versions:', error);
+
       if (get().filePath === filePath) set({ versions: [], isLoading: false });
     }
   },
@@ -42,6 +45,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       // Clean up old versions (keep latest 50)
       await cleanupOldVersions(filePath, 50);
       const versions = await getVersionsForFile(filePath);
+
       if (get().filePath === filePath) set({ versions });
     } catch (error) {
       console.error('Failed to save version:', error);

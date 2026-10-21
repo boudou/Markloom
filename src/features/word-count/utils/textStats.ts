@@ -10,6 +10,7 @@ export interface TextStats {
 }
 
 const WORDS_PER_MINUTE_READING = 200;
+
 const WORDS_PER_MINUTE_SPEAKING = 150;
 
 export function calculateTextStats(text: string): TextStats {
@@ -55,6 +56,7 @@ export function calculateSelectionStats(text: string, selectionStart: number, se
   }
 
   const selectedText = text.slice(selectionStart, selectionEnd);
+
   return calculateTextStats(selectedText);
 }
 
@@ -62,9 +64,11 @@ export function formatReadingTime(minutes: number): string {
   if (minutes < 1) {
     return '< 1 min';
   }
+
   if (minutes === 1) {
     return '1 min';
   }
+
   return `${minutes} min`;
 }
 

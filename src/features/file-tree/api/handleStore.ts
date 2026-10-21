@@ -1,26 +1,33 @@
 // File System Access handles survive restarts only if we keep them: they are
 // structured-cloneable, so IndexedDB can hold them. Access still needs the user's
 // permission again in a new session (see ensurePermission).
-import { openDB, type IDBPDatabase } from 'idb';
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
 const DB_NAME = 'markloom-handles';
+
 const STORE = 'handles';
+
 const MAX_FILE_HANDLES = 50;
 
 export const ROOT_KEY = 'root';
 
-let dbPromise: Promise<IDBPDatabase> | null = null;
+type StoredHandle = { handle: FileSystemHandle; savedAt: number };
 
-function getDb(): Promise<IDBPDatabase> {
-  dbPromise ??= openDB(DB_NAME, 1, {
+interface HandleDb extends DBSchema {
+  handles: { key: string; value: StoredHandle };
+}
+
+let dbPromise: Promise<IDBPDatabase<HandleDb>> | null = null;
+
+function getDb(): Promise<IDBPDatabase<HandleDb>> {
+  dbPromise ??= openDB<HandleDb>(DB_NAME, 1, {
     upgrade(db) {
       db.createObjectStore(STORE);
     },
   });
+
   return dbPromise;
 }
-
-type StoredHandle = { handle: FileSystemHandle; savedAt: number };
 
 export async function rememberHandle(key: string, handle: FileSystemHandle): Promise<void> {
   try {
@@ -29,9 +36,10 @@ export async function rememberHandle(key: string, handle: FileSystemHandle): Pro
 
     // Keep the store bounded: drop the oldest standalone-file handles
     const keys = (await db.getAllKeys(STORE)).filter((k) => k !== ROOT_KEY);
+
     if (keys.length > MAX_FILE_HANDLES) {
-      const entries = await Promise.all(keys.map(async (k) => [k, (await db.get(STORE, k)) as StoredHandle] as const));
-      entries.sort((a, b) => a[1].savedAt - b[1].savedAt);
+      const entries = await Promise.all(keys.map(async (k) => [k, (await db.get(STORE, k))?.savedAt ?? 0] as const));
+      entries.sort((a, b) => a[1] - b[1]);
       await Promise.all(entries.slice(0, keys.length - MAX_FILE_HANDLES).map(([k]) => db.delete(STORE, k)));
     }
   } catch (error) {
@@ -42,7 +50,9 @@ export async function rememberHandle(key: string, handle: FileSystemHandle): Pro
 
 export async function recallHandle<T extends FileSystemHandle>(key: string): Promise<T | null> {
   try {
-    const entry = (await (await getDb()).get(STORE, key)) as StoredHandle | undefined;
+    const entry = await (await getDb()).get(STORE, key);
+
+    // SAFETY: callers recall a key as the kind they stored under it (ROOT_KEY: a directory, a file path: a file).
     return (entry?.handle as T) ?? null;
   } catch {
     return null;

@@ -15,6 +15,7 @@ Node.js 22.12+ is required.
 ## Before opening a pull request
 
 - Run `npm run build`. It type-checks the project and must pass.
+- Run `npm run lint` (Oxlint with the vendored anti-slop rules in `tools/oxlint/anti-slop/`). It must exit without errors; `npm run lint -- --fix` adds the blank lines `require-readable-spacing` asks for.
 - Keep changes focused; one topic per pull request.
 - Match the surrounding code: naming, comment density, idiom.
 - Keep heavy libraries out of the startup bundle (Mermaid, highlight.js grammars, docx and the rich-text editor load lazily).

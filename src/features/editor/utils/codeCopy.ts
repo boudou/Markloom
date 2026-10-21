@@ -3,6 +3,7 @@
 // The preview is set as HTML, so buttons are added to each <pre> after it renders.
 
 const RESET_AFTER = 2000;
+
 const resets = new WeakMap<HTMLButtonElement, number>();
 
 const BUTTON_HTML = `
@@ -26,16 +27,20 @@ function writeFallback(text: string): boolean {
   const previous = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
   area.select();
   let ok = false;
+
   try {
     ok = document.execCommand('copy');
   } catch {
     ok = false;
   }
+
   area.remove();
+
   if (selection && previous) {
     selection.removeAllRanges();
     selection.addRange(previous);
   }
+
   return ok;
 }
 
@@ -43,11 +48,13 @@ async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
+
       return true;
     }
   } catch {
     // fall through to the fallback
   }
+
   try {
     return writeFallback(text);
   } catch {
@@ -71,10 +78,13 @@ export function addCopyButtons(root: HTMLElement): void {
 
 /** Delegated click handler for the preview; `announce` reports the result to screen readers. */
 export async function handleCopyClick(event: MouseEvent, announce: (message: string) => void): Promise<void> {
+  // SAFETY: click events fire on elements (never text nodes), and only Element.closest is used.
   const button = (event.target as Element | null)?.closest<HTMLButtonElement>('.code-copy');
+
   if (!button) return;
   event.preventDefault();
   const code = button.parentElement?.querySelector(':scope > code')?.textContent ?? '';
+
   if (!code) return;
 
   const ok = await copyText(code);

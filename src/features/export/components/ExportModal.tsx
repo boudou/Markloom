@@ -50,7 +50,9 @@ const FORMATS: { id: ExportFormat; label: string; icon: typeof FileText; descrip
 // Every label the export button can show shares one grid cell, so the button keeps its
 // width while the label crossfades (after interior.dev's loading button)
 const FACE_SWAP = { type: 'spring', stiffness: 260, damping: 34, mass: 0.8 } as const;
+
 const BUTTON_FACES = [
+  // SAFETY: widening only: a format id is a string, and the list also holds the 'exporting' face.
   ...FORMATS.map((f) => ({ key: f.id as string, text: `Export ${f.label}`, busy: false })),
   { key: 'exporting', text: 'Exporting…', busy: true },
 ];
@@ -60,6 +62,7 @@ function ExportButtonLabel({ active }: { active: string }) {
     <span className="grid">
       {BUTTON_FACES.map((face) => {
         const shown = face.key === active;
+
         return (
           <m.span
             key={face.key}
@@ -120,6 +123,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
       .then(({ checkDocument }) => checkDocument(content, docPath))
       .then((found) => !cancelled && setIssues(found))
       .catch(() => undefined);
+
     return () => {
       cancelled = true;
     };
@@ -139,10 +143,13 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         await exportDocx(request);
       } else {
         const exporters = await import('../pipeline/exporters');
+
         if (format === 'pdf') {
           const outcome = await exporters.exportPdf(request);
+
           if (outcome === 'print-dialog') {
             onOpenChange(false);
+
             return;
           }
         } else if (format === 'html') {
@@ -151,6 +158,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
           await exporters.exportMarkdown(request);
         }
       }
+
       onOpenChange(false);
       notify({ tone: 'success', title: `Exported “${request.title}”` });
     } catch (err) {
@@ -170,8 +178,10 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
     useAppStore.getState().setEditorMode('split');
     useUiStore.getState().navigateToLine(issue.line);
   };
+
   const diagramCount = issues.filter((i) => i.kind === 'diagram').length;
   const imageCount = issues.length - diagramCount;
+
   const issueSummary = [
     diagramCount && `${diagramCount} ${diagramCount === 1 ? 'diagram has an error' : 'diagrams have errors'}`,
     imageCount && `${imageCount} ${imageCount === 1 ? 'image is missing' : 'images are missing'}`,

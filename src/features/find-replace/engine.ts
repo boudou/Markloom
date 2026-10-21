@@ -62,6 +62,7 @@ export function buildSearchRegExp(options: SearchOptions): RegExp | null {
   if (!options.query) return null;
   const escaped = options.regex ? options.query : options.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const source = options.wholeWord ? `(?<![\\p{L}\\p{N}_])(?:${escaped})(?![\\p{L}\\p{N}_])` : escaped;
+
   try {
     // `m`: ^ and $ anchor at line breaks (code blocks in Rich text, every line in Markdown)
     return new RegExp(source, `gmu${options.caseSensitive ? '' : 'i'}`);
@@ -74,6 +75,7 @@ export function buildSearchRegExp(options: SearchOptions): RegExp | null {
 export function collectMatches(regex: RegExp, text: string, offset: number): SearchMatch[] {
   const found: SearchMatch[] = [];
   regex.lastIndex = 0;
+
   for (let exec = regex.exec(text); exec; exec = regex.exec(text)) {
     if (exec[0].length === 0) {
       // Step past the empty match by one code point (the `u` flag never splits a surrogate pair)
@@ -91,9 +93,12 @@ export function collectMatches(regex: RegExp, text: string, offset: number): Sea
 export function expandReplacement(template: string, exec: RegExpExecArray): string {
   return template.replace(/\$([$&]|\d+)/g, (token: string, ref: string) => {
     if (ref === '&') return exec[0];
+
     if (ref === '$') return '$';
+
     for (let length = ref.length; length > 0; length--) {
       const group = Number(ref.slice(0, length));
+
       if (group > 0 && group < exec.length) return (exec[group] ?? '') + ref.slice(length);
     }
 
@@ -109,10 +114,12 @@ export interface DocChangeListeners<View extends object> {
 
 export function createDocChangeListeners<View extends object>(): DocChangeListeners<View> {
   const listeners = new WeakMap<View, () => void>();
+
   return {
     notify: (view) => listeners.get(view)?.(),
     listen(view, listener) {
       listeners.set(view, listener);
+
       return () => {
         // A newer engine on the same view may have taken over; leave its listener alone
         if (listeners.get(view) === listener) listeners.delete(view);
@@ -157,8 +164,10 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
   const render = () => {
     adapter.setHighlights(matches, current);
     const invalid = options.query !== '' && regex === null;
+
     if (result.count === matches.length && result.current === current && result.invalid === invalid) return;
     result = { count: matches.length, current, invalid };
+
     for (const listener of listeners) listener();
   };
 
@@ -166,6 +175,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
   const reveal = () => {
     render();
     const match = matches[current];
+
     if (match) adapter.select(match);
   };
 
@@ -195,6 +205,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
 
   const step = (delta: number) => {
     flush();
+
     if (!matches.length) return;
     current = (current + delta + matches.length) % matches.length;
     reveal();
@@ -204,6 +215,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     update(next) {
       const previous = options;
       options = next;
+
       if (sameQuery(previous, next)) return;
       regex = buildSearchRegExp(next);
       listen(regex !== null);
@@ -215,6 +227,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     replace() {
       flush();
       const match = matches[current];
+
       if (!match) return;
       const text = replacementFor(match, options);
       adapter.applyReplacements([{ from: match.from, to: match.to, text }]);
@@ -224,6 +237,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     },
     replaceAll() {
       flush();
+
       if (!matches.length) return;
       adapter.applyReplacements(matches.map((match) => ({ from: match.from, to: match.to, text: replacementFor(match, options) })));
       recountAtCursor();
@@ -238,6 +252,7 @@ export function createSearchEngine(adapter: SearchAdapter): SearchEngine {
     focusEditor: () => adapter.focus(),
     subscribe(listener) {
       listeners.add(listener);
+
       return () => listeners.delete(listener);
     },
     getResult: () => result,

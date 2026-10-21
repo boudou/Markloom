@@ -50,12 +50,14 @@ export function resolveRelativePath(fromFile: string, target: string): string {
 
   for (const segment of target.split('/')) {
     if (!segment || segment === '.') continue;
+
     if (segment === '..') {
       if (stack.length > 1) stack.pop();
     } else {
       stack.push(segment);
     }
   }
+
   return stack.join('/');
 }
 
@@ -64,6 +66,7 @@ function splitHash(href: string): { path: string; hash: string } {
   const withoutHash = hashIndex === -1 ? href : href.slice(0, hashIndex);
   const hash = hashIndex === -1 ? '' : href.slice(hashIndex + 1);
   const path = withoutHash.split('?')[0];
+
   return { path: safeDecode(path), hash: safeDecode(hash) };
 }
 
@@ -86,11 +89,14 @@ export function safeDecode(value: string): string {
 function scrollToAnchor(container: HTMLElement, id: string): void {
   if (!id) {
     container.scrollTo({ top: 0, behavior: 'smooth' });
+
     return;
   }
+
   const target =
     container.querySelector<HTMLElement>(`#${CSS.escape(id)}`) ??
     container.querySelector<HTMLElement>(`[name="${CSS.escape(id)}"]`);
+
   target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -167,16 +173,19 @@ export function useDocumentLinks(
   // Swap relative image sources for object URLs read through the file system API
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container || !resolveImages) return;
 
     container.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
       const src = img.getAttribute('src') ?? '';
       // Any image that fails to load (remote 404, bad data URL) gets a readable placeholder
       img.addEventListener('error', () => showMissingImage(img, src), { once: true });
+
       if (!src || ABSOLUTE_URL.test(src) || src.startsWith('#')) return;
 
       if (!canResolveRelative(activeFilePath)) {
         showMissingImage(img, src, 'open the document from its folder to show it');
+
         return;
       }
 
@@ -191,6 +200,7 @@ export function useDocumentLinks(
 
     const handleFocus = () => {
       const container = containerRef.current;
+
       if (container) refreshImages(container);
     };
 
@@ -202,41 +212,53 @@ export function useDocumentLinks(
   // Intercept link clicks
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) return;
 
     const handleClick = async (event: MouseEvent) => {
+      // SAFETY: click events fire on elements (never text nodes), and only Element.closest is used.
       const anchor = (event.target as HTMLElement).closest('a');
+
       if (!anchor || !container.contains(anchor)) return;
 
       const href = anchor.getAttribute('href');
+
       if (!href) return;
+
       if (requireModifier && !(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
 
       if (ABSOLUTE_URL.test(href)) {
         window.open(href, '_blank', 'noopener');
+
         return;
       }
 
       const { path, hash } = splitHash(href);
+
       if (!path) {
         scrollToAnchor(container, hash);
+
         return;
       }
 
       if (!canResolveRelative(activeFilePath)) {
         console.warn(`Cannot follow relative link without an open folder: ${href}`);
+
         return;
       }
 
       const targetPath = resolveRelativePath(activeFilePath, path);
+
       try {
         if (/\.(md|markdown|mdx|mmd|txt)$/i.test(targetPath)) {
           openDocument(targetPath, await readFile(targetPath));
+
           if (hash) {
             // Wait for the newly opened document to render before scrolling
             setTimeout(() => {
               const current = containerRef.current;
+
               if (current) scrollToAnchor(current, hash);
             }, 150);
           }
@@ -249,6 +271,7 @@ export function useDocumentLinks(
     };
 
     container.addEventListener('click', handleClick);
+
     return () => container.removeEventListener('click', handleClick);
   }, [containerRef, activeFilePath, openDocument, requireModifier]);
 }

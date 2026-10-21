@@ -34,6 +34,7 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     const anchor = anchorRef.current;
+
     if (event.button !== 0 || !anchor) return;
 
     event.preventDefault();
@@ -49,6 +50,7 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
       latest = next;
       setLocal(next);
     };
+
     // Window, not the handle: captured events bubble here and keep arriving if the handle unmounts
     const end = () => {
       window.removeEventListener('pointermove', move);
@@ -57,6 +59,7 @@ export function useResizeDrag({ stored, min, max, anchorRef, toValue, commit }: 
       endRef.current = null;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+
       // Store first, so no frame shows the old stored value
       if (latest !== null) commit(latest);
       setLocal(null);

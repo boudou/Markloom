@@ -28,11 +28,13 @@ export function CloseGuardDialog() {
   const saveAndClose = async () => {
     if (!pending) return;
     setSaving(true);
+
     try {
       for (const tab of dirty) {
         // Stop at the first cancel or failure so nothing unsaved gets closed
         if (!(await saveTab(tab.id))) return;
       }
+
       closeTabs(pending);
       setPending(null);
     } finally {

@@ -83,10 +83,13 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
   const { name, path, isDirty } = useTabsStore(
     useShallow((s) => {
       const tab = s.tabs.find((t) => t.id === id);
+
       return { name: tab?.name ?? '', path: tab?.path ?? null, isDirty: !!tab?.isDirty };
     })
   );
+
   const { onFocusCapture, highlight } = useMenuHighlight();
+
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>

@@ -2,6 +2,7 @@
 // "[!WARNING]" or "[!CAUTION]". Shared by the Markdown renderer and the Word exporter.
 
 export const CALLOUT_KINDS = ['note', 'tip', 'important', 'warning', 'caution'] as const;
+
 export type CalloutKind = (typeof CALLOUT_KINDS)[number];
 
 /** The marker line, alone on the quote's first line (GitHub's rule) */
@@ -45,5 +46,6 @@ const ICON_PATHS: Record<CalloutKind, string[]> = {
 export function calloutTitleHtml(kind: CalloutKind): string {
   const paths = ICON_PATHS[kind].map((d) => `<path d="${d}"></path>`).join('');
   const icon = `<svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
   return `<p class="callout-title">${icon}${CALLOUT_LABELS[kind]}</p>\n`;
 }

@@ -27,6 +27,7 @@ export function FileTree() {
   const loadDirectory = useCallback(
     async (path: string) => {
       setLoading(true);
+
       try {
         setNodes(await readDirectory(path), path);
       } catch (error) {

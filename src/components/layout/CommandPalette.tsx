@@ -40,6 +40,7 @@ function useCommands(open: boolean): Command[] {
         shortcut,
         run: () => editorCommands.run(id),
       });
+
       commands.push(
         format('bold', 'Bold', 'bold'),
         format('italic', 'Italic', 'italic'),
@@ -75,6 +76,7 @@ function useCommands(open: boolean): Command[] {
         run: () => void openPath(file.path),
       });
     }
+
     return commands;
   }, [open, editorCommands, recentFiles]);
 }
@@ -82,10 +84,13 @@ function useCommands(open: boolean): Command[] {
 /** Every words of the query must appear; labels starting with the query rank first. */
 function filterCommands(commands: Command[], query: string): Command[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+
   if (!words.length) return commands;
+
   return commands
     .filter((c) => {
       const haystack = `${c.label} ${c.group}`.toLowerCase();
+
       return words.every((w) => haystack.includes(w));
     })
     .sort((a, b) => Number(b.label.toLowerCase().startsWith(words[0])) - Number(a.label.toLowerCase().startsWith(words[0])));
@@ -192,6 +197,7 @@ export function CommandPalette() {
             {results.length === 0 && <li className="px-4 py-6 text-center text-sm text-text-muted">No matching commands</li>}
             {results.map((command, index) => {
               const showGroup = index === 0 || results[index - 1].group !== command.group;
+
               return (
                 <li key={command.id} role="presentation">
                   {showGroup && !query && (

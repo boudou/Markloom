@@ -21,6 +21,7 @@ let tracking = false;
 function currentSession(): LastSession {
   const { tabs, activeTabId } = useTabsStore.getState();
   const paths = tabs.map((t) => t.path).filter((p): p is string => !!p);
+
   return {
     rootName: useAppStore.getState().rootPath,
     paths,
@@ -35,23 +36,28 @@ function isEmpty(session: LastSession | null): boolean {
 function startTracking() {
   let timer: number | undefined;
   let lastWritten = JSON.stringify(useSettingsStore.getState().lastSession);
+
   const save = () => {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
       const session = currentSession();
       // Typing changes tabs too; only rewrite settings when what's open actually changed
       const serialized = JSON.stringify(session);
+
       if (tracking && serialized === lastWritten) return;
+
       if (!tracking) {
         if (isEmpty(session)) return;
         // The user started something new: that becomes the session to remember
         tracking = true;
         useSessionStore.setState({ offer: null });
       }
+
       lastWritten = serialized;
       useSettingsStore.getState().setLastSession(session);
     }, 400);
   };
+
   useTabsStore.subscribe(save);
   useAppStore.subscribe((state, prev) => {
     if (state.rootPath !== prev.rootPath) save();
@@ -67,14 +73,17 @@ async function hasGrantedAccess(): Promise<boolean> {
 /** Reopens the last session. Call from a click: the browser may need to ask for access. */
 export async function restoreLastSession(): Promise<void> {
   const session = useSessionStore.getState().offer;
+
   if (!session) return;
   useSessionStore.setState({ restoring: true });
 
   try {
     let folderOk = true;
+
     if (session.rootName) {
       const name = await restoreRememberedFolder();
       folderOk = !!name;
+
       if (name) {
         const app = useAppStore.getState();
         app.setRootPath(name);
@@ -84,6 +93,7 @@ export async function restoreLastSession(): Promise<void> {
 
     const tabs = useTabsStore.getState();
     let reopened = 0;
+
     for (const path of session.paths) {
       try {
         tabs.openDocument(path, await readFile(path));
@@ -94,9 +104,11 @@ export async function restoreLastSession(): Promise<void> {
     }
 
     const active = useTabsStore.getState().tabs.find((t) => t.path === session.activePath);
+
     if (active) useTabsStore.getState().setActiveTab(active.id);
 
     const missed = session.paths.length - reopened;
+
     if (!folderOk || missed > 0) {
       notify({
         tone: 'info',
@@ -125,10 +137,13 @@ export function dismissLastSession(): void {
 export async function initSession(): Promise<void> {
   startTracking();
   const last = useSettingsStore.getState().lastSession;
+
   if (isEmpty(last)) {
     tracking = true;
+
     return;
   }
+
   useSessionStore.setState({ offer: last });
 
   // Access still granted (e.g. the browser remembers it): reopen without asking

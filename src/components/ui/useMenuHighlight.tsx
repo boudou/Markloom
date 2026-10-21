@@ -20,6 +20,7 @@ export function useMenuHighlight() {
 
   const onFocusCapture = useCallback((event: FocusEvent<HTMLElement>) => {
     const container = event.currentTarget;
+    // SAFETY: focus events fire on elements, and only Element.closest is used.
     const item = (event.target as HTMLElement).closest<HTMLElement>(ITEM);
     // Focus inside a submenu bubbles here too (React portals); the submenu has its own highlight
     const ours = item && container.contains(item) && item.offsetParent === container;

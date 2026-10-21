@@ -17,6 +17,7 @@ interface HighlightMeta {
 }
 
 const key = new PluginKey<DecorationSet>('markloom-search');
+
 const docChanges = createDocChangeListeners<EditorView>();
 
 export const searchPlugin = $prose(
@@ -27,6 +28,7 @@ export const searchPlugin = $prose(
         init: () => DecorationSet.empty,
         apply(tr, decorations) {
           const meta: HighlightMeta | undefined = tr.getMeta(key);
+
           if (meta) {
             return DecorationSet.create(
               tr.doc,
@@ -65,16 +67,21 @@ export function prosemirrorSearchEngine(view: EditorView): SearchEngine {
         if (!node.isTextblock) return true;
         // One character per position: inline leaves (images, breaks) become U+FFFC
         const text = node.textBetween(0, node.content.size, undefined, '￼');
+
         for (const match of collectMatches(regex, text, pos + 1)) found.push(match);
+
         return false;
       });
+
       return found;
     },
     applyReplacements(edits) {
       dispatch((state) => {
         let tr = state.tr;
+
         // Back to front so earlier positions stay valid; one transaction = one undo step
         for (let i = edits.length - 1; i >= 0; i--) tr = tr.insertText(edits[i].text, edits[i].from, edits[i].to);
+
         return tr;
       });
     },

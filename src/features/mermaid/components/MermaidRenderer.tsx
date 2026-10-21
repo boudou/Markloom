@@ -20,6 +20,7 @@ export function MermaidRenderer({ code, className }: MermaidRendererProps) {
 
     void renderMermaid(code, 'preview').then((result) => {
       const container = containerRef.current;
+
       if (cancelled || !container) return;
 
       if (result.ok) container.innerHTML = result.svg;

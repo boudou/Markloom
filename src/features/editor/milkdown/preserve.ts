@@ -18,24 +18,30 @@ const keyCache = new Map<string, string>();
 
 function blockKey(text: string): string {
   let key = keyCache.get(text);
+
   if (key === undefined) {
     key = comparer.render(text).replace(/\s+/g, ' ').trim();
+
     if (keyCache.size > 2000) keyCache.clear();
     keyCache.set(text, key);
   }
+
   return key;
 }
 
 /** Top-level blocks with their exact source text. */
 function splitBlocks(lines: string[], markdown: string): Block[] {
   const blocks: Block[] = [];
+
   for (const token of comparer.parse(markdown, {})) {
     if (token.level !== 0 || !token.map || token.nesting === -1) continue;
     const start = token.map[0];
     const text = lines.slice(start, token.map[1]).join('\n').replace(/\s+$/, '');
+
     // markdown-it counts a list's trailing blank line as part of the list; measure the real text
     if (text) blocks.push({ text, key: blockKey(text), start, end: start + text.split('\n').length });
   }
+
   return blocks;
 }
 
@@ -60,6 +66,7 @@ export function preserveUnchangedBlocks(original: string, serialized: string): s
   let previousOriginal = -2;
   splitBlocks(serialized.split('\n'), serialized).forEach((block, i) => {
     const index = available.get(block.key)?.shift();
+
     if (i > 0) {
       // Consecutive untouched blocks: reuse the exact gap between them
       output +=
@@ -67,6 +74,7 @@ export function preserveUnchangedBlocks(original: string, serialized: string): s
           ? '\n' + originalLines.slice(originalBlocks[previousOriginal].end, originalBlocks[index].start).map((l) => `${l}\n`).join('')
           : '\n\n';
     }
+
     output += index !== undefined ? originalBlocks[index].text : block.text;
     previousOriginal = index ?? -2;
   });

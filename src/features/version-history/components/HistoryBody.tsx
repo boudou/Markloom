@@ -16,14 +16,18 @@ function formatDate(timestamp: number) {
 
   // Less than a minute
   if (diff < 60000) return 'Just now';
+
   // Less than an hour
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+
   // Less than a day
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+
   // Same year
   if (date.getFullYear() === now.getFullYear()) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -66,6 +70,7 @@ export default function HistoryBody() {
     if (activeFilePath && content && content !== version.content) {
       await saveCurrentVersion(activeFilePath, content, 'Before restore');
     }
+
     setContent(version.content);
     selectVersion(null);
   };

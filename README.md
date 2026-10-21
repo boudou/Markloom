@@ -124,6 +124,7 @@ npm run electron:build  # build installers for your OS into release/
 | `npm run dev` | Web app with hot reload on port 1420 |
 | `npm run build` | Type-check and production build into `dist/` |
 | `npm run preview` | Serve the production build |
+| `npm run lint` | Lint `src/` with Oxlint and the anti-slop rules |
 | `npm run electron:dev` | Desktop app with live reload |
 | `npm run electron:start` | Build, then run the desktop app |
 | `npm run electron:build` | Desktop installers in `release/` |

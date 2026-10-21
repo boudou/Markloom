@@ -11,6 +11,7 @@ import { Tooltip } from '@/components/ui';
 
 // Stable references: @uiw/react-codemirror reconfigures the editor whenever these change
 const sourceExtensions = [markloomEditorTheme, markloomHighlight, EditorView.lineWrapping];
+
 const basicSetup = {
   lineNumbers: true,
   highlightActiveLineGutter: true,
@@ -45,6 +46,7 @@ export function MermaidEditor() {
     const timer = setTimeout(() => {
       setDebouncedContent(content);
     }, 300);
+
     return () => clearTimeout(timer);
   }, [content]);
 
@@ -103,6 +105,7 @@ export function MermaidEditor() {
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);

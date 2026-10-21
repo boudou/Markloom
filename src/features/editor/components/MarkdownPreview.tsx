@@ -39,12 +39,16 @@ export function MarkdownPreview({ content, className, surfaceRef, onShowLine, on
   }, [html]);
   useEffect(() => {
     const article = articleRef.current;
+
     if (!article) return;
+
     const announce = (message: string) => {
       if (statusRef.current) statusRef.current.textContent = message;
     };
+
     const onClick = (event: MouseEvent) => void handleCopyClick(event, announce);
     article.addEventListener('click', onClick);
+
     return () => article.removeEventListener('click', onClick);
   }, []);
 
@@ -52,17 +56,20 @@ export function MarkdownPreview({ content, className, surfaceRef, onShowLine, on
   // Failures become an error card and are reported so the source pane can mark the line.
   useEffect(() => {
     const container = surfaceRef.current;
+
     if (!container) return;
     let cancelled = false;
 
     const renders = Array.from(container.querySelectorAll<HTMLElement>('.mermaid-container[data-mermaid]')).map(
       async (slot): Promise<number | null> => {
         const code = decodeURIComponent(slot.getAttribute('data-mermaid') || '');
+
         if (!code) return null;
         slot.setAttribute('role', 'img');
         slot.setAttribute('aria-label', `Diagram: ${code.split('\n')[0].trim()}`);
 
         const result = await renderMermaid(code, 'preview');
+
         if (cancelled) return null;
 
         if (result.ok) {

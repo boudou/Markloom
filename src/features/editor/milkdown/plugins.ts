@@ -14,22 +14,27 @@ import { useTabsStore } from '@/features/tabs';
 import { getMarkdownParser, isMermaidFence, leadingBlankLines, mermaidFences } from '@/lib/markdown';
 
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
+
 const imageUrlCache = new Map<string, string>();
 
 function activeDocumentPath(): string | null {
   const { tabs, activeTabId } = useTabsStore.getState();
+
   return tabs.find((t) => t.id === activeTabId)?.path ?? null;
 }
 
 /** Turns a markdown image src into something the browser can display */
 async function resolveImageSrc(src: string): Promise<string> {
   const docPath = activeDocumentPath();
+
   if (!src || ABSOLUTE_URL.test(src) || !canResolveRelative(docPath)) return src;
   const path = resolveSourcePath(docPath, src);
   const cached = imageUrlCache.get(path);
+
   if (cached) return cached;
   const url = URL.createObjectURL(await readFileBlob(path));
   imageUrlCache.set(path, url);
+
   return url;
 }
 
@@ -45,33 +50,44 @@ export const diagramErrorMarks = $prose(
       state: {
         init: () => new Map(),
         apply(tr, marks) {
+          // SAFETY: this meta is only set by markLine below, with this type.
           const meta = tr.getMeta(errorMarkKey) as { pos: number; line: number | null } | undefined;
           let next = marks;
+
           if (tr.docChanged) {
             next = new Map();
+
             for (const [pos, line] of marks) next.set(tr.mapping.map(pos), line);
           }
+
           if (meta) {
             next = new Map(next);
+
             if (meta.line) next.set(meta.pos, meta.line);
             else next.delete(meta.pos);
           }
+
           return next;
         },
       },
       props: {
         decorations(state) {
           const marks = errorMarkKey.getState(state);
+
           if (!marks?.size) return null;
           const decorations: Decoration[] = [];
+
           for (const [pos, line] of marks) {
             const node = state.doc.nodeAt(pos);
+
             if (!node || node.type.name !== 'code_block') continue;
             const range = lineRange(node.textContent, line);
+
             if (range && range.to > range.from) {
               decorations.push(Decoration.inline(pos + 1 + range.from, pos + 1 + range.to, { class: 'rt-diagram-error-line' }));
             }
           }
+
           return DecorationSet.create(state.doc, decorations);
         },
       },
@@ -81,9 +97,11 @@ export const diagramErrorMarks = $prose(
 /** Character range of a 1-based line within text */
 function lineRange(text: string, line: number): { from: number; to: number; textStart: number } | null {
   const lines = text.split('\n');
+
   if (line < 1 || line > lines.length) return null;
   const from = lines.slice(0, line - 1).reduce((sum, l) => sum + l.length + 1, 0);
   const indent = lines[line - 1].match(/^\s*/)?.[0].length ?? 0;
+
   return { from, to: from + lines[line - 1].length, textStart: from + indent };
 }
 
@@ -91,6 +109,7 @@ function lineRange(text: string, line: number): { from: number; to: number; text
 function documentLineOfDiagram(index: number): number | undefined {
   const { tabs, activeTabId } = useTabsStore.getState();
   const markdown = tabs.find((t) => t.id === activeTabId)?.content ?? '';
+
   return mermaidFences(getMarkdownParser().parse(markdown, {}))[index]?.firstLine;
 }
 
@@ -155,6 +174,7 @@ class CodeBlockView implements NodeView {
 
   private setSourceVisible(visible: boolean) {
     this.dom.classList.toggle('is-editing', visible);
+
     if (this.toggle) this.toggle.textContent = visible ? 'Hide source' : 'Edit source';
   }
 
@@ -170,17 +190,22 @@ class CodeBlockView implements NodeView {
     let found = -1;
     this.view.state.doc.descendants((node, pos) => {
       if (found !== -1) return false;
+
       if (node.type.name === 'code_block' && isMermaidFence(node.attrs.language)) {
         index++;
+
         if (pos === own) found = index;
       }
+
       return true;
     });
+
     return found;
   }
 
   private markLine(line: number | null) {
     const pos = this.getPos();
+
     if (pos === undefined) return;
     this.view.dispatch(this.view.state.tr.setMeta(errorMarkKey, { pos, line }));
   }
@@ -190,6 +215,7 @@ class CodeBlockView implements NodeView {
     this.setSourceVisible(true);
     const pos = this.getPos();
     const range = lineRange(this.node.textContent, lineInSource);
+
     if (pos === undefined || !range) return;
     const caret = pos + 1 + range.textStart;
     this.view.dispatch(this.view.state.tr.setSelection(TextSelection.create(this.view.state.doc, caret)).scrollIntoView());
@@ -198,15 +224,20 @@ class CodeBlockView implements NodeView {
 
   private async render() {
     const source = this.node.textContent.trim();
+
     if (!this.preview || source === this.lastRendered) return;
     this.lastRendered = source;
     this.preview.setAttribute('aria-label', `Diagram: ${source.split('\n')[0]}`);
+
     if (!source) {
       this.preview.innerHTML = '<p class="rt-mermaid-empty">Empty diagram</p>';
       this.markLine(null);
+
       return;
     }
+
     const result = await renderMermaid(source, 'preview');
+
     if (source !== this.lastRendered) return;
 
     if (result.ok) {
@@ -232,13 +263,17 @@ class CodeBlockView implements NodeView {
   update(node: ProseNode) {
     // A language change between mermaid and anything else needs a different view
     if (node.type !== this.node.type) return false;
+
     if (isMermaidFence(node.attrs.language) !== isMermaidFence(this.node.attrs.language)) return false;
     this.node = node;
+
     if (this.preview) this.scheduleRender();
     else {
       const label = this.dom.querySelector('.rt-code-label');
+
       if (label) label.textContent = node.attrs.language || '';
     }
+
     return true;
   }
 
@@ -249,7 +284,9 @@ class CodeBlockView implements NodeView {
 
   stopEvent(event: Event) {
     // Our own controls (toggle, Show line, Details) handle their events themselves
+    // SAFETY: events reach a node view from its own DOM, so the target is a Node.
     const target = event.target as Node;
+
     return this.dom.contains(target) && !this.contentDOM.contains(target);
   }
 
@@ -266,11 +303,13 @@ export const codeBlockView = $view(codeBlockSchema.node, () => (node, view, getP
 
 export const imageSchemaFix = imageSchema.extendSchema((prev) => (ctx) => {
   const base = prev(ctx);
+
   return {
     ...base,
     parseMarkdown: {
       ...base.parseMarkdown,
       runner: (state, node, type) => {
+        // SAFETY: a remark image node has a string url; alt and title are strings or null (the ?? covers null).
         state.addNode(type, {
           src: (node.url as string) ?? '',
           alt: (node.alt as string) ?? '',
@@ -288,6 +327,7 @@ function missingImagePlaceholder(label: string): string {
   const text = `Image not found: ${label}`.slice(0, 80).replace(/[<>&"']/g, '');
   const width = Math.max(220, text.length * 7.4 + 32);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="40"><rect x="0.5" y="0.5" width="${width - 1}" height="39" rx="6" fill="#fff" stroke="#D9DCE1" stroke-dasharray="4 3"/><text x="16" y="25" font-family="Outfit, system-ui, sans-serif" font-size="13" fill="#626977">${text}</text></svg>`;
+
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
@@ -303,6 +343,7 @@ class ImageView implements NodeView {
     this.node = node;
     const { src, alt, title } = node.attrs;
     this.dom.alt = alt ?? '';
+
     if (title) this.dom.title = title;
     resolveImageSrc(src)
       .then((url) => {
@@ -317,8 +358,10 @@ class ImageView implements NodeView {
 
   update(node: ProseNode) {
     if (node.type !== this.node.type) return false;
+
     if (node.attrs.src !== this.node.attrs.src || node.attrs.alt !== this.node.attrs.alt) this.apply(node);
     else this.node = node;
+
     return true;
   }
 
@@ -367,11 +410,13 @@ function taskLabels(doc: ProseNode): Decoration[] {
           const span = document.createElement('span');
           span.className = 'sr-only';
           span.textContent = label;
+
           return span;
         },
         { side: -1, ignoreSelection: true, key: label }
       )
     );
+
     return true;
   });
 
@@ -384,13 +429,18 @@ export const taskToggle = $prose(() =>
     handleKeyDown(view: EditorView, event: KeyboardEvent) {
       if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return false;
       const { $from } = view.state.selection;
+
       for (let depth = $from.depth; depth > 0; depth--) {
         const node = $from.node(depth);
+
         if (node.type.name !== 'list_item') continue;
+
         if (node.attrs.checked == null) return false;
         view.dispatch(view.state.tr.setNodeMarkup($from.before(depth), undefined, { ...node.attrs, checked: !node.attrs.checked }));
+
         return true;
       }
+
       return false;
     },
     handleClickOn(view: EditorView, _pos, node, nodePos, event, direct) {
@@ -398,11 +448,13 @@ export const taskToggle = $prose(() =>
       // SAFETY: a click ProseMirror routes to a node landed on that node's rendered HTML element
       const target = event.target as HTMLElement;
       const box = target.getBoundingClientRect();
+
       // The checkbox is drawn in the item's left padding
       if (event.clientX - box.left > 24) return false;
       view.dispatch(
         view.state.tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, checked: !node.attrs.checked })
       );
+
       return true;
     },
   })
@@ -415,6 +467,7 @@ function inlineCodeRanges(doc: ProseNode): Decoration[] {
     if (node.isText && node.marks.some((m) => m.type.name === 'inlineCode')) {
       decorations.push(Decoration.inline(pos, pos + node.nodeSize, { spellcheck: 'false' }));
     }
+
     return true;
   });
 
@@ -436,6 +489,7 @@ export const htmlView = $view(htmlSchema.node, () => (node) => {
   const comment = value.match(/^<!--([\s\S]*?)-->$/);
   const dom = document.createElement('span');
   dom.contentEditable = 'false';
+
   if (comment) {
     const text = comment[1].trim();
     dom.className = 'rt-html-comment';
@@ -447,5 +501,6 @@ export const htmlView = $view(htmlSchema.node, () => (node) => {
     dom.className = 'rt-html-inline';
     dom.textContent = value;
   }
+
   return { dom, ignoreMutation: () => true };
 });

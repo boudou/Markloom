@@ -1,4 +1,5 @@
 export { TabBar } from './components';
+
 export {
   useTabsStore,
   selectActiveTab,

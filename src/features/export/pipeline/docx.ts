@@ -29,8 +29,11 @@ import type { ExportRequest } from './exporters';
 type Token = ReturnType<MarkdownIt['parse']>[number];
 
 const MAX_IMAGE_WIDTH = 600; // px, fits A4/Letter text width
+
 const BODY_FONT = 'Calibri';
+
 const CODE_FONT = 'Consolas';
+
 const HEADINGS = [
   HeadingLevel.HEADING_1,
   HeadingLevel.HEADING_2,
@@ -71,25 +74,31 @@ interface RunStyle {
 
 function fitted(width: number, height: number) {
   const scale = Math.min(1, MAX_IMAGE_WIDTH / width);
+
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
 async function imageRun(image: ExportImage, alt: string): Promise<ImageRun> {
   const transformation = fitted(image.width, image.height);
   const altText = { name: alt || 'Image', title: alt || 'Image', description: alt || '' };
+
   const regular: Record<string, 'png' | 'jpg' | 'gif' | 'bmp'> = {
     'image/png': 'png',
     'image/jpeg': 'jpg',
     'image/gif': 'gif',
     'image/bmp': 'bmp',
   };
+
   const type = regular[image.mime];
+
   if (type) return new ImageRun({ type, data: image.bytes, transformation, altText });
 
   const png = await toPngBytes(image.dataUrl, image.width, image.height);
+
   if (image.mime === 'image/svg+xml') {
     return new ImageRun({ type: 'svg', data: image.bytes, fallback: { type: 'png', data: png }, transformation, altText });
   }
+
   return new ImageRun({ type: 'png', data: png, transformation, altText });
 }
 
@@ -98,6 +107,7 @@ async function diagramParagraph(code: string): Promise<Paragraph> {
     const { svg, width, height } = await renderDiagram(code);
     const dataUrl = svgDataUrl(svg);
     const png = await toPngBytes(dataUrl, width, height);
+
     return new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 120, after: 200 },
@@ -131,6 +141,7 @@ async function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunSty
   let link: { href: string; runs: TextRun[] } | null = null;
 
   const push = (run: TextRun) => (link ? link.runs.push(run) : out.push(run));
+
   const text = (value: string, extra: Record<string, unknown> = {}) =>
     new TextRun({
       text: value,
@@ -169,21 +180,25 @@ async function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunSty
           else out.push(...link.runs);
           link = null;
         }
+
         break;
       case 'image': {
         const src = token.attrGet('src') ?? '';
         const alt = token.content;
         const image = await loadDocumentImage(src, state.docPath);
+
         if (image) out.push(await imageRun(image, alt));
         else push(text(`[Image not found: ${alt || src}]`, { italics: true, color: '991B1B' }));
         break;
       }
+
       case 'html_inline':
         if (/^<br\s*\/?>$/i.test(token.content)) push(new TextRun({ break: 1 }));
         // Other inline HTML (including our task checkboxes) carries no text
         break;
     }
   }
+
   return out;
 }
 
@@ -204,22 +219,28 @@ function blockOptions(state: WalkState): Partial<IParagraphOptions> {
     } else {
       options.indent = { left: 720 * (level + 1) };
     }
+
     item.firstParagraph = false;
     options.spacing = { after: 60 };
   }
 
   if (state.quoteDepth > 0) {
+    // SAFETY: indent is only ever set to `{ left: number }` above.
     const current = (options.indent as { left: number } | undefined)?.left ?? 0;
     options.indent = { left: current + 360 * state.quoteDepth };
+    // SAFETY: callouts holds data-callout values, which lib/markdown.ts sets from a CalloutKind, or ''.
     const callout = state.callouts[state.callouts.length - 1] as CalloutKind | '';
     const color = callout ? CALLOUT_COLORS[callout] : 'D9DCE1';
     options.border = { left: { style: BorderStyle.SINGLE, size: callout ? 18 : 12, color, space: 10 } };
   }
+
+  // SAFETY: options only receives IParagraphOptions fields above (numbering, indent, spacing, border).
   return options as Partial<IParagraphOptions>;
 }
 
 function codeParagraph(code: string): Paragraph {
   const lines = code.replace(/\n$/, '').split('\n');
+
   return new Paragraph({
     shading: { type: ShadingType.CLEAR, fill: 'F8F9FA', color: 'auto' },
     border: {
@@ -237,9 +258,12 @@ function codeParagraph(code: string): Paragraph {
 async function buildTable(tokens: Token[], start: number, state: WalkState): Promise<{ table: Table; end: number }> {
   const rows: { cells: { inline: Token; header: boolean; align: string | null }[] }[] = [];
   let i = start + 1;
+
   for (; i < tokens.length && tokens[i].type !== 'table_close'; i++) {
     const t = tokens[i];
+
     if (t.type === 'tr_open') rows.push({ cells: [] });
+
     if (t.type === 'th_open' || t.type === 'td_open') {
       const align = (t.attrGet('style') ?? '').match(/text-align:\s*(\w+)/)?.[1] ?? null;
       rows[rows.length - 1].cells.push({ inline: tokens[i + 1], header: t.type === 'th_open', align });
@@ -250,6 +274,7 @@ async function buildTable(tokens: Token[], start: number, state: WalkState): Pro
     center: AlignmentType.CENTER,
     right: AlignmentType.RIGHT,
   };
+
   const border = { style: BorderStyle.SINGLE, size: 4, color: 'D9DCE1' };
 
   const tableRows = await Promise.all(
@@ -285,6 +310,7 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
+
     switch (token.type) {
       case 'heading_open': {
         const level = Number(token.tag.slice(1)) - 1;
@@ -298,14 +324,17 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         i += 2;
         break;
       }
+
       case 'paragraph_open': {
         const inline = tokens[i + 1];
         const item = state.items[state.items.length - 1];
         const prefix: ParagraphChild[] = [];
+
         if (item?.task && item.firstParagraph) {
           const checked = /checked/.test(inline.children?.find((c) => c.type === 'html_inline')?.content ?? '');
           prefix.push(new TextRun({ text: checked ? '☑ ' : '☐ ', font: 'Segoe UI Symbol' }));
         }
+
         blocks.push(
           new Paragraph({
             ...blockOptions(state),
@@ -315,6 +344,7 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         i += 2;
         break;
       }
+
       case 'bullet_list_open':
       case 'ordered_list_open':
         state.lists.push({ ordered: token.type === 'ordered_list_open', instance: ++state.nextListInstance });
@@ -344,6 +374,7 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         } else {
           blocks.push(codeParagraph(token.content));
         }
+
         break;
       case 'hr':
         blocks.push(
@@ -360,8 +391,11 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
         i = end;
         break;
       }
+
       case 'html_block': {
+        // SAFETY: calloutTitle meta is set by the callouts rule in lib/markdown.ts, from a CalloutKind.
         const callout = token.meta?.calloutTitle as CalloutKind | undefined;
+
         if (callout) {
           blocks.push(
             new Paragraph({
@@ -373,16 +407,20 @@ async function walk(tokens: Token[], state: WalkState): Promise<(Paragraph | Tab
           );
           break;
         }
+
         const textContent = new DOMParser().parseFromString(token.content, 'text/html').body.textContent?.trim();
+
         if (textContent) blocks.push(new Paragraph({ ...blockOptions(state), children: [new TextRun(textContent)] }));
         break;
       }
     }
   }
+
   return blocks;
 }
 
 const BULLETS = ['•', '◦', '▪'];
+
 const ORDERED_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFormat.LOWER_ROMAN];
 
 export async function exportDocx(request: ExportRequest): Promise<void> {
