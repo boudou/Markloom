@@ -55,9 +55,11 @@ export const searchPlugin = $prose(
 
 /** Adapter used by the shared Find bar */
 export function prosemirrorSearchEngine(view: EditorView): SearchEngine {
-  // The bar can clear the search after Milkdown destroyed the view (mode or tab switch)
+  // The bar clears the search on the old editor after a mode or tab switch. By then the view has
+  // left the DOM, and Milkdown removes its editorState ctx before it destroys the view, so a
+  // dispatch in between throws. A detached or destroyed view has nothing left to update.
   const dispatch = (build: (state: EditorState) => Transaction) => {
-    if (!view.isDestroyed) view.dispatch(build(view.state));
+    if (!view.isDestroyed && view.dom.isConnected) view.dispatch(build(view.state));
   };
 
   return createSearchEngine({
