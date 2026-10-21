@@ -1,6 +1,9 @@
 // Markdown formatting for the rich-text editor: each toolbar, palette and shortcut
 // action mapped to a Milkdown command. The rich-text twin of codemirror/commands.ts.
-import { type CmdKey, type Editor, editorViewCtx } from '@milkdown/kit/core';
+import { type CmdKey, type Editor, commandsCtx, editorViewCtx } from '@milkdown/kit/core';
+import type { Ctx } from '@milkdown/kit/ctx';
+import type { Node } from '@milkdown/kit/prose/model';
+import type { EditorState } from '@milkdown/kit/prose/state';
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -44,6 +47,37 @@ function askForLink(kind: LinkRequest['kind']): RichAction {
   };
 }
 
+// The innermost list item around the cursor and its position
+function listItemAtCursor(state: EditorState): { node: Node; pos: number } | null {
+  const { $from } = state.selection;
+
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+
+    if (node.type.name === 'list_item') return { node, pos: $from.before(depth) };
+  }
+
+  return null;
+}
+
+// GFM has no task-list command, only the "[ ] " input rule: a task is a list item
+// with `checked` set. Wrap the block in a bullet list when it isn't in one, then mark
+// the item as a task; on a task item, turn it back into a plain item (as the source
+// editor's shortcut toggles its "- [ ] " prefix).
+function toggleTaskItem(ctx: Ctx): void {
+  const view = ctx.get(editorViewCtx);
+
+  if (!listItemAtCursor(view.state)) ctx.get(commandsCtx).call(wrapInBulletListCommand.key);
+
+  const item = listItemAtCursor(view.state);
+
+  if (!item) return;
+
+  const checked = item.node.attrs.checked == null ? false : null;
+
+  view.dispatch(view.state.tr.setNodeMarkup(item.pos, undefined, { ...item.node.attrs, checked }));
+}
+
 const RICH_ACTIONS: Record<MarkdownAction, RichAction> = {
   bold: command(toggleStrongCommand),
   italic: command(toggleEmphasisCommand),
@@ -60,7 +94,7 @@ const RICH_ACTIONS: Record<MarkdownAction, RichAction> = {
   codeblock: command(createCodeBlockCommand),
   table: command(insertTableCommand, { row: 3, col: 3 }),
   checkbox: (editor) => {
-    editor.action(insert('- [ ] '));
+    editor.action(toggleTaskItem);
     focusDocument(editor);
   },
   link: askForLink('link'),
