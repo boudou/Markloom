@@ -16,7 +16,11 @@ export interface DiagramError {
  */
 export function describeDiagramError(message: string, code: string, firstLine?: number): DiagramError {
   const detail = message.trim();
-  const lineInDiagram = Number(detail.match(/(?:Parse|Lexical) error on line (\d+)/i)?.[1]) || null;
+  const reported = Number(detail.match(/(?:Parse|Lexical) error on line (\d+)/i)?.[1]) || null;
+  // End-of-input errors are reported on the line after the diagram; the statement left
+  // unfinished is on its last line
+  const lastLine = code.trimEnd().split('\n').length;
+  const lineInDiagram = reported && Math.min(reported, lastLine);
   const line = lineInDiagram && firstLine ? firstLine + lineInDiagram - 1 : lineInDiagram;
   const where = line ? `Line ${line}` : 'This diagram';
 

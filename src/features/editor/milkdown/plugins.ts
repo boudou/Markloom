@@ -105,12 +105,18 @@ function lineRange(text: string, line: number): { from: number; to: number; text
   return { from, to: from + lines[line - 1].length, textStart: from + indent };
 }
 
-/** Document line where the nth Mermaid block's first diagram line sits in the Markdown source */
-function documentLineOfDiagram(index: number): number | undefined {
+/**
+ * Document line of a diagram's first line in the Markdown source. Blocks are paired with
+ * fences by their source, the nth block with this source to the nth fence with it, so a
+ * fence one parser counts and the other doesn't can't shift other diagrams' lines.
+ * Undefined while the source isn't in the document yet (an edit not written back).
+ */
+function documentLineOfDiagram(source: string, occurrence: number): number | undefined {
   const { tabs, activeTabId } = useTabsStore.getState();
   const markdown = tabs.find((t) => t.id === activeTabId)?.content ?? '';
+  const fences = mermaidFences(getMarkdownParser().parse(markdown, {}));
 
-  return mermaidFences(getMarkdownParser().parse(markdown, {}))[index]?.firstLine;
+  return fences.filter((fence) => fence.code === source)[occurrence]?.firstLine;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,24 +189,20 @@ class CodeBlockView implements NodeView {
     this.renderTimer = window.setTimeout(() => void this.render(), delay);
   }
 
-  /** Index of this block among the document's Mermaid blocks */
-  private diagramIndex(): number {
-    const own = this.getPos();
-    let index = -1;
-    let found = -1;
-    this.view.state.doc.descendants((node, pos) => {
-      if (found !== -1) return false;
-
-      if (node.type.name === 'code_block' && isMermaidFence(node.attrs.language)) {
-        index++;
-
-        if (pos === own) found = index;
+  /** How many Mermaid blocks with the same source come before this one */
+  private occurrence(source: string): number {
+    const own = this.getPos() ?? -1;
+    let count = 0;
+    // Nodes that start before this one
+    this.view.state.doc.nodesBetween(0, Math.max(own, 0), (node) => {
+      if (node.type.name === 'code_block' && isMermaidFence(node.attrs.language) && node.textContent.trim() === source) {
+        count++;
       }
 
       return true;
     });
 
-    return found;
+    return count;
   }
 
   private markLine(line: number | null) {
@@ -248,7 +250,7 @@ class CodeBlockView implements NodeView {
     }
 
     // Same numbering as the Markdown view: lines of the document, not of the diagram
-    const firstLine = documentLineOfDiagram(this.diagramIndex());
+    const firstLine = documentLineOfDiagram(source, this.occurrence(source));
     const described = describeDiagramError(result.error, source, firstLine);
     const lineInDiagram = described.line && firstLine ? described.line - firstLine + 1 : described.line;
     // Leading blank lines were trimmed before rendering; count them back for the source
