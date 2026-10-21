@@ -70,11 +70,13 @@ export async function loadDocumentImage(src: string, docPath: string | null): Pr
   }
 }
 
-/** Renders a Mermaid diagram to a standalone SVG with real pixel dimensions. */
-export async function renderDiagram(code: string): Promise<{ svg: string; width: number; height: number }> {
+export type ExportDiagram = { ok: true; svg: string; width: number; height: number } | { ok: false; error: string };
+
+/** Renders a Mermaid diagram to a standalone SVG with real pixel dimensions; never rejects. */
+export async function renderDiagram(code: string): Promise<ExportDiagram> {
   const result = await renderMermaid(code, 'export');
 
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) return result;
 
   const doc = new DOMParser().parseFromString(result.svg, 'image/svg+xml');
   const root = doc.documentElement;
@@ -85,7 +87,15 @@ export async function renderDiagram(code: string): Promise<{ svg: string; width:
   root.setAttribute('height', String(height));
   root.style.removeProperty('max-width');
 
-  return { svg: new XMLSerializer().serializeToString(root), width, height };
+  return { ok: true, svg: new XMLSerializer().serializeToString(root), width, height };
+}
+
+/** Loads each distinct key once, all at the same time, and maps every key to its result. */
+export async function loadUnique<T>(keys: Iterable<string>, load: (key: string) => Promise<T>): Promise<Map<string, T>> {
+  const unique = [...new Set(keys)];
+  const results = await Promise.all(unique.map(load));
+
+  return new Map(unique.map((key, i) => [key, results[i]]));
 }
 
 export function svgDataUrl(svg: string): string {

@@ -1,6 +1,6 @@
 // Checks a document before export, so problems surface in Markloom rather than in Word.
 import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
-import { diagramSyntaxError } from '@/features/mermaid/utils/mermaidConfig';
+import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath, safeDecode } from '@/lib/documentPath';
@@ -21,9 +21,10 @@ export async function checkDocument(markdown: string, docPath: string | null): P
 
   for (const { code, firstLine } of mermaidFences(tokens)) {
     checks.push(
-      diagramSyntaxError(code).then((message) => {
-        if (!message) return null;
-        const described = describeDiagramError(message, code, firstLine);
+      // The same render export uses, so a diagram checked here is cached for the export
+      renderMermaid(code, 'export').then((result) => {
+        if (result.ok) return null;
+        const described = describeDiagramError(result.error, code, firstLine);
         // The list already shows the line number; drop it from the sentence
         const sentence = described.summary.replace(/^Line \d+:\s*/, '');
 

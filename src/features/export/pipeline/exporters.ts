@@ -1,8 +1,8 @@
 import { saveAs } from 'file-saver';
 import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
 import { buildStandaloneHtml, renderExportBody } from './html';
-import { loadDocumentImage, renderDiagram, svgDataUrl } from './assets';
-import { placedInlines } from './inlineLines';
+import { loadDocumentImage, loadUnique, renderDiagram, svgDataUrl } from './assets';
+import { imageSources, placedInlines } from './inlineLines';
 
 export interface ExportRequest {
   markdown: string;
@@ -52,6 +52,9 @@ export async function exportHtml(request: ExportRequest): Promise<void> {
 
 const IMAGE_SYNTAX = /!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(\s+"[^"]*")?\)/g;
 
+// Portable Markdown leaves data URLs and web images as they are
+const KEEP_AS_LINK = /^(data|https?):/i;
+
 /**
  * A single portable Markdown text: diagrams become embedded SVG images and local images
  * are embedded too, so it reads the same anywhere it's opened.
@@ -60,14 +63,23 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
   const md = getMarkdownParser();
   const tokens = md.parse(request.markdown, {});
   const lines = request.markdown.split('\n');
+  const placed = placedInlines(tokens);
+  const fences = mermaidFences(tokens);
+
+  // Every distinct image and diagram is requested at once, before the text is rewritten
+  const [images, diagrams] = await Promise.all([
+    loadUnique(
+      placed.flatMap(({ token }) => imageSources(token).filter((src) => !KEEP_AS_LINK.test(src))),
+      (src) => loadDocumentImage(src, request.docPath)
+    ),
+    loadUnique(fences.map(({ code }) => code), renderDiagram),
+  ]);
 
   // Embed images first, while line numbers are the original ones. Only the lines of inline
   // text that markdown-it parsed as images are touched, so code blocks keep their examples.
   // Bottom-up, and a data URL has no line break, so every token's lines stay valid.
-  for (const { token, lines: [start, end] } of placedInlines(tokens).reverse()) {
-    const wanted = new Set(
-      (token.children ?? []).flatMap((child) => (child.type === 'image' ? [child.attrGet('src') ?? ''] : []))
-    );
+  for (const { token, lines: [start, end] } of [...placed].reverse()) {
+    const wanted = new Set(imageSources(token));
 
     if (wanted.size === 0) continue;
 
@@ -76,14 +88,14 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
     for (const match of [...text.matchAll(IMAGE_SYNTAX)].reverse()) {
       const rawSrc = match[2].replace(/^<|>$/g, '');
 
-      if (/^(data|https?):/i.test(rawSrc)) continue;
+      if (KEEP_AS_LINK.test(rawSrc)) continue;
 
       // markdown-it unescapes and then normalizes the destination; Word and HTML export load that form
       const src = md.normalizeLink(md.utils.unescapeAll(rawSrc));
 
       if (!wanted.has(src)) continue;
 
-      const image = await loadDocumentImage(src, request.docPath);
+      const image = images.get(src);
 
       if (!image) continue;
 
@@ -96,15 +108,14 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
 
   // Replace each Mermaid fence (bottom-up so line numbers stay valid). The image keeps the
   // fence's container prefix ("> ", a list marker or indent), which never holds ` or ~.
-  for (const { range: [start, end], code } of mermaidFences(tokens).reverse()) {
-    try {
-      const { svg } = await renderDiagram(code);
-      const prefix = /^[^`~]*/.exec(lines[start])?.[0] ?? '';
+  for (const { range: [start, end], code } of [...fences].reverse()) {
+    const diagram = diagrams.get(code);
 
-      lines.splice(start, end - start, `${prefix}![Diagram](${svgDataUrl(svg)})`);
-    } catch {
-      // Leave the source in place; it still renders wherever Mermaid is supported
-    }
+    // A failed diagram keeps its source; it still renders wherever Mermaid is supported
+    if (!diagram?.ok) continue;
+
+    const prefix = /^[^`~]*/.exec(lines[start])?.[0] ?? '';
+    lines.splice(start, end - start, `${prefix}![Diagram](${svgDataUrl(diagram.svg)})`);
   }
 
   return lines.join('\n');
