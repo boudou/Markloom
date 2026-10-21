@@ -190,7 +190,7 @@ export function useDocumentLinks(
       }
 
       const path = resolveSourcePath(activeFilePath, src);
-      showImage(img, path).catch(() => showMissingImage(img, src));
+      void showImage(img, path, () => showMissingImage(img, src));
     });
   }, [containerRef, html, activeFilePath, resolveImages]);
 
