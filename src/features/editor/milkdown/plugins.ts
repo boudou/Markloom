@@ -8,7 +8,7 @@ import type { Node as ProseNode, NodeType } from '@milkdown/kit/prose/model';
 import type { Transform } from '@milkdown/kit/prose/transform';
 import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
-import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
+import { fillDiagram } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { resolveSourcePath } from '@/lib/documentPath';
 import { useTabsStore, selectActiveContent, selectActiveTab } from '@/features/tabs';
@@ -219,7 +219,6 @@ class CodeBlockView implements NodeView {
       this.preview = document.createElement('div');
       this.preview.className = 'rt-mermaid-preview';
       this.preview.contentEditable = 'false';
-      this.preview.setAttribute('role', 'img');
 
       this.dom.append(header, this.preview, pre);
       this.setSourceVisible(node.textContent.trim() === '');
@@ -284,9 +283,10 @@ class CodeBlockView implements NodeView {
 
     if (!this.preview || source === this.lastRendered) return;
     this.lastRendered = source;
-    this.preview.setAttribute('aria-label', `Diagram: ${source.split('\n')[0]}`);
 
     if (!source) {
+      this.preview.removeAttribute('role');
+      this.preview.removeAttribute('aria-label');
       this.preview.innerHTML = '<p class="rt-mermaid-empty">Empty diagram</p>';
       this.markLine(null);
 
@@ -297,24 +297,19 @@ class CodeBlockView implements NodeView {
 
     if (source !== this.lastRendered) return;
 
-    if (result.ok) {
-      this.preview.innerHTML = result.svg;
-      this.markLine(null);
-
-      return;
-    }
-
     // Same numbering as the Markdown view: lines of the document, not of the diagram
-    const firstLine = documentLineOfDiagram(source, this.occurrence(source));
-    const described = describeDiagramError(result.error, source, firstLine);
-    const lineInDiagram = described.line && firstLine ? described.line - firstLine + 1 : described.line;
-    // Leading blank lines were trimmed before rendering; count them back for the source
-    const leading = leadingBlankLines(this.node.textContent);
-    const lineInSource = lineInDiagram ? lineInDiagram + leading : null;
-    this.preview.replaceChildren(
-      diagramErrorElement(described, lineInSource ? () => this.showLine(lineInSource) : undefined)
-    );
-    this.markLine(lineInSource);
+    const firstLine = result.ok ? undefined : documentLineOfDiagram(source, this.occurrence(source));
+
+    // Back to a line of the block's source: leading blank lines were trimmed before rendering
+    const toSourceLine = (line: number) =>
+      (firstLine ? line - firstLine + 1 : line) + leadingBlankLines(this.node.textContent);
+
+    const error = fillDiagram(this.preview, result, source, {
+      firstLine,
+      onShowLine: (line) => this.showLine(toSourceLine(line)),
+    });
+
+    this.markLine(error?.line ? toSourceLine(error.line) : null);
   }
 
   update(node: ProseNode) {

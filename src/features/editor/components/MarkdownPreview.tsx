@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
-import { describeDiagramError, diagramErrorElement } from '@/features/mermaid/utils/errors';
+import { fillDiagram } from '@/features/mermaid/utils/errors';
 import { addCopyButtons, handleCopyClick } from '../utils/codeCopy';
 
 interface MarkdownPreviewProps {
@@ -78,25 +78,17 @@ export function MarkdownPreview({
         const code = decodeURIComponent(slot.getAttribute('data-mermaid') || '');
 
         if (!code) return null;
-        slot.setAttribute('role', 'img');
-        slot.setAttribute('aria-label', `Diagram: ${code.split('\n')[0].trim()}`);
 
         const result = await renderMermaid(code, 'preview');
 
         if (cancelled) return null;
 
-        if (result.ok) {
-          slot.innerHTML = result.svg;
+        const error = fillDiagram(slot, result, code, {
+          firstLine: Number(slot.getAttribute('data-line')) || undefined,
+          onShowLine: (line) => showLineRef.current(line),
+        });
 
-          return null;
-        }
-
-        const firstLine = Number(slot.getAttribute('data-line')) || undefined;
-        const described = describeDiagramError(result.error, code, firstLine);
-        slot.removeAttribute('role');
-        slot.replaceChildren(diagramErrorElement(described, (line) => showLineRef.current(line)));
-
-        return described.line;
+        return error ? error.line : null;
       }
     );
 

@@ -1,4 +1,5 @@
 // Turns Mermaid's parser output into something a writer can act on.
+import type { DiagramRender } from './mermaidConfig';
 
 export interface DiagramError {
   /** One plain sentence */
@@ -51,8 +52,41 @@ export function describeDiagramError(message: string, code: string, firstLine?: 
   return { summary: `${where} couldn’t be drawn: ${firstSentence}`, line, detail };
 }
 
-/** Error card shared by the preview, the rich-text editor and the .mmd editor (DOM, no innerHTML). */
-export function diagramErrorElement(error: DiagramError, onShowLine?: (line: number) => void): HTMLElement {
+export interface FillDiagramOptions {
+  /** Document line of the diagram's first line, when known */
+  firstLine?: number;
+  /** "Show line N" on the error card; receives the document line (DiagramError.line) */
+  onShowLine?: (line: number) => void;
+}
+
+/**
+ * Puts a render result into `target`: the SVG with role="img" and a label, or an error card
+ * with neither (the card's button and details must stay reachable). Returns the error, if any.
+ */
+export function fillDiagram(
+  target: HTMLElement,
+  result: DiagramRender,
+  code: string,
+  options: FillDiagramOptions = {}
+): DiagramError | null {
+  if (result.ok) {
+    target.innerHTML = result.svg;
+    target.setAttribute('role', 'img');
+    target.setAttribute('aria-label', `Diagram: ${code.split('\n')[0].trim()}`);
+
+    return null;
+  }
+
+  const error = describeDiagramError(result.error, code, options.firstLine);
+  target.removeAttribute('role');
+  target.removeAttribute('aria-label');
+  target.replaceChildren(diagramErrorElement(error, options.onShowLine));
+
+  return error;
+}
+
+/** Error card for `fillDiagram` (DOM, no innerHTML). */
+function diagramErrorElement(error: DiagramError, onShowLine?: (line: number) => void): HTMLElement {
   const box = document.createElement('div');
   box.className = 'mermaid-error';
   // Polite: a document full of broken diagrams shouldn't interrupt a screen reader on open

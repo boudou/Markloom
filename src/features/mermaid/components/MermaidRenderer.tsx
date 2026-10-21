@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { renderMermaid } from '../utils/mermaidConfig';
-import { describeDiagramError, diagramErrorElement } from '../utils/errors';
+import { fillDiagram } from '../utils/errors';
 import { cn } from '@/lib/utils';
 
 interface MermaidRendererProps {
@@ -23,8 +23,7 @@ export function MermaidRenderer({ code, className }: MermaidRendererProps) {
 
       if (cancelled || !container) return;
 
-      if (result.ok) container.innerHTML = result.svg;
-      else container.replaceChildren(diagramErrorElement(describeDiagramError(result.error, code)));
+      fillDiagram(container, result, code);
       setReady(true);
     });
 
