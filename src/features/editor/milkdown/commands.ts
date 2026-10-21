@@ -1,6 +1,6 @@
 // Markdown formatting for the rich-text editor: each toolbar, palette and shortcut
 // action mapped to a Milkdown command. The rich-text twin of codemirror/commands.ts.
-import { type Editor, editorViewCtx } from '@milkdown/kit/core';
+import { type CmdKey, type Editor, editorViewCtx } from '@milkdown/kit/core';
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -15,7 +15,7 @@ import {
   toggleLinkCommand,
 } from '@milkdown/kit/preset/commonmark';
 import { toggleStrikethroughCommand, insertTableCommand } from '@milkdown/kit/preset/gfm';
-import { type $Command, callCommand, insert } from '@milkdown/kit/utils';
+import { callCommand, insert } from '@milkdown/kit/utils';
 import type { MarkdownAction } from '../types';
 
 /** Asks the editor's host to open the link or image dialog */
@@ -29,7 +29,7 @@ function focusDocument(editor: Editor): void {
 
 // Takes the command plugin, not its key: Milkdown assigns `.key` only when the plugin
 // registers with an editor, so reading it at module load gives undefined
-function command<T>(cmd: $Command<T>, payload?: T): RichAction {
+function command<T>(cmd: { key: CmdKey<T> }, payload?: T): RichAction {
   return (editor) => {
     editor.action(callCommand(cmd.key, payload));
     focusDocument(editor);

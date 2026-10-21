@@ -53,18 +53,27 @@ export const searchPlugin = $prose(
     })
 );
 
-/** Adapter used by the shared Find bar */
-export function prosemirrorSearchEngine(view: EditorView): SearchEngine {
+/**
+ * Adapter used by the shared Find bar. `getView` is read on every call: Milkdown can swap the
+ * editor behind its provider ref without a re-render, so a view captured once may be destroyed.
+ */
+export function prosemirrorSearchEngine(getView: () => EditorView | undefined): SearchEngine {
   // The bar clears the search on the old editor after a mode or tab switch. By then the view has
   // left the DOM, and Milkdown removes its editorState ctx before it destroys the view, so a
   // dispatch in between throws. A detached or destroyed view has nothing left to update.
   const dispatch = (build: (state: EditorState) => Transaction) => {
-    if (!view.isDestroyed && view.dom.isConnected) view.dispatch(build(view.state));
+    const view = getView();
+
+    if (view && !view.isDestroyed && view.dom.isConnected) view.dispatch(build(view.state));
   };
 
   return createSearchEngine({
     matches(regex) {
       const found: SearchMatch[] = [];
+      const view = getView();
+
+      if (!view) return found;
+
       view.state.doc.descendants((node, pos) => {
         if (!node.isTextblock) return true;
         // One character per position: inline leaves (images, breaks) become U+FFFC
@@ -94,8 +103,12 @@ export function prosemirrorSearchEngine(view: EditorView): SearchEngine {
     select(match) {
       dispatch((state) => state.tr.setSelection(TextSelection.create(state.doc, match.from, match.to)).scrollIntoView());
     },
-    selectionFrom: () => view.state.selection.from,
-    onDocChange: (listener) => docChanges.listen(view, listener),
-    focus: () => view.focus(),
+    selectionFrom: () => getView()?.state.selection.from ?? 0,
+    onDocChange(listener) {
+      const view = getView();
+
+      return view ? docChanges.listen(view, listener) : () => {};
+    },
+    focus: () => getView()?.focus(),
   });
 }
