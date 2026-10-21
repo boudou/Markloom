@@ -14,9 +14,7 @@
     "anti-slop/no-array-filter-map": "error",
     "anti-slop/no-reduce-accumulator-copy": "error",
     "anti-slop/no-chained-type-assertions": "error",
-    // warn: docx.ts styles link runs with `...(link ? { color, underline } : {})`; spelling the
-    // fields out as undefined would override the colour that `...style` set before it
-    "anti-slop/no-conditional-empty-object-spread": "warn",
+    "anti-slop/no-conditional-empty-object-spread": "error",
     // warn: the lookup tables (syntax node names, MIME types, key names) are indexed by runtime
     // strings, so keeping their literal types would need `in` checks or assertions at each lookup
     "anti-slop/no-known-value-widening": "warn",
@@ -33,11 +31,18 @@
     "anti-slop/no-unknown-parameters": "warn",
     "anti-slop/no-unknown-returns": "error",
     "anti-slop/no-unknown-type-aliases": "error",
-    // warn: docx.ts builds docx option bags field by field, and settingsStore's featureSettings
-    // has no value contract yet; giving them one is a refactor, not a lint fix
-    "anti-slop/no-unsafe-dictionary-type": "warn",
+    "anti-slop/no-unsafe-dictionary-type": "error",
     "anti-slop/no-widen-then-assert": "error",
     "anti-slop/require-readable-spacing": "error",
     "anti-slop/require-safety-comment-for-type-assertion": "error"
-  }
+  },
+  "overrides": [
+    {
+      // warn: settingsStore's featureSettings has no value contract yet; #91 drops the dead settings
+      "files": ["src/stores/settingsStore.ts"],
+      "rules": {
+        "anti-slop/no-unsafe-dictionary-type": "warn"
+      }
+    }
+  ]
 }
