@@ -1,12 +1,12 @@
 import { FileText, FolderOpen, Save, FileDown, LayoutTemplate, Keyboard, PanelLeft, ListTree, Search } from 'lucide-react';
-import { IconButton, Tooltip } from '@/components/ui';
+import { IconButton, Kbd, Tooltip } from '@/components/ui';
 import { RecentFilesMenu } from '@/features/recent-files';
 import { HistoryPanel } from '@/features/version-history';
 import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
 import { openFile, openFolder, saveActiveTab } from '@/lib/documentActions';
-import { shortcutHint, shortcutKeys } from '@/lib/shortcuts';
+import { shortcutHint, shortcutSpokenKeys } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { MarkloomMark } from './MarkloomMark';
 import { useRef } from 'react';
@@ -124,7 +124,7 @@ export function TitleBar() {
         <button
           type="button"
           onClick={() => openDialog('palette')}
-          aria-label={shortcutHint('Commands', 'commandPalette')}
+          aria-label={`Commands (${shortcutSpokenKeys('commandPalette')})`}
           className={cn(
             'hidden md:flex items-center gap-2 h-7 pl-2 pr-1.5 mr-1.5 rounded-md border border-rule bg-canvas',
             'text-xs text-text-secondary hover:text-text-primary hover:border-[#D9DCE1] transition-colors',
@@ -133,9 +133,7 @@ export function TitleBar() {
         >
           <Search className="w-3.5 h-3.5" aria-hidden />
           <span>Commands</span>
-          <kbd className="ml-1 px-1 rounded bg-wash font-mono text-[10px] text-text-muted" aria-hidden>
-            {shortcutKeys('commandPalette')}
-          </kbd>
+          <Kbd id="commandPalette" size="sm" className="ml-1" />
         </button>
         <Tooltip content={shortcutHint(outlineOpen ? 'Hide contents' : 'Show contents', 'toggleOutline')}>
           <IconButton variant="ghost" size="sm" pressed={outlineOpen} onClick={() => toggleSidebarView('outline')}>
