@@ -2,6 +2,7 @@
 // transaction, so one Ctrl+Z undoes exactly one formatting step.
 import { EditorSelection, Prec, type ChangeSpec } from '@codemirror/state';
 import { keymap, EditorView } from '@codemirror/view';
+import { defaultKeymap } from '@codemirror/commands';
 import type { MarkdownAction } from '../types';
 import { SHORTCUTS } from '@/lib/shortcuts';
 
@@ -192,6 +193,13 @@ const run = (action: MarkdownAction) => (view: EditorView) => {
 
   return true;
 };
+
+// CodeMirror's default keymap minus its toggle-comment binding on Mod-/: the app uses that
+// key for Keyboard shortcuts, and `<!-- -->` around a line can break a Mermaid fence.
+// Replaces basicSetup's copy (`defaultKeymap: false`).
+export const editingKeymap = keymap.of(
+  defaultKeymap.filter((binding) => binding.key !== SHORTCUTS.showShortcuts.combo)
+);
 
 export const markdownKeymap = Prec.high(
   keymap.of([

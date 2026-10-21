@@ -16,7 +16,7 @@ import { codemirrorSearchEngine, findHighlights } from '@/features/find-replace'
 import { useImageDrop } from '@/features/image-drop';
 import { useSyncScroll } from '@/features/sync-scroll';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
-import { markdownKeymap, runMarkdownAction, insertSnippet, revealLine } from '../codemirror/commands';
+import { markdownKeymap, editingKeymap, runMarkdownAction, insertSnippet, revealLine } from '../codemirror/commands';
 import { diagramErrorLines, diagramErrorTheme, setDiagramErrorLines } from '../codemirror/diagramErrors';
 import type { EditorCommands, FormatState } from '../types';
 import { formatStateReporter, selectionReporter } from '../codemirror/formatState';
@@ -57,6 +57,8 @@ const basicSetupFor = (lineNumbers: boolean) => ({
   crosshairCursor: false,
   highlightSelectionMatches: false,
   searchKeymap: false,
+  // editingKeymap stands in for it, without the Mod-/ comment toggle (Keyboard shortcuts)
+  defaultKeymap: false,
   // Its Mod-Shift-m (lint panel) would swallow the Markdown / Rich text toggle
   lintKeymap: false,
 });
@@ -82,6 +84,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       markloomEditorTheme,
       markloomHighlight,
       markdownKeymap,
+      editingKeymap,
       highlightSelectionMatches(),
       sourceAttributes,
       diagramErrorLines,
