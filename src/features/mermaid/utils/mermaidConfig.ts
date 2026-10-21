@@ -253,9 +253,18 @@ async function draw(code: string, mode: DiagramMode): Promise<DiagramRender> {
   }
 }
 
+function cacheKey(code: string, mode: DiagramMode): string {
+  return `${mode}\n${code}`;
+}
+
+/** Drops a cached result so the next render of this source draws it again (manual refresh). */
+export function forgetDiagram(code: string, mode: DiagramMode): void {
+  rendered.delete(cacheKey(code, mode));
+}
+
 /** Renders a diagram (cached by mode and exact source); never rejects. */
 export function renderMermaid(code: string, mode: DiagramMode): Promise<DiagramRender> {
-  const key = `${mode}\n${code}`;
+  const key = cacheKey(code, mode);
   const hit = rendered.get(key);
 
   if (hit) {
