@@ -1,1 +1,0 @@
-export { MermaidRenderer } from './MermaidRenderer';
