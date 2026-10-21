@@ -3,7 +3,7 @@ import { ArrowDownUp } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { selectActiveTab, useTabsStore } from '@/features/tabs';
-import { FindReplaceBar } from '@/features/find-replace';
+import { FindReplaceBar, IDLE_SEARCH_ENGINE } from '@/features/find-replace';
 import { useUiStore } from '@/stores/uiStore';
 import { IconButton, Tooltip } from '@/components/ui';
 import { SplitViewEditor } from './SplitViewEditor';
@@ -67,7 +67,7 @@ export function EditorContainer() {
         }
       />
 
-      <FindReplaceBar engine={commands?.search ?? null} />
+      <FindReplaceBar engine={commands?.search ?? IDLE_SEARCH_ENGINE} />
 
       {/* Each loaded document gets its own editor instance, so undo history never crosses documents */}
       <div className="flex-1 min-h-0 flex">

@@ -3,13 +3,8 @@
 import { $prose } from '@milkdown/kit/utils';
 import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view';
-import {
-  collectMatches,
-  createDocChangeListeners,
-  createSearchEngine,
-  type SearchEngine,
-  type SearchMatch,
-} from '@/features/find-replace/engine';
+import { collectMatches, createSearchEngine, type SearchEngine, type SearchMatch } from '@/features/find-replace/engine';
+import { createDocChangeListeners } from '@/features/find-replace/docChangeListeners';
 
 interface HighlightMeta {
   matches: SearchMatch[];
@@ -27,7 +22,8 @@ export const searchPlugin = $prose(
       state: {
         init: () => DecorationSet.empty,
         apply(tr, decorations) {
-          const meta: HighlightMeta | undefined = tr.getMeta(key);
+          // SAFETY: only setHighlights below sets meta under `key`, always a HighlightMeta.
+          const meta = tr.getMeta(key) as HighlightMeta | undefined;
 
           if (meta) {
             return DecorationSet.create(
