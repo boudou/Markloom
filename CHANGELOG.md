@@ -4,6 +4,35 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-22
+
+### Added
+
+- Unsaved Untitled documents are kept as drafts and offered back after a crash or an unexpected close (#150).
+
+### Changed
+
+- Undo history survives switching tabs, and each editor keeps its own history when you switch between Markdown and Rich text (#144, #145).
+- Shortcut hints have spoken names for screen readers, and the title bar and command palette share one set of command labels (#124, #128).
+- Exports load images and diagrams in parallel, word and character counts take one pass, and the template dialog loads only when opened (#105, #108, #126).
+- Saved settings move to version 1: unused keys are removed from `markloom-settings` on first launch; recent files, editor options, auto-save, split ratio and the last session are kept (#91).
+- Internal cleanup: shared path, error-message and diagram helpers, one fence model in the Markdown parser, stricter types, and removal of unused code (#92, #107, #115, #120, #121, #122, #125, #127, #129, #130, #131, #132, #134, #135, #136, #137, #138).
+
+### Fixed
+
+- Rich text: Ctrl+S, export or close right after typing now include the last keystrokes (#110).
+- Rich text: the task-list shortcut creates a real task item instead of a bullet reading "[ ]" (#111).
+- Rich text keeps a titled Mermaid fence's title when the block is edited (#115).
+- Focus returns to the editor after the Insert and Text style menus, rich-text dialogs, and a dialog opened from another dialog (#112, #148).
+- Ctrl+/ opens Keyboard shortcuts in the Markdown editor instead of commenting the line (#146).
+- Bold can be removed from bold+italic text (#147).
+- Clicking a heading in Contents scrolls only the preview, not the whole window, and line jumps land in the tab they were meant for (#133, #143).
+- A word goal set on an unsaved document survives its first save (#149).
+- Headings such as `## Title` keep their ids and can be linked to, and repeated headings get the same ids in the preview and rich text (#109, #116).
+- Diagram errors point at the right line, including errors at the end of a diagram, in both editors (#117).
+- Portable Markdown export keeps diagrams inside quotes and lists, and embeds images whose paths contain escaped characters (#114).
+- The file tree handles two folders with the same name and ignores a folder read that finishes after you opened another folder (#118).
+
 ## [0.4.0] - 2026-10-21
 
 ### Added
@@ -88,7 +117,8 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/boudou/Markloom/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/boudou/Markloom/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/boudou/Markloom/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/boudou/Markloom/compare/v0.1.0...v0.2.0
