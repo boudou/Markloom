@@ -20,7 +20,8 @@ interface TabsState {
   activeTabId: string | null;
 
   // Actions
-  createTab: (path?: string | null, content?: string, name?: string) => string;
+  /** Opens a new tab, or switches to the tab that already has this path */
+  createTab: (path?: string | null, content?: string, name?: string) => void;
   /** Opens a file, reusing the active tab when it is an empty, untouched Untitled tab */
   openDocument: (path: string, content: string) => void;
   closeTab: (tabId: string) => void;
@@ -33,10 +34,6 @@ interface TabsState {
   loadFileIntoTab: (tabId: string, path: string, content: string) => void;
   /** Records what is now on disk; pass the text that was written if editing continued meanwhile */
   markTabSaved: (tabId: string, savedContent?: string) => void;
-  renameTab: (tabId: string, name: string) => void;
-  getActiveTab: () => Tab | null;
-  closeOtherTabs: (tabId: string) => void;
-  closeAllTabs: () => void;
 }
 
 const createNewTab = (path?: string | null, content?: string, name?: string): Tab => {
@@ -72,7 +69,6 @@ export const useTabsStore = create<TabsState>()(
         state.tabs.push(newTab);
         state.activeTabId = newTab.id;
       });
-      return newTab.id;
     },
 
     openDocument: (path, content) => {
@@ -152,27 +148,6 @@ export const useTabsStore = create<TabsState>()(
         }
       });
     },
-
-    renameTab: (tabId, name) => {
-      set((state) => {
-        const tab = state.tabs.find((t) => t.id === tabId);
-        if (tab) {
-          tab.name = name;
-        }
-      });
-    },
-
-    getActiveTab: () => {
-      const state = get();
-      return state.tabs.find((t) => t.id === state.activeTabId) || null;
-    },
-
-    closeOtherTabs: (tabId) => {
-      get().closeTabs(get().tabs.filter((t) => t.id !== tabId).map((t) => t.id));
-      get().setActiveTab(tabId);
-    },
-
-    closeAllTabs: () => get().closeTabs(get().tabs.map((t) => t.id)),
   }))
 );
 
