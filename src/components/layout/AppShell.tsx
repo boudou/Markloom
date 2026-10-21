@@ -88,7 +88,8 @@ export function AppShell() {
           href="#document"
           onClick={(e) => {
             e.preventDefault();
-            document.querySelector<HTMLElement>('.cm-content, .rt-document')?.focus();
+            // Never the Rich text editor kept hidden in Markdown mode
+            document.querySelector<HTMLElement>('.cm-content, [data-doc-surface] .rt-document')?.focus();
           }}
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-1/2 focus:-translate-x-1/2 focus:z-[70] focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-text-primary focus:text-canvas focus:text-sm"
         >

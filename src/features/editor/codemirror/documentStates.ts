@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { ReactCodeMirrorProps } from '@uiw/react-codemirror';
-import type { EditorState } from '@codemirror/state';
+import { EditorState, Transaction, type ChangeSpec } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { historyField } from '@codemirror/commands';
 import { selectActiveTab, useTabsStore } from '@/features/tabs';
 
 /**
  * CodeMirror states (text, selection, undo history) of editors that were unmounted, so a
- * tab switch does not cost the document its history. Keyed by the tab's loadId, never its
- * id, so a history never reaches another document loaded into the same tab. Memory only.
+ * tab or mode switch does not cost the document its history. Keyed by the tab's loadId,
+ * never its id, so a history never reaches another document loaded into the same tab.
+ * Memory only.
  */
 
 type SavedState = NonNullable<ReactCodeMirrorProps['initialState']>;
@@ -39,14 +40,39 @@ function saveEditorState(loadId: string, state: EditorState): void {
   });
 }
 
+/** The one replacement that turns `before` into `after`: what lies between their common prefix and suffix */
+function textChange(before: string, after: string): ChangeSpec {
+  const shorter = Math.min(before.length, after.length);
+  let start = 0;
+
+  while (start < shorter && before[start] === after[start]) start++;
+
+  let end = 0;
+
+  while (end < shorter - start && before[before.length - 1 - end] === after[after.length - 1 - end]) end++;
+
+  return { from: start, to: before.length - end, insert: after.slice(start, after.length - end) };
+}
+
 /**
- * The state to reopen this document from, if its text is unchanged since it was saved
- * (history positions would not map onto other text). Never deletes: StrictMode reads twice.
+ * The state to reopen this document from. When the text changed meanwhile (an edit in Rich
+ * text), the saved history is mapped through that change as one non-history step, so undo
+ * still reaches this editor's own edits and never the other editor's. Never deletes:
+ * StrictMode reads twice.
  */
 function savedEditorState(loadId: string, content: string): SavedState | undefined {
   const saved = states.get(loadId);
 
-  return saved?.doc === content ? saved.initialState : undefined;
+  if (!saved || saved.doc === content) return saved?.initialState;
+
+  const restored = EditorState.fromJSON(saved.initialState.json, {}, HISTORY_FIELDS);
+
+  const next = restored.update({
+    changes: textChange(saved.doc, content),
+    annotations: Transaction.addToHistory.of(false),
+  }).state;
+
+  return { json: next.toJSON(HISTORY_FIELDS), fields: HISTORY_FIELDS };
 }
 
 /**

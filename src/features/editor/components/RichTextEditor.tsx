@@ -20,7 +20,7 @@ import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
 import { trailing } from '@milkdown/kit/plugin/trailing';
 import { $prose, getMarkdown, insert, replaceAll } from '@milkdown/kit/utils';
-import { Plugin } from '@milkdown/kit/prose/state';
+import { Plugin, type EditorState } from '@milkdown/kit/prose/state';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { selectTabContent, useTabsStore } from '@/features/tabs';
 import { Modal, ModalFooter, Button, Input } from '@/components/ui';
@@ -33,17 +33,20 @@ import { prosemirrorSearchEngine, searchPlugin } from '../milkdown/search';
 import { preserveUnchangedBlocks } from '../milkdown/preserve';
 import { applyRichLink, insertRichSnippet, runRichAction, type LinkRequest } from '../milkdown/commands';
 import { StartPanel } from './StartPanel';
-import { EMPTY_FORMAT_STATE, sameFormatState, type EditorCommands, type FormatState } from '../types';
+import { sameFormatState, type EditorCommands, type FormatState } from '../types';
+import { applyOutsideEdit } from '../milkdown/outsideEdit';
 import { richFormatState } from '../milkdown/formatState';
 import { setSelectedText } from '@/features/word-count';
 
 interface RichTextEditorProps {
   tabId: string;
+  /** False while the document is shown in Markdown mode: the editor stays mounted, hidden, to keep its undo history */
+  active: boolean;
   onCommands: (commands: EditorCommands | null) => void;
   onFormatState: (state: FormatState) => void;
 }
 
-function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorProps) {
+function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextEditorProps) {
   const content = useTabsStore((s) => selectTabContent(s, tabId));
   const hasPath = useTabsStore((s) => !!s.tabs.find((t) => t.id === tabId)?.path);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,11 +65,32 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   const [linkRequest, setLinkRequest] = useState<LinkRequest | null>(null);
   const reportFormat = useRef(onFormatState);
   reportFormat.current = onFormatState;
+  // While hidden, the editor's text lags the store: it must never write or report anything
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  // Hidden since the content-sync effect last ran: store changes then are Markdown-mode edits
+  const wasHidden = useRef(false);
+  // What the toolbar was last told; null makes the next report go out unconditionally
+  const lastFormat = useRef<FormatState | null>(null);
+
+  // Tells the toolbar what applies at the cursor, and the status bar what is selected.
+  // Reads only refs, like commit below.
+  const reportState = (state: EditorState) => {
+    const next = richFormatState(state);
+
+    if (!lastFormat.current || !sameFormatState(next, lastFormat.current)) {
+      lastFormat.current = next;
+      reportFormat.current(next);
+    }
+
+    const { from, to, empty } = state.selection;
+    setSelectedText(empty ? '' : state.doc.textBetween(from, to, '\n', ' '));
+  };
 
   // Writes the editor's Markdown into the tabs store. Reads only refs and the mount-constant
   // tabId and loadId, so the copy the editor factory captures on the first render stays correct.
   const commit = (markdown: string) => {
-    if (applyingExternal.current || loadedBaseline.current === null) return;
+    if (!activeRef.current || applyingExternal.current || loadedBaseline.current === null) return;
 
     // The debounced listener fires after a flush with the same text: already written
     if (markdown === lastSerialized.current) return;
@@ -134,26 +158,20 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
         .use(searchPlugin)
         .use(
           // Tell the toolbar what applies at the cursor, and the status bar what is selected
-          $prose(() => {
-            let last = EMPTY_FORMAT_STATE;
-
-            return new Plugin({
-              view: () => ({
-                update: (view) => {
-                  const next = richFormatState(view.state);
-
-                  if (!sameFormatState(next, last)) {
-                    last = next;
-                    reportFormat.current(next);
-                  }
-
-                  const { from, to, empty } = view.state.selection;
-                  setSelectedText(empty ? '' : view.state.doc.textBetween(from, to, '\n', ' '));
-                },
-                destroy: () => setSelectedText(''),
-              }),
-            });
-          })
+          $prose(
+            () =>
+              new Plugin({
+                view: () => ({
+                  // A hidden editor still updates (heading ids, diagram renders); the toolbar is Markdown's then
+                  update: (view) => {
+                    if (activeRef.current) reportState(view.state);
+                  },
+                  destroy: () => {
+                    if (activeRef.current) setSelectedText('');
+                  },
+                }),
+              })
+          )
         )
   );
 
@@ -170,14 +188,25 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     lastSerialized.current = loadedBaseline.current;
   }, [editor]);
 
-  // Content changed elsewhere (version restore, template, file reload): show it
+  // Content changed elsewhere: show it. Markdown-mode edits arrive as one non-history change,
+  // so undo here keeps reaching this editor's own edits; anything else (version restore,
+  // template, file reload while this editor is visible) replaces the document undoably.
   useEffect(() => {
+    if (!active) {
+      wasHidden.current = true;
+
+      return;
+    }
+
+    const fromMarkdownMode = wasHidden.current;
+    wasHidden.current = false;
+
     if (!editor || content === knownMarkdown.current) return;
     knownMarkdown.current = content;
     applyingExternal.current = true;
 
     try {
-      editor.action(replaceAll(content));
+      editor.action(fromMarkdownMode ? applyOutsideEdit(content) : replaceAll(content));
       loadedBaseline.current = editor.action(getMarkdown());
       // The listener reports this replace 200 ms later; it is not an edit
       lastSerialized.current = loadedBaseline.current;
@@ -185,7 +214,7 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     } finally {
       applyingExternal.current = false;
     }
-  }, [content, editor]);
+  }, [content, editor, active]);
 
   const applyLink = (url: string, text: string) => {
     const request = linkRequest;
@@ -219,8 +248,9 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
   // Expose commands to the shared toolbar, once per editor: a new object on every
   // render would make the Find bar re-run (and re-select its input) on every keystroke.
   // `get` (and `liveView`, which only reads it) is left out of the deps for that reason (see above).
+  // Only while visible: hidden, the Markdown editor's commands are the toolbar's.
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || !active) return;
 
     const withEditor = (run: (current: Editor) => void) => {
       const current = get();
@@ -237,7 +267,22 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     });
 
     return () => onCommands(null);
-  }, [editor, onCommands]);
+  }, [editor, onCommands, active]);
+
+  // Shown again: the toolbar and status bar still describe the Markdown editor
+  useEffect(() => {
+    if (!active) {
+      setSelectedText('');
+
+      return;
+    }
+
+    const view = liveView();
+
+    if (!view) return;
+    lastFormat.current = null;
+    reportState(view.state);
+  }, [editor, active]);
 
   // Dropped or pasted images are stored beside the document, then inserted as Markdown
   const imageDrop = useImageDrop({
@@ -271,7 +316,8 @@ function MilkdownSurface({ tabId, onCommands, onFormatState }: RichTextEditorPro
     <div className="h-full flex flex-col">
     <div
       ref={containerRef}
-      data-doc-surface
+      // The Contents panel follows the first surface in the page; hidden, that is the preview
+      data-doc-surface={active || undefined}
       className="flex-1 min-h-0 overflow-auto bg-canvas"
       onKeyDown={handleKeyDown}
       // Capture phase: take image files before ProseMirror tries to handle them
@@ -379,7 +425,7 @@ function LinkDialog({
   );
 }
 
-/** Rich-text editing over the same Markdown the source view edits. Remounts per tab. */
+/** Rich-text editing over the same Markdown the source view edits. Remounts per tab; stays mounted, hidden, across mode switches. */
 export function RichTextEditor(props: RichTextEditorProps) {
   return (
     <MilkdownProvider>
