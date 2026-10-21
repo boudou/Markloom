@@ -1,6 +1,6 @@
 // Images and diagrams for exports, resolved to self-contained data.
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveSourcePath } from '@/features/editor/hooks/useDocumentLinks';
+import { resolveSourcePath } from '@/lib/documentPath';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 
 export interface ExportImage {

@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from 'react';
 import { useActivePath, useTabsStore } from '@/features/tabs';
 import { canResolveRelative, readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { refreshImages, showImage } from '../utils/previewImages';
+import { resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
 
 // Matches URLs with a scheme (http:, mailto:, data:, blob:, ...) or protocol-relative URLs
 const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
@@ -37,53 +38,6 @@ function showMissingImage(img: HTMLImageElement, src: string, hint?: string) {
   placeholder.setAttribute('aria-label', hint ? `${label}. ${hint}` : label);
   placeholder.textContent = hint ? `${label} (${hint})` : label;
   img.replaceWith(placeholder);
-}
-
-/** Resolves `target` relative to the folder containing `fromFile` (both use '/' separators). */
-export function resolveRelativePath(fromFile: string, target: string): string {
-  const parts = fromFile.split('/').filter(Boolean);
-  parts.pop(); // drop file name
-  const root = parts[0];
-
-  // A leading '/' means "from the root of the open folder"
-  const stack = target.startsWith('/') ? (root ? [root] : []) : parts;
-
-  for (const segment of target.split('/')) {
-    if (!segment || segment === '.') continue;
-
-    if (segment === '..') {
-      if (stack.length > 1) stack.pop();
-    } else {
-      stack.push(segment);
-    }
-  }
-
-  return stack.join('/');
-}
-
-function splitHash(href: string): { path: string; hash: string } {
-  const hashIndex = href.indexOf('#');
-  const withoutHash = hashIndex === -1 ? href : href.slice(0, hashIndex);
-  const hash = hashIndex === -1 ? '' : href.slice(hashIndex + 1);
-  const path = withoutHash.split('?')[0];
-
-  return { path: safeDecode(path), hash: safeDecode(hash) };
-}
-
-/**
- * The open-folder path of an image or link source as it appears in the rendered document:
- * percent-encoded, possibly with a query or hash. The preview, Rich text and export all use it.
- */
-export function resolveSourcePath(fromFile: string, src: string): string {
-  return resolveRelativePath(fromFile, splitHash(src).path);
-}
-
-export function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
 }
 
 function scrollToAnchor(container: HTMLElement, id: string): void {
