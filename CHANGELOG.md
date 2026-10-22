@@ -4,6 +4,29 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-22
+
+### Added
+
+- Page width for rich text and the preview: Readable, Wide or Full, from the editor toolbar or the command palette, remembered between sessions (#180).
+- The web version can be installed as an app from Chrome or Edge, opens offline after the first visit, and once installed can open `.md` files from the system's Open with menu (#177).
+- Rich text renders raw HTML the way the preview does: images, line breaks, links and inline tags show as formatted content, and unpaired tags such as `<div align="center">` become small markers instead of code. Click a block to edit its HTML (#181).
+- A new logo: a pen drawing a line, used for the app icon, the title bar and link previews.
+
+### Changed
+
+- Images in the preview and rich text sit inline, as on GitHub, so rows of badges no longer stack one per line.
+- The web version has a description, link-preview card and search metadata.
+- Accessibility: the tab bar exposes only tabs to screen readers, the editor placeholder meets contrast, the Commands button's name matches its label, and "Skip to document" moves focus into the editor (#176).
+
+### Fixed
+
+- Rich text no longer deletes link reference definitions (`[d]: https://…`) and footnote definitions when you edit a document (#178).
+- Text typed right after a link in rich text is plain text, not part of the link (#163).
+- Diagram error details show the same document line as the summary (#166).
+- A heading emptied in a new document is written as `# `, as in Markdown mode (#169).
+- Search results in `.mmd` files open at the matching line (#172).
+
 ## [0.6.0] - 2026-10-22
 
 ### Added
@@ -144,6 +167,7 @@ First public release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
 [Unreleased]: https://github.com/boudou/Markloom/compare/v0.5.0...HEAD
+[0.7.0]: https://github.com/boudou/Markloom/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/boudou/Markloom/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/boudou/Markloom/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/boudou/Markloom/compare/v0.3.0...v0.4.0
