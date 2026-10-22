@@ -149,8 +149,20 @@ export const APP_COMMANDS: readonly AppCommand[] = [
     when: () => !!useAppStore.getState().rootPath,
     run: () => useAppStore.getState().toggleSidebarView('files'),
   },
+  {
+    id: 'focus',
+    shortcut: 'toggleFocus',
+    label: () => (useAppStore.getState().focusMode ? 'Leave focus mode' : 'Focus mode'),
+    run: () => useAppStore.getState().toggleFocusMode(),
+  },
   { id: 'sidebar', shortcut: 'toggleSidebar', run: () => useAppStore.getState().toggleSidebar() },
-  { id: 'history', shortcut: 'versionHistory', run: () => useUiStore.getState().setHistoryOpen(true) },
+  // Its panel is anchored in the title bar, which focus mode hides
+  {
+    id: 'history',
+    shortcut: 'versionHistory',
+    when: () => !useAppStore.getState().focusMode,
+    run: () => useUiStore.getState().setHistoryOpen(true),
+  },
   { id: 'shortcuts', shortcut: 'showShortcuts', run: () => useUiStore.getState().openDialog('shortcuts') },
   { id: 'palette', shortcut: 'commandPalette', run: () => useUiStore.getState().openDialog('palette') },
   {

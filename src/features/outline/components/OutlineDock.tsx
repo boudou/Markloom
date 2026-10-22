@@ -58,6 +58,8 @@ export function OutlineDock() {
   const loadId = useTabsStore((s) => selectActiveTab(s)?.loadId);
   // Switching modes swaps the scrolling surface; re-attach to the new one
   const editorMode = useAppStore((s) => s.editorMode);
+  // Focus mode unmounts the preview, and leaving it mounts a new one
+  const focusMode = useAppStore((s) => s.focusMode);
   // Re-parse shortly after typing pauses (a deferred value can stall behind the lazy editor's Suspense)
   const [settled, setSettled] = useState(content);
   useEffect(() => {
@@ -116,7 +118,7 @@ export function OutlineDock() {
       cancelAnimationFrame(frame);
       surface?.removeEventListener('scroll', update);
     };
-  }, [loadId, headings.length, editorMode]);
+  }, [loadId, headings.length, editorMode, focusMode]);
 
   const go = (index: number) => {
     setCurrent(index);

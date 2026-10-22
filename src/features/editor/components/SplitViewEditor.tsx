@@ -10,6 +10,7 @@ import { useResizeDrag } from '@/lib/useResizeDrag';
 import { useActiveContent, useActivePath, useSetActiveContent, useTabsStore } from '@/features/tabs';
 import { SPLIT_RATIO, useSettingsStore } from '@/stores/settingsStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useAppStore } from '@/stores/appStore';
 import { MarkdownPreview } from './MarkdownPreview';
 import { StartPanel } from './StartPanel';
 import { codemirrorSearchEngine, findHighlights } from '@/features/find-replace';
@@ -69,6 +70,8 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
   const setSplitRatio = useSettingsStore((s) => s.setSplitRatio);
   const wordWrap = useSettingsStore((s) => s.editor.wordWrap);
   const lineNumbers = useSettingsStore((s) => s.editor.lineNumbers);
+  // Focus mode shows the source alone
+  const focusMode = useAppStore((s) => s.focusMode);
   const basicSetup = useMemo(() => basicSetupFor(lineNumbers), [lineNumbers]);
   const [view, setView] = useState<EditorView | null>(null);
   // Reopen with the text, selection and undo history this document had when it was last shown
@@ -118,7 +121,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
     return () => onCommands(null);
   }, [view, onCommands]);
 
-  useSyncScroll({ editorView: view, previewRef, previewContentRef, previewReady: !isBlank });
+  useSyncScroll({ editorView: view, previewRef, previewContentRef, previewReady: !isBlank && !focusMode });
 
   // The preview's "Show line N" goes through the same request as Export's "Show"
   const showLine = useCallback((line: number) => {
@@ -164,7 +167,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
         {/* Source pane */}
         <div
           className="h-full overflow-hidden bg-canvas relative"
-          style={{ width: `${resize.value}%` }}
+          style={{ width: focusMode ? '100%' : `${resize.value}%` }}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
@@ -204,41 +207,45 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
           />
         </div>
 
-        {/* Resize handle */}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize source and preview"
-          aria-valuenow={Math.round(resize.value)}
-          aria-valuemin={SPLIT_RATIO.min}
-          aria-valuemax={SPLIT_RATIO.max}
-          tabIndex={0}
-          onPointerDown={resize.onPointerDown}
-          onKeyDown={resize.onKeyDown}
-          onDoubleClick={resize.onDoubleClick}
-          className={cn(
-            'relative w-px flex-shrink-0 bg-rule cursor-col-resize outline-none touch-none',
-            'before:absolute before:inset-y-0 before:-left-1.5 before:-right-1.5 before:content-[""]',
-            'hover:bg-accent-primary focus-visible:bg-accent-primary transition-colors'
-          )}
-        />
-
-        {/* Preview pane */}
-        <div className="h-full overflow-hidden bg-canvas" style={{ width: `${100 - resize.value}%` }}>
-          {isBlank ? (
-            <div className="h-full overflow-auto flex items-center justify-center p-8 bg-panel">
-              <StartPanel writeHint="Type Markdown in the left pane; the formatted document appears here as you write." />
-            </div>
-          ) : (
-            <MarkdownPreview
-              content={content}
-              surfaceRef={previewRef}
-              contentRef={previewContentRef}
-              onShowLine={showLine}
-              onDiagramErrors={markDiagramErrors}
+        {!focusMode && (
+          <>
+            {/* Resize handle */}
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize source and preview"
+              aria-valuenow={Math.round(resize.value)}
+              aria-valuemin={SPLIT_RATIO.min}
+              aria-valuemax={SPLIT_RATIO.max}
+              tabIndex={0}
+              onPointerDown={resize.onPointerDown}
+              onKeyDown={resize.onKeyDown}
+              onDoubleClick={resize.onDoubleClick}
+              className={cn(
+                'relative w-px flex-shrink-0 bg-rule cursor-col-resize outline-none touch-none',
+                'before:absolute before:inset-y-0 before:-left-1.5 before:-right-1.5 before:content-[""]',
+                'hover:bg-accent-primary focus-visible:bg-accent-primary transition-colors'
+              )}
             />
-          )}
-        </div>
+
+            {/* Preview pane */}
+            <div className="h-full overflow-hidden bg-canvas" style={{ width: `${100 - resize.value}%` }}>
+              {isBlank ? (
+                <div className="h-full overflow-auto flex items-center justify-center p-8 bg-panel">
+                  <StartPanel writeHint="Type Markdown in the left pane; the formatted document appears here as you write." />
+                </div>
+              ) : (
+                <MarkdownPreview
+                  content={content}
+                  surfaceRef={previewRef}
+                  contentRef={previewContentRef}
+                  onShowLine={showLine}
+                  onDiagramErrors={markDiagramErrors}
+                />
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

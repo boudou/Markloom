@@ -22,6 +22,9 @@ interface AppState {
   // Which panel the sidebar shows
   sidebarView: SidebarView;
 
+  /** Only the writing surface shows; the layout it hides is left as it was. Not remembered across restarts. */
+  focusMode: boolean;
+
   // Actions
   toggleSidebar: () => void;
   setSidebarWidth: (width: number) => void;
@@ -30,6 +33,8 @@ interface AppState {
   /** Opens the sidebar on a view, or closes it if that view is already showing */
   toggleSidebarView: (view: SidebarView) => void;
   showSidebarView: (view: SidebarView) => void;
+  toggleFocusMode: () => void;
+  setFocusMode: (on: boolean) => void;
 }
 
 /** Sidebar width in px: the store clamp, the resize handle and its double-click reset read this */
@@ -45,6 +50,7 @@ export const useAppStore = create<AppState>()(
     rootPath: null,
     editorMode: 'split',
     sidebarView: 'files',
+    focusMode: false,
 
     // Actions
     toggleSidebar: () =>
@@ -82,6 +88,16 @@ export const useAppStore = create<AppState>()(
       set((state) => {
         state.sidebarView = view;
         state.sidebarOpen = true;
+      }),
+
+    toggleFocusMode: () =>
+      set((state) => {
+        state.focusMode = !state.focusMode;
+      }),
+
+    setFocusMode: (on) =>
+      set((state) => {
+        state.focusMode = on;
       }),
   })),
     {

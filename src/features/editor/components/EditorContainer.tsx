@@ -50,6 +50,7 @@ function PageWidthToggle() {
 export function EditorContainer() {
   const editorMode = useAppStore((s) => s.editorMode);
   const pageWidth = useSettingsStore((s) => s.pageWidth);
+  const focusMode = useAppStore((s) => s.focusMode);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const activePath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);
   const loadId = useTabsStore((s) => selectActiveTab(s)?.loadId);
@@ -85,18 +86,20 @@ export function EditorContainer() {
   const keepRich = showRich || (loadId !== undefined && richLoadId === loadId);
 
   return (
-    <div className="h-full flex flex-col bg-canvas" data-page-width={pageWidth}>
-      <EditorToolbar
-        commands={commands}
-        active={formatState}
-        trailing={
-          <div className="flex items-center gap-2 pl-2">
-            {editorMode === 'split' && <SyncScrollToggle />}
-            <PageWidthToggle />
-            <ModeToggle />
-          </div>
-        }
-      />
+    <div className="h-full flex flex-col bg-canvas" data-page-width={pageWidth} data-focus={focusMode || undefined}>
+      {!focusMode && (
+        <EditorToolbar
+          commands={commands}
+          active={formatState}
+          trailing={
+            <div className="flex items-center gap-2 pl-2">
+              {editorMode === 'split' && <SyncScrollToggle />}
+              <PageWidthToggle />
+              <ModeToggle />
+            </div>
+          }
+        />
+      )}
 
       <FindReplaceBar engine={commands?.search ?? IDLE_SEARCH_ENGINE} />
 

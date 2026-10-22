@@ -16,8 +16,10 @@ import { ShortcutsModal } from '@/features/shortcuts-panel';
 import { TemplatesModal } from '@/features/templates';
 import { TabBar } from '@/features/tabs';
 import { useUiStore } from '@/stores/uiStore';
+import { useAppStore } from '@/stores/appStore';
 import { hasUnsavedTabs } from '@/lib/documentActions';
 import { commandForKey } from '@/lib/appCommands';
+import { isDesktop } from '@/lib/shortcuts';
 import { initSession } from '@/lib/session';
 import { startAutoSave } from '@/features/auto-save';
 import { loadHighlighter } from '@/features/syntax-highlight';
@@ -30,6 +32,7 @@ let sessionStarted = false;
 export function AppShell() {
   const dialog = useUiStore((s) => s.dialog);
   const closeDialog = useUiStore((s) => s.closeDialog);
+  const focusMode = useAppStore((s) => s.focusMode);
 
   useEffect(() => {
     if (sessionStarted) return;
@@ -46,6 +49,13 @@ export function AppShell() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // An editor already handled it (e.g. a formatting key)
       if (e.defaultPrevented) return;
+
+      // Dialogs, menus and the find bar take their own Escape first (they prevent the default)
+      if (e.key === 'Escape' && !e.isComposing && useAppStore.getState().focusMode) {
+        useAppStore.getState().setFocusMode(false);
+
+        return;
+      }
 
       const command = commandForKey(e);
 
@@ -96,13 +106,15 @@ export function AppShell() {
         >
           Skip to document
         </a>
-        <TitleBar />
+        {/* The desktop window draws its own buttons over the top 44px (titleBarOverlay), so focus
+            mode keeps an empty strip there to drag the window by */}
+        {!focusMode ? <TitleBar /> : isDesktop && <div className="h-11 flex-shrink-0 bg-panel app-drag-region" aria-hidden />}
 
         <div className="flex-1 flex min-h-0">
           <Sidebar />
 
           <main className="flex-1 flex flex-col min-w-0">
-            <TabBar />
+            {!focusMode && <TabBar />}
             {/* Skip link target: the wrapper, since both editors stay mounted and an id on each would clash */}
             <div id="document" className="flex-1 min-h-0">
               <EditorContainer />
@@ -110,7 +122,7 @@ export function AppShell() {
           </main>
         </div>
 
-        <StatusBar />
+        {!focusMode && <StatusBar />}
 
         <ExportModal {...dialogProps('export')} />
         <ShortcutsModal {...dialogProps('shortcuts')} />

@@ -24,7 +24,8 @@ export function Sidebar() {
   const view = useAppStore((s) => s.sidebarView);
   const showSidebarView = useAppStore((s) => s.showSidebarView);
   // Contents is always useful; the file list and search only once a folder is open
-  const open = useAppStore((s) => s.sidebarOpen) && (view === 'outline' || !!rootPath);
+  // Focus mode hides it without forgetting whether it was open
+  const open = useAppStore((s) => s.sidebarOpen && !s.focusMode) && (view === 'outline' || !!rootPath);
   const sidebarWidth = useAppStore((s) => s.sidebarWidth);
   const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
   const asideRef = useRef<HTMLElement>(null);

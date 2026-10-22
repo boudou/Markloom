@@ -26,6 +26,8 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { selectTabContent, useTabsStore } from '@/features/tabs';
 import { Modal, ModalFooter, Button, Input } from '@/components/ui';
 import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
+import { appCommand } from '@/lib/appCommands';
+import { useAppStore } from '@/stores/appStore';
 import { slugify } from '@/lib/markdown';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { useImageDrop } from '@/features/image-drop';
@@ -316,14 +318,40 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
   const hasImageFiles = (items: DataTransferItemList) =>
     Array.from(items).some((item) => item.kind === 'file' && item.type.startsWith('image/'));
 
+  // Keys typed in a raw HTML source box or a rendered HTML control belong to it, not to the document
+  const inHtmlBlock = (target: EventTarget) =>
+    target instanceof Element && !!target.closest('.rt-html-source, .rt-html-render');
+
+  // Focus mode's keys are taken before ProseMirror sees them: Milkdown runs its input rules on
+  // every Enter, modifiers or not (a matching rule swallows Ctrl+Shift+Enter), and ProseMirror's
+  // Escape selects the parent node. Stopped here, they don't reach the window's handler as well.
+  const handleKeyDownCapture = (event: React.KeyboardEvent) => {
+    if (inHtmlBlock(event.target)) return;
+
+    const toggle = matchesCombo(event.nativeEvent, SHORTCUTS.toggleFocus.combo);
+
+    // Only from the page: the link dialog is portalled, but its keys still pass through here
+    const leave =
+      event.key === 'Escape' &&
+      !event.nativeEvent.isComposing &&
+      useAppStore.getState().focusMode &&
+      event.target instanceof Element &&
+      !!event.target.closest('.rt-document');
+
+    if (!toggle && !leave) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (toggle) appCommand('focus').run();
+    else useAppStore.getState().setFocusMode(false);
+  };
+
   // Ctrl+K opens the link dialog (Milkdown has no binding for it)
   const handleKeyDown = (event: React.KeyboardEvent) => {
     const current = get();
 
-    // Keys typed in a raw HTML source box or a rendered HTML control belong to it, not to the document
-    if (!current || (event.target instanceof Element && event.target.closest('.rt-html-source, .rt-html-render'))) {
-      return;
-    }
+    if (!current || inHtmlBlock(event.target)) return;
 
     if (matchesCombo(event.nativeEvent, SHORTCUTS.link.combo)) {
       event.preventDefault();
@@ -346,6 +374,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
       // The Contents panel follows the first surface in the page; hidden, that is the preview
       data-doc-surface={active || undefined}
       className="flex-1 min-h-0 overflow-auto bg-canvas"
+      onKeyDownCapture={handleKeyDownCapture}
       onKeyDown={handleKeyDown}
       // Capture phase: take image files before ProseMirror tries to handle them
       onDropCapture={(e) => {
