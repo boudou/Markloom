@@ -255,11 +255,15 @@ export async function buildPagedHtml(paged: PagedDocument, options: { title: str
   });
 }
 
-/** The page styles of a paged document, without fonts. */
+/**
+ * The page styles of a paged document, without fonts. Printed (PDF), each `.page` fills one
+ * sheet: `@page` names the same paper as the desktop `printToPDF` options, with no print
+ * margins, since the page's own padding is the margin.
+ */
 function pagedSheet(page: PageSetup): string {
   const box = pageBox(page);
   const { top, right, bottom, left } = PAGE_MARGINS_MM;
-  const sheet = `@page { size: ${box.width}px ${box.height}px; margin: 0; }\n.page { width: ${box.width}px; height: ${box.height}px; padding: ${top}mm ${right}mm ${bottom}mm ${left}mm; }`;
+  const sheet = `@page { size: ${page.size} ${page.orientation}; margin: 0; }\n.page { width: ${box.width}px; height: ${box.height}px; padding: ${top}mm ${right}mm ${bottom}mm ${left}mm; }`;
 
   return `${EXPORT_STYLES}\n${PAGED_STYLES}\n${sheet}`;
 }
