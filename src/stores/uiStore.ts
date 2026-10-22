@@ -17,7 +17,7 @@ export interface LineRequest {
   kind: 'reveal' | 'cursor';
 }
 
-export type AppDialog = 'export' | 'shortcuts' | 'templates' | 'palette' | null;
+export type AppDialog = 'export' | 'shortcuts' | 'templates' | 'palette' | 'quickOpen' | null;
 
 interface UiState {
   // Modal dialogs
