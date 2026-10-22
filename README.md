@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/brand/markloom-banner.jpg" alt="Markloom, Markdown Editor" width="420">
+<img src="docs/brand/markloom-logo.svg" alt="Markloom, Markdown editor" width="360">
 
 **A Markdown editor with first-class Mermaid diagrams and clean export to Word, PDF and HTML.**
 Runs in the browser or as a desktop app. Your documents never leave your machine.
