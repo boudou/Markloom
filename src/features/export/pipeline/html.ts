@@ -276,7 +276,7 @@ export async function buildMeasuringHtml(body: string, page: PageSetup): Promise
 
   return htmlDocument(fonts, {
     title: 'Page layout',
-    css: `${EXPORT_STYLES}\nmain.document { width: ${contentBox(page).width}px; max-width: none; margin: 0; padding: 0; }`,
+    css: `${EXPORT_STYLES}\n${PAGED_STYLES}\nmain.document { width: ${contentBox(page).width}px; max-width: none; margin: 0; padding: 0; }`,
     body: `<main class="document">\n${body}\n</main>`,
   });
 }
