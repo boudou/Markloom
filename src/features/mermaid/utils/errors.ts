@@ -16,14 +16,23 @@ export interface DiagramError {
  * @param firstLine Document line of the diagram's first line, when known
  */
 export function describeDiagramError(message: string, code: string, firstLine?: number): DiagramError {
-  const detail = message.trim();
-  const reported = Number(detail.match(/(?:Parse|Lexical) error on line (\d+)/i)?.[1]) || null;
+  const reportedLine = /((?:Parse|Lexical) error on line )(\d+)/i;
+  const original = message.trim();
+  const reported = Number(original.match(reportedLine)?.[2]) || null;
   // End-of-input errors are reported on the line after the diagram; the statement left
   // unfinished is on its last line
   const lastLine = code.trimEnd().split('\n').length;
   const lineInDiagram = reported && Math.min(reported, lastLine);
   const line = lineInDiagram && firstLine ? firstLine + lineInDiagram - 1 : lineInDiagram;
   const where = line ? `Line ${line}` : 'This diagram';
+
+  // Mermaid counts from the top of the diagram; show the same line as the summary
+  const detail = line
+    ? original.replace(
+        reportedLine,
+        (_, prefix: string) => `${prefix}${line}${firstLine ? ` (line ${lineInDiagram} of the diagram)` : ''}`
+      )
+    : original;
 
   if (/No diagram type detected/i.test(detail)) {
     return {
