@@ -1,7 +1,7 @@
 import { FileText, FolderOpen, LayoutTemplate, History } from 'lucide-react';
 import { openFile, openFolder } from '@/lib/documentActions';
-import { isDesktop, type ShortcutId } from '@/lib/shortcuts';
-import { DOWNLOAD_URL, MANUAL_URL, REPOSITORY_URL } from '@/lib/projectLinks';
+import type { ShortcutId } from '@/lib/shortcuts';
+import { ProjectLinks } from '@/components/layout/ProjectLinks';
 import { Kbd } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
 import { useSessionStore, restoreLastSession, dismissLastSession } from '@/lib/session';
@@ -22,20 +22,6 @@ interface StartAction {
 
 function countOf(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
-}
-
-/** Opens in a new browser tab; the desktop app hands it to the system browser */
-function ProjectLink({ href, children }: { href: string; children: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="underline underline-offset-2 hover:text-accent-hover outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-sm"
-    >
-      {children}
-    </a>
-  );
 }
 
 /** "a", "a and b", "a, b and c" */
@@ -124,12 +110,8 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
         Every command is a keystroke away: <Kbd id="commandPalette" />
       </p>
 
-      <p className="mt-6 flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
-        <span>Markloom {__APP_VERSION__}</span>
-        {!isDesktop && <ProjectLink href={DOWNLOAD_URL}>Get the desktop app</ProjectLink>}
-        <ProjectLink href={MANUAL_URL}>User manual</ProjectLink>
-        <ProjectLink href={REPOSITORY_URL}>Source on GitHub</ProjectLink>
-      </p>
+      {/* The status bar shows these on wider windows */}
+      <ProjectLinks className="mt-6 text-xs text-text-muted md:hidden" />
     </div>
   );
 }
