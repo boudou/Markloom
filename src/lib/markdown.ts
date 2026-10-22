@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it';
+import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
 import DOMPurify from 'dompurify';
 import { CALLOUT_MARKER, calloutTitleHtml, type CalloutKind } from './callouts';
 import { highlightCode } from '@/features/syntax-highlight';
@@ -74,6 +75,135 @@ export function mermaidFences(tokens: Token[]): MermaidFence[] {
   });
 }
 
+const WHITESPACE = /\s/;
+
+const DIGIT = /\d/;
+
+/**
+ * Index of the `$` that closes inline math opened at `open`, or -1. Only the next unescaped `$`
+ * can close, and not after a space or before a digit: "$5 and $10" and "$5, then $x$" keep
+ * their prices as text.
+ */
+function inlineMathEnd(src: string, open: number, max: number): number {
+  for (let end = src.indexOf('$', open + 1); end !== -1 && end < max; end = src.indexOf('$', end + 1)) {
+    const before = src[end - 1];
+
+    if (before === '\\') continue; // \$ inside the formula
+
+    return WHITESPACE.test(before) || DIGIT.test(src[end + 1] ?? '') ? -1 : end;
+  }
+
+  return -1;
+}
+
+/** The trimmed text of one source line, with the container's indentation removed */
+function lineText(state: StateBlock, line: number): string {
+  return state.src.slice(state.bMarks[line] + state.tShift[line], state.eMarks[line]).trimEnd();
+}
+
+/**
+ * TeX math: inline `$…$` and display `$$…$$` become `math_inline` and `math_block` tokens,
+ * rendered as placeholders that carry the TeX (the `math` feature typesets them later).
+ * The source stays the placeholder's text, so math shows as written until KaTeX has loaded.
+ */
+export function mathPlugin(md: MarkdownIt): void {
+  // After `escape` (so `\$` stays literal) and before `backticks` (so `$` in code stays code)
+  md.inline.ruler.after('escape', 'math_inline', (state, silent) => {
+    const { src, pos, posMax } = state;
+    const next = src[pos + 1] ?? '';
+
+    if (src[pos] !== '$' || src[pos - 1] === '$' || next === '$' || next === '' || WHITESPACE.test(next)) return false;
+
+    const end = inlineMathEnd(src, pos, posMax);
+
+    if (end === -1) return false;
+
+    const tex = src.slice(pos + 1, end);
+
+    // Link labels are scanned with these rules too: a span must never cross a link's "]("
+    if (tex.includes('](')) return false;
+
+    if (!silent) {
+      const token = state.push('math_inline', 'math', 0);
+      token.markup = '$';
+      token.content = tex;
+    }
+
+    state.pos = end + 1;
+
+    return true;
+  });
+
+  md.block.ruler.before(
+    'paragraph',
+    'math_block',
+    (state, startLine, endLine, silent) => {
+      if (state.sCount[startLine] - state.blkIndent >= 4) return false;
+
+      const first = lineText(state, startLine);
+
+      if (!first.startsWith('$$')) return false;
+
+      const opening = first.slice(2);
+      const lines: string[] = [];
+      let last = startLine;
+
+      if (opening.length > 2 && opening.endsWith('$$')) {
+        // $$x$$ on one line
+        lines.push(opening.slice(0, -2));
+      } else {
+        if (opening.includes('$$')) return false;
+
+        lines.push(opening);
+
+        // An unclosed $$ is not math: the search ends at a blank line or the container's end
+        for (last = startLine + 1; ; last++) {
+          if (last >= endLine || state.isEmpty(last) || state.sCount[last] < state.blkIndent) return false;
+
+          const text = lineText(state, last);
+
+          if (text.endsWith('$$')) {
+            lines.push(text.slice(0, -2));
+
+            break;
+          }
+
+          lines.push(text);
+        }
+      }
+
+      const tex = lines.join('\n').trim();
+
+      if (!tex) return false;
+
+      if (silent) return true;
+
+      const token = state.push('math_block', 'math', 0);
+      token.block = true;
+      token.markup = '$$';
+      token.content = tex;
+      token.map = [startLine, last + 1];
+      state.line = last + 1;
+
+      return true;
+    },
+    { alt: ['paragraph', 'reference', 'blockquote', 'list'] }
+  );
+
+  md.renderer.rules.math_inline = (tokens, idx) => {
+    const tex = tokens[idx].content;
+
+    return `<span class="math" data-math="${encodeURIComponent(tex)}">$${md.utils.escapeHtml(tex)}$</span>`;
+  };
+
+  md.renderer.rules.math_block = (tokens, idx, _options, _env, self) => {
+    const token = tokens[idx];
+
+    // renderAttrs carries the data-line that the source_lines rule sets, for scroll sync
+    return `<div class="math math-display"${self.renderAttrs(token)} data-math="${encodeURIComponent(token.content)}">$$${md.utils.escapeHtml(token.content)}$$</div>\n`;
+  };
+}
+
 // Create and configure markdown-it instance
 export function createMarkdownParser(): MarkdownIt {
   const md = new MarkdownIt({
@@ -82,6 +212,8 @@ export function createMarkdownParser(): MarkdownIt {
     typographer: true,
     breaks: false,
   });
+
+  md.use(mathPlugin);
 
   // Custom renderer for mermaid code blocks
   md.renderer.rules.fence = (tokens, idx) => {
@@ -224,6 +356,9 @@ export function createMarkdownParser(): MarkdownIt {
 export function headingText(inline: Token): string {
   const parts = (inline.children ?? []).map((child) => {
     if (child.type === 'text' || child.type === 'text_special' || child.type === 'code_inline') return child.content;
+
+    // Math as written, so slugs match rich text's (where math is still `$…$` text)
+    if (child.type === 'math_inline') return `$${child.content}$`;
 
     return child.type === 'softbreak' || child.type === 'hardbreak' ? '\n' : '';
   });

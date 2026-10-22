@@ -552,6 +552,20 @@
   @apply p-0 border-0 bg-transparent;
 }
 
+/* Display math ($$…$$) sits centred on its own line; a wide formula scrolls rather than overflowing */
+.reading-column .math-display {
+  margin: 0 0 1em;
+  text-align: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* A formula KaTeX can't parse shows its source in red, with the error as a tooltip */
+.katex-error {
+  color: #B91C1C;
+  cursor: help;
+}
+
 /* Images that couldn't be found say so plainly instead of showing a broken icon */
 .missing-image {
   display: inline-flex;

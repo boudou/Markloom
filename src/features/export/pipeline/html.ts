@@ -3,67 +3,12 @@
 // embedded images for a file), the app's fonts included in a standalone file.
 import { parseMarkdown } from '@/lib/markdown';
 import { loadHighlighter } from '@/features/syntax-highlight';
-import { blobToDataUrl, loadDocumentImage, loadUnique, renderDiagram } from './assets';
+import { fillMath, loadMath } from '@/features/math';
+import { loadDocumentImage, loadUnique, renderDiagram } from './assets';
+import { embeddedFontFaces, mathExportCss } from './fonts';
 import { EXPORT_STYLES, PAGED_STYLES } from './styles';
 import { contentBox, DEFAULT_PAGE_SETUP, PAGE_MARGINS_MM, pageBox, pageRule, type PageSetup } from './pageGeometry';
 import type { PagedDocument } from './pages';
-
-const EXPORT_FONT_FAMILIES = ['Literata', 'Fraunces', 'IBM Plex Mono'];
-
-// Latin and Greek cover the app's audience; other scripts fall back to system fonts
-const FONT_SUBSETS = /-(latin|latin-ext|greek|greek-ext)-\d/;
-
-let fontFacesPromise: Promise<string> | null = null;
-
-/** The app's own @font-face rules with the font files inlined (fetched once). */
-function embeddedFontFaces(): Promise<string> {
-  fontFacesPromise ??= (async () => {
-    const rules: CSSFontFaceRule[] = [];
-
-    for (const sheet of Array.from(document.styleSheets)) {
-      let cssRules: CSSRuleList;
-
-      try {
-        cssRules = sheet.cssRules;
-      } catch {
-        continue; // cross-origin sheet
-      }
-
-      for (const rule of Array.from(cssRules)) {
-        if (!(rule instanceof CSSFontFaceRule)) continue;
-        const family = rule.style.getPropertyValue('font-family').replace(/['"]/g, '').trim();
-
-        if (EXPORT_FONT_FAMILIES.includes(family)) rules.push(rule);
-      }
-    }
-
-    const faces = await Promise.all(
-      rules.map(async (rule) => {
-        const url = rule.style.getPropertyValue('src').match(/url\(["']?([^"')]+\.woff2)["']?\)/)?.[1];
-
-        if (!url || !FONT_SUBSETS.test(url)) return '';
-
-        try {
-          const response = await fetch(url);
-
-          if (!response.ok) return '';
-
-          // Rejects on a failed read, so one bad face can't leave the cached promise pending
-          const data = await blobToDataUrl(await response.blob());
-          const s = rule.style;
-
-          return `@font-face{font-family:'${s.getPropertyValue('font-family').replace(/['"]/g, '')}';font-style:${s.getPropertyValue('font-style') || 'normal'};font-weight:${s.getPropertyValue('font-weight') || '400'};font-display:block;src:url(${data}) format('woff2');unicode-range:${s.getPropertyValue('unicode-range') || 'U+0-10FFFF'};}`;
-        } catch {
-          return '';
-        }
-      })
-    );
-
-    return faces.join('\n');
-  })();
-
-  return fontFacesPromise;
-}
 
 function errorBox(title: string, detail: string): HTMLElement {
   const box = document.createElement('div');
@@ -117,14 +62,19 @@ export type DiagramPlacement =
 /** How an image goes into the body: its address left as written, or replaced (and sized when given). */
 export type ImagePlacement = { kind: 'keep'; src: string } | { kind: 'img'; src: string; width?: number; height?: number };
 
-/** Turns the body's diagrams and images into final placements; `image` returns null when it can't be loaded. */
+/**
+ * Turns the body's diagrams and images into final placements; `image` returns null when it can't be loaded.
+ * `math` typesets formulas with KaTeX, or keeps them as `$…$` source (KaTeX's markup needs its stylesheet).
+ */
 export interface BodyEmbed {
   diagram: (code: string) => Promise<DiagramPlacement>;
   image: (src: string, docPath: string | null) => Promise<ImagePlacement | null>;
+  math: 'katex' | 'source';
 }
 
-/** A standalone file: diagrams as inline SVG, every image embedded at its natural size. */
+/** A standalone file: diagrams as inline SVG, every image embedded at its natural size, math typeset. */
 const FILE_EMBED: BodyEmbed = {
+  math: 'katex',
   async diagram(code) {
     const diagram = await renderDiagram(code);
 
@@ -143,6 +93,11 @@ export async function renderExportBody(markdown: string, docPath: string | null,
   const template = document.createElement('template');
   template.innerHTML = parseMarkdown(markdown);
   const root = template.content;
+
+  if (embed.math === 'katex' && root.querySelector('[data-math]')) {
+    await loadMath();
+    fillMath(root);
+  }
 
   const slots = Array.from(root.querySelectorAll<HTMLElement>('.mermaid-container[data-mermaid]'), (slot) => ({
     slot,
@@ -230,8 +185,20 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 }
 
-/** A whole HTML document: the shared head (fonts, metadata) with `css` after the fonts. */
-function htmlDocument(fonts: string, options: { title: string; author?: string; css: string; body: string }): string {
+/**
+ * The fonts every exported document carries: the app's, then KaTeX's stylesheet and fonts
+ * when `body` has typeset math (so exports without math don't grow).
+ */
+async function documentFonts(body: string): Promise<string> {
+  const [fonts, math] = await Promise.all([embeddedFontFaces(), body.includes('class="katex') ? mathExportCss() : '']);
+
+  return `${fonts}\n${math}`;
+}
+
+/** A whole HTML document: the shared head with the fonts for its body, then `css`. */
+async function htmlDocument(options: { title: string; author?: string; css: string; body: string }): Promise<string> {
+  const fonts = await documentFonts(options.body);
+
   return `<!doctype html>
 <html lang="${document.documentElement.lang || 'en'}">
 <head>
@@ -256,9 +223,7 @@ export async function buildStandaloneHtml(
   body: string,
   options: { title: string; author?: string; page?: PageSetup }
 ): Promise<string> {
-  const fonts = await embeddedFontFaces();
-
-  return htmlDocument(fonts, {
+  return htmlDocument({
     title: options.title,
     author: options.author,
     css: `${pageRule(options.page ?? DEFAULT_PAGE_SETUP)}\n${EXPORT_STYLES}`,
@@ -272,9 +237,7 @@ export async function buildStandaloneHtml(
  * on screen.
  */
 export async function buildMeasuringHtml(body: string, page: PageSetup): Promise<string> {
-  const fonts = await embeddedFontFaces();
-
-  return htmlDocument(fonts, {
+  return htmlDocument({
     title: 'Page layout',
     css: `${EXPORT_STYLES}\n${PAGED_STYLES}\nmain.document { width: ${contentBox(page).width}px; max-width: none; margin: 0; padding: 0; }`,
     body: `<main class="document">\n${body}\n</main>`,
@@ -285,19 +248,23 @@ export async function buildMeasuringHtml(body: string, page: PageSetup): Promise
 export async function buildPagedHtml(paged: PagedDocument, options: { title: string }): Promise<string> {
   const pages = paged.pages.map((html, index) => `<section class="page" data-page="${index + 1}">\n${html}\n</section>`);
 
-  return htmlDocument('', {
+  return htmlDocument({
     title: options.title,
-    css: await pagedStyles(paged.page),
+    css: pagedSheet(paged.page),
     body: pages.join('\n'),
   });
 }
 
-/** The stylesheet of a paged document, fonts included; page images use it too, so they match the preview. */
-export async function pagedStyles(page: PageSetup): Promise<string> {
-  const fonts = await embeddedFontFaces();
+/** The page styles of a paged document, without fonts. */
+function pagedSheet(page: PageSetup): string {
   const box = pageBox(page);
   const { top, right, bottom, left } = PAGE_MARGINS_MM;
   const sheet = `@page { size: ${box.width}px ${box.height}px; margin: 0; }\n.page { width: ${box.width}px; height: ${box.height}px; padding: ${top}mm ${right}mm ${bottom}mm ${left}mm; }`;
 
-  return `${fonts}\n${EXPORT_STYLES}\n${PAGED_STYLES}\n${sheet}`;
+  return `${EXPORT_STYLES}\n${PAGED_STYLES}\n${sheet}`;
+}
+
+/** The stylesheet of a paged document with its fonts (KaTeX's too when it has math); page images use it, so they match the preview. */
+export async function pagedStyles(doc: PagedDocument): Promise<string> {
+  return `${await documentFonts(doc.pages.join('\n'))}\n${pagedSheet(doc.page)}`;
 }

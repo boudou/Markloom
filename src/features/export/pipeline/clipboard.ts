@@ -32,6 +32,8 @@ function pasteSize(width: number, height: number) {
  * are not fetched: the paste target loads them itself.
  */
 const CLIPBOARD_EMBED: BodyEmbed = {
+  // KaTeX's hidden MathML copy needs its stylesheet, which a paste drops: keep `$…$` as text for now
+  math: 'source',
   async diagram(code) {
     const diagram = await renderDiagram(code);
 

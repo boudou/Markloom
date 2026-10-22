@@ -25,6 +25,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 
 - **Two editors**: split view (CodeMirror source plus live preview) or rich text (Milkdown) that keeps untouched Markdown byte-for-byte
 - **Mermaid diagrams**: rendered live, with errors reported as "Line N: …" against your document
+- **Math**: `$…$` and `$$…$$` typeset with KaTeX in the split-view preview and in PDF and HTML exports
 - **Callouts**: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and friends render as coloured boxes, in the preview and in exports
 - **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
 - **Copy as rich text**: paste a document, or just the selection, formatted into email, Google Docs or Confluence, diagrams included

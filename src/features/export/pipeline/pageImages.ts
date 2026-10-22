@@ -36,7 +36,7 @@ export async function savePages(doc: PagedDocument, title: string, which: 'all' 
 
   if (count === 0) throw new Error('The document has no pages');
 
-  const css = await pagedStyles(doc.page);
+  const css = await pagedStyles(doc);
 
   if (count === 1) {
     saveAs(pngBlob(await pagePng(doc, 0, css)), `${title}.png`);
