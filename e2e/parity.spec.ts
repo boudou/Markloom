@@ -87,8 +87,6 @@ test('highlighted code', async ({ app }) => {
 });
 
 test('math', async ({ app }) => {
-  knownGap('rich-text', 200, 'rich text shows math as $…$ text');
-
   await expect(app.rendered().locator('.katex')).toHaveCount(2);
   await expect(app.rendered()).not.toContainText('$a^2');
 });
