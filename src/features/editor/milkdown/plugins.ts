@@ -2,7 +2,7 @@
 // Mermaid blocks render as diagrams, relative images load from the open folder
 // (through the preview's image cache), and task-list checkboxes can be ticked.
 import { $prose, $view } from '@milkdown/kit/utils';
-import { codeBlockAttr, codeBlockSchema, headingSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
+import { codeBlockAttr, codeBlockSchema, headingSchema, htmlSchema, imageSchema, linkSchema } from '@milkdown/kit/preset/commonmark';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import type { Node as ProseNode, NodeType } from '@milkdown/kit/prose/model';
 import type { Transform } from '@milkdown/kit/prose/transform';
@@ -411,6 +411,12 @@ export const imageSchemaFix = imageSchema.extendSchema((prev) => (ctx) => {
     },
   };
 });
+
+// ---------------------------------------------------------------------------
+// Links: text typed right after a link is plain, as it is in Markdown mode.
+// ProseMirror marks are inclusive by default, which would grow the link instead.
+
+export const linkSchemaFix = linkSchema.extendSchema((prev) => (ctx) => ({ ...prev(ctx), inclusive: false }));
 
 // Images: keep the markdown src untouched, display a resolved one.
 
