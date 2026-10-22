@@ -123,4 +123,10 @@ html, body { background: #fff; }
 .page:not(:last-child) { break-after: page; }
 .page > :first-child { margin-top: 0; }
 .page-fit > * { margin: 0; }
+
+/* Blocks cut across pages (splitBlocks.ts); the measuring document uses these rules too */
+pre[data-continues] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+pre[data-continued] { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+li[data-continued] { list-style: none; margin-top: 0; }
+li.task-list-item[data-continued] { padding-left: 1.35em; }
 `;
