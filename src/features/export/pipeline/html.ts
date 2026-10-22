@@ -283,15 +283,21 @@ export async function buildMeasuringHtml(body: string, page: PageSetup): Promise
 
 /** Every page of a paged document as a fixed-size `section.page`, one per printed sheet. */
 export async function buildPagedHtml(paged: PagedDocument, options: { title: string }): Promise<string> {
-  const fonts = await embeddedFontFaces();
-  const box = pageBox(paged.page);
-  const { top, right, bottom, left } = PAGE_MARGINS_MM;
-  const sheet = `@page { size: ${box.width}px ${box.height}px; margin: 0; }\n.page { width: ${box.width}px; height: ${box.height}px; padding: ${top}mm ${right}mm ${bottom}mm ${left}mm; }`;
   const pages = paged.pages.map((html, index) => `<section class="page" data-page="${index + 1}">\n${html}\n</section>`);
 
-  return htmlDocument(fonts, {
+  return htmlDocument('', {
     title: options.title,
-    css: `${EXPORT_STYLES}\n${PAGED_STYLES}\n${sheet}`,
+    css: await pagedStyles(paged.page),
     body: pages.join('\n'),
   });
+}
+
+/** The stylesheet of a paged document, fonts included; page images use it too, so they match the preview. */
+export async function pagedStyles(page: PageSetup): Promise<string> {
+  const fonts = await embeddedFontFaces();
+  const box = pageBox(page);
+  const { top, right, bottom, left } = PAGE_MARGINS_MM;
+  const sheet = `@page { size: ${box.width}px ${box.height}px; margin: 0; }\n.page { width: ${box.width}px; height: ${box.height}px; padding: ${top}mm ${right}mm ${bottom}mm ${left}mm; }`;
+
+  return `${fonts}\n${EXPORT_STYLES}\n${PAGED_STYLES}\n${sheet}`;
 }
