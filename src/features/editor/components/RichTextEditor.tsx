@@ -12,6 +12,7 @@ import {
   commonmark,
   headingIdGenerator,
   inlineCodeKeymap,
+  remarkPreserveEmptyLinePlugin,
   syncHeadingIdPlugin,
 } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
@@ -139,8 +140,10 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
           // Debounced by 200 ms; `flush` writes sooner when something reads the store
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => commit(markdown));
         })
-        // Our headingIds numbers repeated headings like the preview; Milkdown's own sync would not
-        .use(commonmark.filter((plugin) => plugin !== syncHeadingIdPlugin))
+        // Our headingIds numbers repeated headings like the preview; Milkdown's own sync would not.
+        // Without the empty-line plugin an empty paragraph writes as a blank line, as in Markdown
+        // mode, instead of `<br />`.
+        .use(commonmark.filter((plugin) => plugin !== syncHeadingIdPlugin && !remarkPreserveEmptyLinePlugin.includes(plugin)))
         .use(headingIds)
         .use(gfm)
         .use(imageSchemaFix)
