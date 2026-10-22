@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+/** The version in package.json, set at build time */
+declare const __APP_VERSION__: string;
+
 interface Window {
   /** Present only when running inside the Electron desktop shell. */
   markloomDesktop?: {
