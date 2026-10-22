@@ -2,9 +2,11 @@
 // (table padding, rule style, list markers, spacing) and floods git diffs. This keeps
 // the user's original text for every top-level block whose meaning didn't change.
 import MarkdownIt from 'markdown-it';
+import { mathPlugin } from '@/lib/markdown';
 
-// Plain renderer used only to compare meaning (no highlighting, no app plugins)
-const comparer = new MarkdownIt({ html: true, linkify: false, typographer: false });
+// Plain renderer used only to compare meaning (no highlighting, no other app plugins). It reads
+// math as the preview does, so `$$x$$` and its multi-line form, as rich text writes it, match.
+const comparer = new MarkdownIt({ html: true, linkify: false, typographer: false }).use(mathPlugin);
 
 interface Block {
   text: string;

@@ -1137,3 +1137,58 @@
   display: block;
   width: 100%;
 }
+
+/* Math in rich text: typeset as in the preview; a click opens the TeX source */
+.rt-math {
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: normal;
+}
+
+.rt-math:hover:not(.is-editing) {
+  background: var(--wash);
+}
+
+.rt-math-block {
+  display: block;
+  margin: 0 0 1em;
+}
+
+/* Centred like the preview's display math; a wide formula scrolls rather than overflowing */
+.rt-math-block > .math-display,
+.rt-math-block > .rt-math-empty {
+  display: block;
+  text-align: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.rt-math-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.rt-math.is-editing > :not(.rt-math-source) {
+  display: none;
+}
+
+.rt-math-source {
+  display: inline-block;
+  min-width: 12em;
+  max-width: 100%;
+  padding: 0.35em 0.5em;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--wash);
+  color: var(--text-primary);
+  font: 0.85em/1.5 'IBM Plex Mono', monospace;
+  text-align: left;
+  vertical-align: middle;
+  resize: none;
+}
+
+.rt-math-block > .rt-math-source {
+  display: block;
+  width: 100%;
+  resize: vertical;
+}

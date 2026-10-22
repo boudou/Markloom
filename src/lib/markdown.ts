@@ -96,6 +96,22 @@ function inlineMathEnd(src: string, open: number, max: number): number {
   return -1;
 }
 
+/**
+ * Where inline math opened by the `$` at `pos` closes (the index of the closing `$`), or -1 when
+ * that `$` doesn't open math: not after or before another `$`, not before a space, and never
+ * across a link's "](" (link labels are scanned with these rules too). `max` ends the search.
+ * Rich text uses it too, so both editors agree on what is math.
+ */
+export function inlineMathClose(src: string, pos: number, max: number): number {
+  const next = src[pos + 1] ?? '';
+
+  if (src[pos] !== '$' || src[pos - 1] === '$' || next === '$' || next === '' || WHITESPACE.test(next)) return -1;
+
+  const end = inlineMathEnd(src, pos, max);
+
+  return end === -1 || src.slice(pos + 1, end).includes('](') ? -1 : end;
+}
+
 /** The trimmed text of one source line, with the container's indentation removed */
 function lineText(state: StateBlock, line: number): string {
   return state.src.slice(state.bMarks[line] + state.tShift[line], state.eMarks[line]).trimEnd();
@@ -110,23 +126,14 @@ export function mathPlugin(md: MarkdownIt): void {
   // After `escape` (so `\$` stays literal) and before `backticks` (so `$` in code stays code)
   md.inline.ruler.after('escape', 'math_inline', (state, silent) => {
     const { src, pos, posMax } = state;
-    const next = src[pos + 1] ?? '';
-
-    if (src[pos] !== '$' || src[pos - 1] === '$' || next === '$' || next === '' || WHITESPACE.test(next)) return false;
-
-    const end = inlineMathEnd(src, pos, posMax);
+    const end = inlineMathClose(src, pos, posMax);
 
     if (end === -1) return false;
-
-    const tex = src.slice(pos + 1, end);
-
-    // Link labels are scanned with these rules too: a span must never cross a link's "]("
-    if (tex.includes('](')) return false;
 
     if (!silent) {
       const token = state.push('math_inline', 'math', 0);
       token.markup = '$';
-      token.content = tex;
+      token.content = src.slice(pos + 1, end);
     }
 
     state.pos = end + 1;
@@ -357,7 +364,7 @@ export function headingText(inline: Token): string {
   const parts = (inline.children ?? []).map((child) => {
     if (child.type === 'text' || child.type === 'text_special' || child.type === 'code_inline') return child.content;
 
-    // Math as written, so slugs match rich text's (where math is still `$…$` text)
+    // Math as written, so slugs match rich text's (whose math nodes read as `$…$` text)
     if (child.type === 'math_inline') return `$${child.content}$`;
 
     return child.type === 'softbreak' || child.type === 'hardbreak' ? '\n' : '';

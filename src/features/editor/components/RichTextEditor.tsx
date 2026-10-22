@@ -33,6 +33,8 @@ import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { useImageDrop } from '@/features/image-drop';
 import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, headingIds, imageSchemaFix, imageView, inlineCodeSpellcheck, linkSchemaFix, taskToggle } from '../milkdown/plugins';
 import { htmlLayout, htmlView } from '../milkdown/html';
+import { math } from '../milkdown/math';
+import { escapeMathOpeners } from '../milkdown/mathMarkdown';
 import { prosemirrorSearchEngine, searchPlugin } from '../milkdown/search';
 import { preserveUnchangedBlocks } from '../milkdown/preserve';
 import { applyRichLink, insertRichSnippet, runRichAction, type LinkRequest } from '../milkdown/commands';
@@ -139,7 +141,14 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
             },
           }));
           // Match the source editor's conventions where remark lets us
-          ctx.update(remarkStringifyOptionsCtx, (prev) => ({ ...prev, bullet: '-' as const, emphasis: '_' as const, rule: '-' as const }));
+          // A `$` in text gets a backslash only where it would start math
+          ctx.update(remarkStringifyOptionsCtx, (prev) => ({
+            ...prev,
+            bullet: '-' as const,
+            emphasis: '_' as const,
+            rule: '-' as const,
+            handlers: { ...prev.handlers, text: escapeMathOpeners(prev.handlers?.text) },
+          }));
           // Debounced by 200 ms; `flush` writes sooner when something reads the store
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => commit(markdown));
         })
@@ -149,6 +158,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         .use(commonmark.filter((plugin) => plugin !== syncHeadingIdPlugin && !remarkPreserveEmptyLinePlugin.includes(plugin)))
         .use(headingIds)
         .use(gfm)
+        .use(math)
         .use(imageSchemaFix)
         .use(linkSchemaFix)
         .use(codeBlockMetaSchema)
@@ -318,9 +328,9 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
   const hasImageFiles = (items: DataTransferItemList) =>
     Array.from(items).some((item) => item.kind === 'file' && item.type.startsWith('image/'));
 
-  // Keys typed in a raw HTML source box or a rendered HTML control belong to it, not to the document
+  // Keys typed in a raw HTML or TeX source box, or a rendered HTML control, belong to it, not to the document
   const inHtmlBlock = (target: EventTarget) =>
-    target instanceof Element && !!target.closest('.rt-html-source, .rt-html-render');
+    target instanceof Element && !!target.closest('.rt-html-source, .rt-html-render, .rt-math-source');
 
   // Focus mode's keys are taken before ProseMirror sees them: Milkdown runs its input rules on
   // every Enter, modifiers or not (a matching rule swallows Ctrl+Shift+Enter), and ProseMirror's
