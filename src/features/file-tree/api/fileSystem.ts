@@ -34,9 +34,7 @@ function openRoot(handle: FileSystemDirectoryHandle): void {
   openFolder = { handle, folders: new Map() };
 }
 
-// The pickers reject with an AbortError when the user cancels them.
-// SAFETY: `unknown` is the subject of this type predicate (a catch binding),
-// the exemption anti-slop allows; instanceof does the narrowing.
+// The pickers reject with an AbortError when the user cancels them
 function isAbortError(error: unknown): error is DOMException {
   return error instanceof DOMException && error.name === 'AbortError';
 }
