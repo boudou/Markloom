@@ -24,8 +24,7 @@ export function useRovingToolbar(ref: RefObject<HTMLElement>): void {
     };
 
     const onFocusIn = (e: FocusEvent) => {
-      // SAFETY: focus events fire on elements, and only Element.closest is used.
-      const target = (e.target as HTMLElement).closest<HTMLElement>(FOCUSABLE);
+      const target = e.target instanceof Element ? e.target.closest<HTMLElement>(FOCUSABLE) : null;
 
       if (target && toolbar.contains(target)) {
         current = target;
@@ -35,12 +34,15 @@ export function useRovingToolbar(ref: RefObject<HTMLElement>): void {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-      // SAFETY: key events inside the toolbar target its focused button or input, both HTML elements.
-      const target = e.target as HTMLElement;
 
-      if (target.tagName === 'INPUT') return;
+      if (!(e.target instanceof HTMLElement) || e.target.tagName === 'INPUT') return;
+
+      const item = e.target.closest<HTMLElement>(FOCUSABLE);
+
+      if (!item) return;
+
       const all = items();
-      const index = all.indexOf(target.closest<HTMLElement>(FOCUSABLE)!);
+      const index = all.indexOf(item);
 
       if (index === -1) return;
 

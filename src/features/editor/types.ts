@@ -20,8 +20,8 @@ export type MarkdownAction =
   | 'table'
   | 'codeblock';
 
-/** The on/off formats of FormatState, which the editors set from marks and syntax nodes */
-export type FormatFlag = 'bold' | 'italic' | 'strikethrough' | 'code' | 'link';
+/** The boolean keys of FormatState: the toolbar's on/off states */
+export type FormatFlag = { [K in keyof FormatState]: FormatState[K] extends boolean ? K : never }[keyof FormatState];
 
 /** What applies at the cursor, so the toolbar can show it */
 export interface FormatState {

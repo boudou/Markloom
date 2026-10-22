@@ -168,8 +168,7 @@ export function useDocumentLinks(
     if (!container) return;
 
     const handleClick = async (event: MouseEvent) => {
-      // SAFETY: click events fire on elements (never text nodes), and only Element.closest is used.
-      const anchor = (event.target as HTMLElement).closest('a');
+      const anchor = event.target instanceof Element ? event.target.closest('a') : null;
 
       if (!anchor || !container.contains(anchor)) return;
 

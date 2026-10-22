@@ -52,8 +52,7 @@ const FORMATS: { id: ExportFormat; label: string; icon: typeof FileText; descrip
 const FACE_SWAP = { type: 'spring', stiffness: 260, damping: 34, mass: 0.8 } as const;
 
 const BUTTON_FACES = [
-  // SAFETY: widening only: a format id is a string, and the list also holds the 'exporting' face.
-  ...FORMATS.map((f) => ({ key: f.id as string, text: `Export ${f.label}`, busy: false })),
+  ...FORMATS.map((f) => ({ key: f.id, text: `Export ${f.label}`, busy: false })),
   { key: 'exporting', text: 'Exporting…', busy: true },
 ];
 
