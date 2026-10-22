@@ -81,9 +81,10 @@ function registerAppProtocol() {
 }
 
 // ---------------------------------------------------------------------------
-// Files opened from the OS (double-click, "Open with", drag onto the app icon).
-// The page may read and write only inside folders the user opened a file from, or, for a
-// file in a broad folder (home, a drive root), only that file and its assets/ folder.
+// Files opened from the OS (double-click, "Open with", drag onto the app icon), and folders
+// passed on the command line. The page may read and write only inside folders the user opened
+// a file from or handed over, or, for a file in a broad folder (home, a drive root), only that
+// file and its assets/ folder. A broad folder itself is never opened.
 
 const trustFile = () => path.join(app.getPath('userData'), 'trusted-folders.json');
 let trustedDirs = new Set();
@@ -176,20 +177,45 @@ async function assertTrusted(filePath, allowed) {
   } catch {
     throw denied;
   }
-  const inTrustedDir = [...trustedDirs].some((dir) => real.startsWith(dir + path.sep));
-  if (!(inTrustedDir || trustedFiles.has(real)) || !allowed(real)) throw denied;
+  if (!(isInTrustedDir(real) || trustedFiles.has(real)) || !allowed(real)) throw denied;
   return real;
+}
+
+// Strictly inside a trusted folder (a trusted folder is not inside itself)
+function isInTrustedDir(real) {
+  return [...trustedDirs].some((dir) => real.startsWith(dir + path.sep));
 }
 
 let rendererReady = false;
 const pendingFiles = [];
+// The folder handed over before the page was ready (there is one open folder, so the last one wins)
+let pendingFolder = null;
+// macOS open-file paths that arrive before the app is ready
+const earlyPaths = [];
 
-function documentsIn(argv) {
+// The paths on a command line, resolved against the directory it was run from. `electron .`
+// (development) puts the app folder first, which must not be taken for a folder to open.
+function launchPaths(argv, cwd) {
   return argv
-    .slice(1)
-    .filter((arg) => !arg.startsWith('-') && DOCUMENT_EXTENSIONS.test(arg))
-    .map((arg) => path.resolve(arg))
-    .filter((file) => fs.existsSync(file));
+    .slice(process.defaultApp ? 2 : 1)
+    .filter((arg) => !arg.startsWith('-'))
+    .map((arg) => path.resolve(cwd, arg));
+}
+
+function isDirectory(target) {
+  try {
+    return fs.statSync(target).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Folders and documents from the OS or the command line: the folder is shown first, then the documents open
+function openFromOs(paths) {
+  const folders = paths.filter(isDirectory);
+  const docs = paths.filter((p) => !isDirectory(p) && DOCUMENT_EXTENSIONS.test(p) && fs.existsSync(p));
+  if (folders.length > 0) openFolder(folders[folders.length - 1]);
+  openDocuments(docs);
 }
 
 function openDocuments(files) {
@@ -200,11 +226,95 @@ function openDocuments(files) {
   else pendingFiles.push(...files);
 }
 
+// Trusts a folder handed over by the OS. The native real path gives the true case on Windows,
+// which is what assertTrusted's fs.promises.realpath compares against (and what isBroadFolder needs).
+function trustFolder(dir) {
+  let real;
+  try {
+    real = fs.realpathSync.native(dir);
+  } catch {
+    return false;
+  }
+  if (isBroadFolder(real)) return false;
+  if (!trustedDirs.has(real)) {
+    trustedDirs.add(real);
+    saveTrust();
+  }
+  return true;
+}
+
+// Sends the path as given, not its real path, so a document opened from the tree and the same
+// document double-clicked in Explorer get the same desktop: path (and the same tab)
+function openFolder(dir) {
+  if (!trustFolder(dir)) {
+    const options = {
+      type: 'info',
+      title: 'Markloom',
+      message: `Markloom can't open ${dir} as a folder`,
+      detail: 'A drive or your home folder holds far more than your documents. Open a folder inside it instead.',
+    };
+    if (mainWindow) dialog.showMessageBox(mainWindow, options);
+    else dialog.showMessageBox(options);
+    return;
+  }
+  const win = mainWindow;
+  if (win && rendererReady) win.webContents.send('open-folder', dir);
+  else pendingFolder = dir;
+}
+
 ipcMain.handle('take-pending-files', (event) => {
   assertFromApp(event);
   rendererReady = true;
-  return pendingFiles.splice(0);
+  const folder = pendingFolder;
+  pendingFolder = null;
+  return { files: pendingFiles.splice(0), folder };
 });
+
+// One level of a trusted folder: its subfolders and the documents in it, as names only, so no
+// symlink target's real path reaches the page. Hidden entries and node_modules are left out, and a
+// symlink (or Windows junction) is listed only when its target is trusted too.
+ipcMain.handle('list-folder', async (event, dirPath) => {
+  assertFromApp(event);
+  const denied = new Error('Markloom does not have access to that location');
+  if (typeof dirPath !== 'string') throw denied;
+  let real;
+  try {
+    real = await fs.promises.realpath(path.resolve(dirPath));
+    if (!(trustedDirs.has(real) || isInTrustedDir(real))) throw denied;
+    if (!(await fs.promises.stat(real)).isDirectory()) throw denied;
+  } catch {
+    throw denied;
+  }
+
+  const entries = [];
+  for (const entry of await fs.promises.readdir(real, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const kind = await entryKind(path.join(real, entry.name), entry);
+    if (kind === 'directory' && entry.name !== 'node_modules') {
+      entries.push({ name: entry.name, isDirectory: true });
+    } else if (kind === 'file' && DOCUMENT_EXTENSIONS.test(entry.name)) {
+      entries.push({ name: entry.name, isDirectory: false });
+    }
+  }
+  return entries;
+});
+
+// 'directory', 'file' or null (anything else, or a symlink leading outside the trusted folders)
+async function entryKind(fullPath, entry) {
+  if (!entry.isSymbolicLink()) {
+    if (entry.isDirectory()) return 'directory';
+    return entry.isFile() ? 'file' : null;
+  }
+  try {
+    const target = await fs.promises.realpath(fullPath);
+    if (!(trustedDirs.has(target) || isInTrustedDir(target))) return null;
+    const stat = await fs.promises.stat(target);
+    if (stat.isDirectory()) return 'directory';
+    return stat.isFile() && DOCUMENT_EXTENSIONS.test(target) ? 'file' : null;
+  } catch {
+    return null;
+  }
+}
 
 // The bytes and their modified time in one call. Stat comes first: a write between the two
 // then costs one extra re-read later, never a new time on old bytes (a stale image for good)
@@ -577,20 +687,21 @@ function createWindow() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  // macOS delivers files through this event, possibly before the app is ready
+  // macOS delivers files and folders through this event, possibly before the app is ready
   app.on('open-file', (event, filePath) => {
     event.preventDefault();
     if (app.isReady()) {
-      openDocuments([filePath]);
+      openFromOs([filePath]);
       if (hiddenToTray) showMainWindow();
     } else {
-      pendingFiles.push(filePath);
+      earlyPaths.push(filePath);
     }
   });
 
-  app.on('second-instance', (_event, argv) => {
+  // A relative argument belongs to the second instance's working directory, not ours
+  app.on('second-instance', (_event, argv, workingDirectory) => {
     if (mainWindow) showMainWindow();
-    openDocuments(documentsIn(argv));
+    openFromOs(launchPaths(argv, workingDirectory));
   });
 
   app.on('before-quit', () => {
@@ -602,8 +713,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     loadTrust();
     loadWindowPrefs();
-    pendingFiles.forEach(trustFolderOf);
-    openDocuments(documentsIn(process.argv));
+    openFromOs([...launchPaths(process.argv, process.cwd()), ...earlyPaths.splice(0)]);
     setUpSpellCheck();
     registerAppProtocol();
     createWindow();
