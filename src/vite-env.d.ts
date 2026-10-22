@@ -7,7 +7,7 @@ interface Window {
     platform: string;
     takePendingFiles: () => Promise<string[]>;
     onOpenFiles: (callback: (files: string[]) => void) => () => void;
-    readFile: (filePath: string) => Promise<Uint8Array>;
+    readFile: (filePath: string) => Promise<{ bytes: Uint8Array; mtimeMs: number }>;
     statFile: (filePath: string) => Promise<{ mtimeMs: number; size: number }>;
     writeFile: (filePath: string, data: string | Uint8Array) => Promise<void>;
     printToPdf: (html: string, options?: { pageSize?: string; landscape?: boolean }) => Promise<Uint8Array>;

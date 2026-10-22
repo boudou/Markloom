@@ -1,6 +1,6 @@
 // Milkdown extensions that make the rich-text editor behave like the preview:
-// Mermaid blocks render as diagrams, relative images load from the open folder,
-// and task-list checkboxes can be ticked.
+// Mermaid blocks render as diagrams, relative images load from the open folder
+// (through the preview's image cache), and task-list checkboxes can be ticked.
 import { $prose, $view } from '@milkdown/kit/utils';
 import { codeBlockAttr, codeBlockSchema, headingSchema, htmlSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
@@ -9,7 +9,7 @@ import type { Transform } from '@milkdown/kit/prose/transform';
 import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { fillDiagram } from '@/features/mermaid/utils/errors';
-import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { canResolveRelative } from '@/features/file-tree/api/fileSystem';
 import { isAbsoluteUrl, resolveSourcePath } from '@/lib/documentPath';
 import { useTabsStore, selectActiveContent, selectActiveTab } from '@/features/tabs';
 import {
@@ -20,26 +20,10 @@ import {
   leadingBlankLines,
   mermaidFences,
 } from '@/lib/markdown';
-
-const imageUrlCache = new Map<string, string>();
+import { showImage } from '../utils/previewImages';
 
 function activeDocumentPath(): string | null {
   return selectActiveTab(useTabsStore.getState())?.path ?? null;
-}
-
-/** Turns a markdown image src into something the browser can display */
-async function resolveImageSrc(src: string): Promise<string> {
-  const docPath = activeDocumentPath();
-
-  if (!src || isAbsoluteUrl(src) || !canResolveRelative(docPath)) return src;
-  const path = resolveSourcePath(docPath, src);
-  const cached = imageUrlCache.get(path);
-
-  if (cached) return cached;
-  const url = URL.createObjectURL(await readFileBlob(path));
-  imageUrlCache.set(path, url);
-
-  return url;
 }
 
 // ---------------------------------------------------------------------------
@@ -452,15 +436,23 @@ class ImageView implements NodeView {
     this.dom.alt = alt ?? '';
 
     if (title) this.dom.title = title;
-    resolveImageSrc(src)
-      .then((url) => {
-        if (this.node === node) this.dom.src = url;
-      })
-      .catch(() => {
-        if (this.node !== node) return;
-        this.dom.src = missingImagePlaceholder(alt || src);
-        this.dom.classList.add('is-missing');
-      });
+    this.dom.classList.remove('is-missing');
+    const docPath = activeDocumentPath();
+
+    if (!src || isAbsoluteUrl(src) || !canResolveRelative(docPath)) {
+      // Takes the img out of any folder read still in flight and out of focus refreshes
+      delete this.dom.dataset.imagePath;
+      this.dom.src = src;
+
+      return;
+    }
+
+    void showImage(this.dom, resolveSourcePath(docPath, src), () => {
+      this.dom.src = missingImagePlaceholder(alt || src);
+      this.dom.classList.add('is-missing');
+      // Keeps a focus refresh from painting over the placeholder
+      delete this.dom.dataset.imagePath;
+    });
   }
 
   update(node: ProseNode) {

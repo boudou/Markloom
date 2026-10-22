@@ -383,9 +383,7 @@ const desktopStore: DocumentStore = {
   canResolveRelative: true,
 
   async read(path) {
-    const bridge = desktopBridge();
-    const osPath = osPathOf(path);
-    const [bytes, { mtimeMs }] = await Promise.all([bridge.readFile(osPath), bridge.statFile(osPath)]);
+    const { bytes, mtimeMs } = await desktopBridge().readFile(osPathOf(path));
     const name = documentName(path);
 
     return new File([new Uint8Array(bytes)], name, { type: mimeTypeFor(name), lastModified: Math.trunc(mtimeMs) });
@@ -471,6 +469,17 @@ export async function readFileVersion(path: string): Promise<string> {
   const store = storeFor(path);
 
   return store.version ? store.version(path) : fileVersion(await store.read(path));
+}
+
+/** The file at `path` when its version is no longer `version`, or null when it is unchanged. Reads it once either way. */
+export async function readChangedFile(path: string, version: string): Promise<File | null> {
+  const store = storeFor(path);
+
+  if (store.version) return (await store.version(path)) === version ? null : store.read(path);
+
+  const file = await store.read(path);
+
+  return fileVersion(file) === version ? null : file;
 }
 
 // Read file contents

@@ -206,9 +206,17 @@ ipcMain.handle('take-pending-files', (event) => {
   return pendingFiles.splice(0);
 });
 
+// The bytes and their modified time in one call. Stat comes first: a write between the two
+// then costs one extra re-read later, never a new time on old bytes (a stale image for good)
 ipcMain.handle('read-file', async (event, filePath) => {
   assertFromApp(event);
-  return fs.promises.readFile(await assertTrusted(filePath, canRead));
+  const file = await fs.promises.open(await assertTrusted(filePath, canRead), 'r');
+  try {
+    const { mtimeMs } = await file.stat();
+    return { bytes: await file.readFile(), mtimeMs };
+  } finally {
+    await file.close();
+  }
 });
 
 // Lets the preview check whether an image changed without reading it

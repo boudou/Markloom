@@ -116,7 +116,7 @@ export function useDocumentLinks(
   options: {
     /** Editable surfaces follow links only on Ctrl/Cmd+click */
     requireModifier?: boolean;
-    /** Off when the editor resolves images itself */
+    /** Off when the editor resolves images itself; only turns off swapping `img[src]` in rendered HTML */
     resolveImages?: boolean;
   } = {}
 ): void {
@@ -147,10 +147,9 @@ export function useDocumentLinks(
     });
   }, [containerRef, html, activeFilePath, resolveImages]);
 
-  // An image edited in another app shows its new version when the user comes back
+  // An image edited in another app shows its new version when the user comes back. Runs for
+  // rich text too: its image views use the same cache (and stay mounted while hidden)
   useEffect(() => {
-    if (!resolveImages) return;
-
     const handleFocus = () => {
       const container = containerRef.current;
 
@@ -160,7 +159,7 @@ export function useDocumentLinks(
     window.addEventListener('focus', handleFocus);
 
     return () => window.removeEventListener('focus', handleFocus);
-  }, [containerRef, resolveImages]);
+  }, [containerRef]);
 
   // Intercept link clicks
   useEffect(() => {
