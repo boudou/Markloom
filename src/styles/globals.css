@@ -119,6 +119,14 @@
     content: none;
   }
 
+  /* Images flow inline, as on GitHub and in exports: Tailwind's reset makes every image a
+     block and the typography plugin adds 2em above and below, which stacked a row of badges */
+  .prose-markloom img {
+    display: inline;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
   /* Code blocks own their surface; the code inside is plain text on it */
   .prose-markloom pre {
     background-color: var(--panel);
