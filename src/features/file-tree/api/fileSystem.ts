@@ -1,7 +1,14 @@
 // Browser-based File System Access API implementation
 import { nanoid } from 'nanoid';
 import type { FileNode } from '../types';
-import { ROOT_KEY, ensurePermission, recallDirectoryHandle, recallFileHandle, rememberHandle } from './handleStore';
+import {
+  FOLDER_KEY_PREFIX,
+  ROOT_KEY,
+  ensurePermission,
+  recallDirectoryHandle,
+  recallFileHandle,
+  rememberHandle,
+} from './handleStore';
 
 // The three kinds of document path. Only this file tells them apart (see storeFor):
 // - "desktop:C:/Users/me/notes/plan.md": a file the OS handed to the desktop app, read through the Electron bridge
@@ -39,8 +46,28 @@ function isAbortError(error: unknown): error is DOMException {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
-// Open folder dialog using File System Access API
-export async function openFolderDialog(): Promise<string | null> {
+/** A folder just opened: its name and the key its handle is remembered under (see openRecentFolder) */
+export interface OpenedFolder {
+  name: string;
+  key: string;
+}
+
+/**
+ * The key of a recent folder that is the same folder as `handle`, or a new one. Keyed by id, not name:
+ * two folders called "docs" are two entries, and picking the same folder again finds its entry.
+ */
+async function folderKeyFor(handle: FileSystemDirectoryHandle, recentKeys: readonly string[]): Promise<string> {
+  for (const key of recentKeys) {
+    const known = await recallDirectoryHandle(key);
+
+    if (known && (await known.isSameEntry(handle))) return key;
+  }
+
+  return `${FOLDER_KEY_PREFIX}${nanoid(8)}`;
+}
+
+/** Asks for a folder and opens it. `recentKeys` are the recent folders' keys, so a folder picked again keeps its key. */
+export async function openFolderDialog(recentKeys: readonly string[]): Promise<OpenedFolder | null> {
   try {
     const handle = await window.showDirectoryPicker({
       mode: 'readwrite',
@@ -48,8 +75,10 @@ export async function openFolderDialog(): Promise<string | null> {
 
     openRoot(handle);
     void rememberHandle(ROOT_KEY, handle);
+    const key = await folderKeyFor(handle, recentKeys);
+    void rememberHandle(key, handle);
 
-    return handle.name;
+    return { name: handle.name, key };
   } catch (error) {
     if (!isAbortError(error)) {
       console.error('Error opening folder:', error);
@@ -57,6 +86,43 @@ export async function openFolderDialog(): Promise<string | null> {
 
     return null;
   }
+}
+
+export type RememberedFolderResult =
+  | { status: 'opened'; name: string; handle: FileSystemDirectoryHandle }
+  | { status: 'missing' | 'denied' };
+
+/**
+ * Opens the folder whose handle is remembered under `key`. Call it straight from a click, with no
+ * await before it: the browser may need to ask for access again. 'missing' when no handle is stored
+ * or the folder can't be listed (deleted or moved on disk), 'denied' when access wasn't granted.
+ */
+async function openRememberedFolder(key: string): Promise<RememberedFolderResult> {
+  const handle = await recallDirectoryHandle(key);
+
+  if (!handle) return { status: 'missing' };
+
+  if (!(await ensurePermission(handle))) return { status: 'denied' };
+
+  // A stored handle outlives its folder; only listing it tells
+  try {
+    await handle.values().next();
+  } catch {
+    return { status: 'missing' };
+  }
+
+  openRoot(handle);
+
+  return { status: 'opened', name: handle.name, handle };
+}
+
+/** Reopens a recent folder (see openRememberedFolder) and makes it the folder the next launch restores. */
+export async function openRecentFolder(key: string): Promise<RememberedFolderResult> {
+  const result = await openRememberedFolder(key);
+
+  if (result.status === 'opened') void rememberHandle(ROOT_KEY, result.handle);
+
+  return result;
 }
 
 /** Gives a standalone file its path and keeps its handle (here and in IndexedDB), so it can be read and saved later. */
@@ -270,15 +336,13 @@ async function standaloneHandle(path: string): Promise<FileSystemFileHandle> {
 
 /**
  * Reopens the folder from the last session. Must run from a user gesture (a click)
- * when the browser needs to ask for permission again. Returns the folder name.
+ * when the browser needs to ask for permission again. Returns the folder name, or null
+ * when access wasn't granted or the folder is gone.
  */
 export async function restoreRememberedFolder(): Promise<string | null> {
-  const handle = await recallDirectoryHandle(ROOT_KEY);
+  const result = await openRememberedFolder(ROOT_KEY);
 
-  if (!handle || !(await ensurePermission(handle))) return null;
-  openRoot(handle);
-
-  return handle.name;
+  return result.status === 'opened' ? result.name : null;
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,13 @@ export interface RecentFile {
   accessedAt: number;
 }
 
+/** A folder opened before; its directory handle lives in IndexedDB under `key` */
+export interface RecentFolder {
+  key: string;
+  name: string;
+  openedAt: number;
+}
+
 export interface LastSession {
   /** Name of the folder that was open (its handle lives in IndexedDB) */
   rootName: string | null;
@@ -54,6 +61,9 @@ interface SettingsState {
   // Recent files
   recentFiles: RecentFile[];
 
+  // Recent folders, newest first
+  recentFolders: RecentFolder[];
+
   /** Word-count goals, keyed by document path (or tab id for unsaved documents) */
   wordGoals: Record<string, number>;
 
@@ -68,6 +78,8 @@ interface SettingsState {
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
   removeRecentFile: (path: string) => void;
   clearRecentFiles: () => void;
+  addRecentFolder: (folder: Omit<RecentFolder, 'openedAt'>) => void;
+  removeRecentFolder: (key: string) => void;
   setWordGoal: (key: string, goal: number | null) => void;
   /** Re-keys a goal, e.g. from an unsaved tab's id to the path it was first saved to */
   moveWordGoal: (fromKey: string, toKey: string) => void;
@@ -75,7 +87,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'wordGoals'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -84,6 +96,8 @@ type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
 type SavedSettings = KeptTopLevelSettings & { editor?: Partial<EditorSettings> };
 
 const MAX_RECENT_FILES = 10;
+
+export const MAX_RECENT_FOLDERS = 8;
 
 const SETTINGS_VERSION = 1;
 
@@ -103,6 +117,7 @@ const KEPT_TOP_LEVEL_KEYS = [
   'pageWidth',
   'lastSession',
   'recentFiles',
+  'recentFolders',
   'wordGoals',
 ] as const;
 
@@ -148,6 +163,7 @@ export const useSettingsStore = create<SettingsState>()(
       pageWidth: 'readable',
       lastSession: null,
       recentFiles: [],
+      recentFolders: [],
       wordGoals: {},
 
       // Word-count goals; null or 0 removes the goal
@@ -225,6 +241,22 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => {
           state.recentFiles = [];
         }),
+
+      // Recent folders: keyed by handle id, so two folders with the same name stay apart
+      addRecentFolder: (folder) =>
+        set((state) => {
+          state.recentFolders = state.recentFolders.filter((f) => f.key !== folder.key);
+          state.recentFolders.unshift({ ...folder, openedAt: Date.now() });
+
+          if (state.recentFolders.length > MAX_RECENT_FOLDERS) {
+            state.recentFolders = state.recentFolders.slice(0, MAX_RECENT_FOLDERS);
+          }
+        }),
+
+      removeRecentFolder: (key) =>
+        set((state) => {
+          state.recentFolders = state.recentFolders.filter((f) => f.key !== key);
+        }),
     })),
     {
       name: 'markloom-settings',
@@ -239,6 +271,7 @@ export const useSettingsStore = create<SettingsState>()(
         pageWidth: state.pageWidth,
         lastSession: state.lastSession,
         recentFiles: state.recentFiles,
+        recentFolders: state.recentFolders,
         wordGoals: state.wordGoals,
       }),
       // Only saves from an older version reach here.
