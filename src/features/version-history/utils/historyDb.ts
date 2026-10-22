@@ -2,8 +2,6 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
 const DB_NAME = 'markloom-history';
 
-export const MAX_VERSIONS = 50;
-
 export interface VersionMeta {
   id: string;
   filePath: string;
@@ -75,8 +73,13 @@ export async function readVersionContent(id: string): Promise<string | undefined
   return (await db.get('versions', id))?.content;
 }
 
-/** Stores a snapshot, drops the file's versions past `MAX_VERSIONS` and returns the kept list, in one transaction. */
-export async function saveVersion(filePath: string, content: string, label?: string): Promise<VersionMeta[]> {
+/** The versions past the newest `keep`; a bad limit (below 1) must never delete a file's whole history */
+function pastLimit(newestFirstVersions: VersionMeta[], keep: number): VersionMeta[] {
+  return keep < 1 ? [] : newestFirstVersions.slice(keep);
+}
+
+/** Stores a snapshot, drops the file's versions past `keep` and returns the kept list, in one transaction. */
+export async function saveVersion(filePath: string, content: string, keep: number, label?: string): Promise<VersionMeta[]> {
   const db = await getDb();
   const row: StoredVersion = { id: generateId(), filePath, content, timestamp: Date.now(), label };
   // Only IDB requests may be awaited until `tx.done`, or the transaction commits early
@@ -87,14 +90,78 @@ export async function saveVersion(filePath: string, content: string, label?: str
   await meta.put(toMeta(row));
   const all = (await meta.index('by-file').getAll(filePath)).sort(newestFirst);
 
-  for (const stale of all.slice(MAX_VERSIONS)) {
-    await versions.delete(stale.id);
-    await meta.delete(stale.id);
+  const stale = pastLimit(all, keep);
+
+  for (const version of stale) {
+    await versions.delete(version.id);
+    await meta.delete(version.id);
   }
 
   await tx.done;
 
-  return all.slice(0, MAX_VERSIONS);
+  return all.slice(0, all.length - stale.length);
+}
+
+/** Drops every file's versions past `keep`, in one transaction. */
+export async function trimVersions(keep: number): Promise<void> {
+  const db = await getDb();
+  // Only IDB requests may be awaited until `tx.done`, so the grouping below stays synchronous
+  const tx = db.transaction(['versions', 'meta'], 'readwrite');
+  const versions = tx.objectStore('versions');
+  const meta = tx.objectStore('meta');
+  const byFile = new Map<string, VersionMeta[]>();
+
+  for (const version of await meta.getAll()) {
+    const group = byFile.get(version.filePath);
+
+    if (group) group.push(version);
+    else byFile.set(version.filePath, [version]);
+  }
+
+  for (const group of byFile.values()) {
+    for (const version of pastLimit(group.sort(newestFirst), keep)) {
+      await versions.delete(version.id);
+      await meta.delete(version.id);
+    }
+  }
+
+  await tx.done;
+}
+
+/** Deletes every stored version of every file. */
+export async function clearAllVersions(): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(['versions', 'meta'], 'readwrite');
+  await tx.objectStore('versions').clear();
+  await tx.objectStore('meta').clear();
+  await tx.done;
+}
+
+export interface HistoryUsage {
+  /** Files with at least one version */
+  files: number;
+  versions: number;
+  /** UTF-8 size of every stored snapshot's text */
+  bytes: number;
+}
+
+/** What version history holds; reads every snapshot's text, so call it only when the numbers are shown. */
+export async function readHistoryUsage(): Promise<HistoryUsage> {
+  const db = await getDb();
+  const tx = db.transaction(['versions', 'meta'], 'readonly');
+  const all = await tx.objectStore('meta').getAll();
+  const encoder = new TextEncoder();
+  let bytes = 0;
+  let cursor = await tx.objectStore('versions').openCursor();
+
+  while (cursor) {
+    bytes += encoder.encode(cursor.value.content).byteLength;
+    cursor = await cursor.continue();
+  }
+
+  await tx.done;
+
+  return { files: new Set(all.map((v) => v.filePath)).size, versions: all.length, bytes };
 }
 
 export async function deleteVersion(id: string): Promise<void> {
