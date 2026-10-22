@@ -4,8 +4,9 @@
 import { parseMarkdown } from '@/lib/markdown';
 import { loadHighlighter } from '@/features/syntax-highlight';
 import { blobToDataUrl, loadDocumentImage, loadUnique, renderDiagram } from './assets';
-import { EXPORT_STYLES } from './styles';
-import { DEFAULT_PAGE_SETUP, pageRule, type PageSetup } from './pageGeometry';
+import { EXPORT_STYLES, PAGED_STYLES } from './styles';
+import { contentBox, DEFAULT_PAGE_SETUP, PAGE_MARGINS_MM, pageBox, pageRule, type PageSetup } from './pageGeometry';
+import type { PagedDocument } from './pages';
 
 const EXPORT_FONT_FAMILIES = ['Literata', 'Fraunces', 'IBM Plex Mono'];
 
@@ -229,13 +230,8 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 }
 
-/** A complete standalone HTML document around the rendered body. */
-export async function buildStandaloneHtml(
-  body: string,
-  options: { title: string; author?: string; page?: PageSetup }
-): Promise<string> {
-  const fonts = await embeddedFontFaces();
-
+/** A whole HTML document: the shared head (fonts, metadata) with `css` after the fonts. */
+function htmlDocument(fonts: string, options: { title: string; author?: string; css: string; body: string }): string {
   return `<!doctype html>
 <html lang="${document.documentElement.lang || 'en'}">
 <head>
@@ -246,14 +242,56 @@ ${options.author ? `<meta name="author" content="${escapeHtml(options.author)}">
 <title>${escapeHtml(options.title)}</title>
 <style>
 ${fonts}
-${pageRule(options.page ?? DEFAULT_PAGE_SETUP)}
-${EXPORT_STYLES}
+${options.css}
 </style>
 </head>
 <body>
-<main class="document">
-${body}
-</main>
+${options.body}
 </body>
 </html>`;
+}
+
+/** A complete standalone HTML document around the rendered body. */
+export async function buildStandaloneHtml(
+  body: string,
+  options: { title: string; author?: string; page?: PageSetup }
+): Promise<string> {
+  const fonts = await embeddedFontFaces();
+
+  return htmlDocument(fonts, {
+    title: options.title,
+    author: options.author,
+    css: `${pageRule(options.page ?? DEFAULT_PAGE_SETUP)}\n${EXPORT_STYLES}`,
+    body: `<main class="document">\n${body}\n</main>`,
+  });
+}
+
+/**
+ * The body laid out at exactly the page's content width, for measuring where pages break.
+ * Matches the printed document (`@media print` in the export styles), which doesn't apply
+ * on screen.
+ */
+export async function buildMeasuringHtml(body: string, page: PageSetup): Promise<string> {
+  const fonts = await embeddedFontFaces();
+
+  return htmlDocument(fonts, {
+    title: 'Page layout',
+    css: `${EXPORT_STYLES}\nmain.document { width: ${contentBox(page).width}px; max-width: none; margin: 0; padding: 0; }`,
+    body: `<main class="document">\n${body}\n</main>`,
+  });
+}
+
+/** Every page of a paged document as a fixed-size `section.page`, one per printed sheet. */
+export async function buildPagedHtml(paged: PagedDocument, options: { title: string }): Promise<string> {
+  const fonts = await embeddedFontFaces();
+  const box = pageBox(paged.page);
+  const { top, right, bottom, left } = PAGE_MARGINS_MM;
+  const sheet = `@page { size: ${box.width}px ${box.height}px; margin: 0; }\n.page { width: ${box.width}px; height: ${box.height}px; padding: ${top}mm ${right}mm ${bottom}mm ${left}mm; }`;
+  const pages = paged.pages.map((html, index) => `<section class="page" data-page="${index + 1}">\n${html}\n</section>`);
+
+  return htmlDocument(fonts, {
+    title: options.title,
+    css: `${EXPORT_STYLES}\n${PAGED_STYLES}\n${sheet}`,
+    body: pages.join('\n'),
+  });
 }

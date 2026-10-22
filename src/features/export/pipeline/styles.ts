@@ -115,3 +115,12 @@ figure.diagram svg { max-width: 100%; height: auto; }
 .hljs-deletion { color: #B91C1C; }
 .hljs-meta { color: #626977; }
 `;
+
+// Pages laid out by `pages.ts`; the page's size and padding come from `pageGeometry.ts` (`html.ts`)
+export const PAGED_STYLES = `
+html, body { background: #fff; }
+.page { position: relative; overflow: hidden; background: #fff; }
+.page:not(:last-child) { break-after: page; }
+.page > :first-child { margin-top: 0; }
+.page-fit > * { margin: 0; }
+`;

@@ -113,7 +113,7 @@ export function TitleBar() {
           </IconButton>
         </Tooltip>
         <Separator />
-        <Tooltip content={shortcutHint('Export to Word, PDF, Web page or Markdown', 'export')}>
+        <Tooltip content={shortcutHint('Export to Word, PDF, Web page, Markdown or images', 'export')}>
           <IconButton variant="ghost" size="sm" onClick={() => EXPORT.run()} disabled={!hasContent}>
             <FileDown className="w-4 h-4" />
           </IconButton>

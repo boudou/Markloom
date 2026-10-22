@@ -73,7 +73,7 @@ The installers are not code-signed yet ([#30](https://github.com/boudou/Markloom
 
 4. **Add images** by dropping or pasting them. They are saved to an `assets/` folder next to the document.
 5. **Find your way around**: `Ctrl+P` opens any file in the folder by name, `Ctrl+Shift+F` searches every file in it, `Ctrl+F` finds and `Ctrl+H` replaces in the current document, `Ctrl+Shift+L` shows the outline, and `Ctrl+Shift+H` opens version history.
-6. **Export** (`Ctrl+E`) to Word, PDF, a standalone web page or portable Markdown, or **Copy as rich text** (title bar or command palette) to paste it formatted into an email or another editor.
+6. **Export** (`Ctrl+E`) to Word, PDF, a standalone web page, portable Markdown or page images (PNG), or **Copy as rich text** (title bar or command palette) to paste it formatted into an email or another editor.
 7. **Do anything from the keyboard**: `Ctrl+Shift+P` opens the command palette, and `Ctrl+/` lists every shortcut. On macOS, use `⌘` instead of `Ctrl`.
 
 In the browser, new document and close tab are `Alt+N` and `Alt+W`, because the browser keeps `Ctrl+N` and `Ctrl+W` for itself.
