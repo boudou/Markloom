@@ -38,6 +38,8 @@ export const APP_COMMANDS: readonly AppCommand[] = [
   { id: 'new', shortcut: 'newDocument', run: newDocument },
   { id: 'open', shortcut: 'openFile', run: () => void openFile() },
   { id: 'open-folder', shortcut: 'openFolder', run: () => void openFolder() },
+  // No `when`: the key must always be taken, or the browser prints. Quick open says when no folder is open.
+  { id: 'quick-open', shortcut: 'quickOpen', run: () => useUiStore.getState().openDialog('quickOpen') },
   { id: 'save', shortcut: 'save', run: () => void saveActiveTab() },
   { id: 'save-as', shortcut: 'saveAs', run: () => void saveActiveTab({ saveAs: true }) },
   {

@@ -12,6 +12,7 @@ export type ShortcutId =
   | 'newDocument'
   | 'openFile'
   | 'openFolder'
+  | 'quickOpen'
   | 'save'
   | 'saveAs'
   | 'closeTab'
@@ -54,6 +55,7 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDef> = {
   newDocument: { label: 'New document', group: 'File', combo: isDesktop ? 'Mod-n' : 'Alt-n' },
   openFile: { label: 'Open file…', group: 'File', combo: 'Mod-o' },
   openFolder: { label: 'Open folder…', group: 'File', combo: 'Mod-Shift-o' },
+  quickOpen: { label: 'Quick open…', group: 'File', combo: 'Mod-p' },
   save: { label: 'Save', group: 'File', combo: 'Mod-s' },
   saveAs: { label: 'Save as…', group: 'File', combo: 'Mod-Shift-s' },
   closeTab: { label: 'Close tab', group: 'File', combo: isDesktop ? 'Mod-w' : 'Alt-w' },
