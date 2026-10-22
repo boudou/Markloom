@@ -21,4 +21,7 @@ contextBridge.exposeInMainWorld('markloomDesktop', {
 
   /** Renders static HTML to a PDF with Chromium's print engine */
   printToPdf: (html, options) => ipcRenderer.invoke('print-pdf', html, options),
+
+  /** Sets minimize to tray / close to tray ({ minimizeToTray?, closeToTray? }) and returns both; {} only reads them */
+  updateWindowPrefs: (changes) => ipcRenderer.invoke('update-window-prefs', changes),
 });
