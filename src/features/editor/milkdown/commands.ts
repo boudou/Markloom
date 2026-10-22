@@ -3,8 +3,9 @@
 import { type CmdKey, type Editor, commandsCtx, editorViewCtx } from '@milkdown/kit/core';
 import type { Ctx } from '@milkdown/kit/ctx';
 import type { Node } from '@milkdown/kit/prose/model';
-import type { EditorState } from '@milkdown/kit/prose/state';
+import { TextSelection, type EditorState } from '@milkdown/kit/prose/state';
 import {
+  paragraphSchema,
   toggleStrongCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
@@ -17,7 +18,7 @@ import {
   insertImageCommand,
   toggleLinkCommand,
 } from '@milkdown/kit/preset/commonmark';
-import { toggleStrikethroughCommand, insertTableCommand } from '@milkdown/kit/preset/gfm';
+import { toggleStrikethroughCommand, createTable } from '@milkdown/kit/preset/gfm';
 import { callCommand, insert } from '@milkdown/kit/utils';
 import type { MarkdownAction } from '../types';
 
@@ -78,6 +79,39 @@ function toggleTaskItem(ctx: Ctx): void {
   view.dispatch(view.state.tr.setNodeMarkup(item.pos, undefined, { ...item.node.attrs, checked }));
 }
 
+// A 3×3 table after the top-level block at the cursor (a table, a whole list, a code block), or
+// in place of an empty paragraph, with the cursor in an empty paragraph below it. Milkdown's own
+// command puts the table at the cursor instead, splitting the block.
+function insertTableAfterBlock(ctx: Ctx): void {
+  const view = ctx.get(editorViewCtx);
+  const { state } = view;
+  const { selection } = state;
+  const { $from } = selection;
+  const table = createTable(ctx, 3, 3);
+  const paragraph = paragraphSchema.type(ctx);
+  const isEmptyParagraph = (node: Node | null) => node !== null && node.type === paragraph && node.content.size === 0;
+  const { tr } = state;
+  let at: number;
+
+  if ($from.depth === 0) {
+    // A node selection of a top-level node, or select-all, has no block around it
+    at = selection.to;
+    tr.insert(at, table);
+  } else if (isEmptyParagraph($from.node(1))) {
+    at = $from.before(1);
+    tr.replaceWith(at, $from.after(1), table);
+  } else {
+    at = $from.after(1);
+    tr.insert(at, table);
+  }
+
+  const after = at + table.nodeSize;
+
+  if (!isEmptyParagraph(tr.doc.nodeAt(after))) tr.insert(after, paragraph.create());
+
+  view.dispatch(tr.setSelection(TextSelection.create(tr.doc, after + 1)).scrollIntoView());
+}
+
 const RICH_ACTIONS: Record<MarkdownAction, RichAction> = {
   bold: command(toggleStrongCommand),
   italic: command(toggleEmphasisCommand),
@@ -92,7 +126,10 @@ const RICH_ACTIONS: Record<MarkdownAction, RichAction> = {
   quote: command(wrapInBlockquoteCommand),
   hr: command(insertHrCommand),
   codeblock: command(createCodeBlockCommand),
-  table: command(insertTableCommand, { row: 3, col: 3 }),
+  table: (editor) => {
+    editor.action(insertTableAfterBlock);
+    focusDocument(editor);
+  },
   checkbox: (editor) => {
     editor.action(toggleTaskItem);
     focusDocument(editor);

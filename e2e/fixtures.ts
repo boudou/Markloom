@@ -71,6 +71,41 @@ export class MarkloomApp {
     return this.page.evaluate((attribute) => document.documentElement.hasAttribute(attribute), PREVIEW_SEEN_ATTRIBUTE);
   }
 
+  /** Clicks the source line (Markdown mode) or the rendered text (rich text) holding `text`, then moves to its end */
+  async placeCursorAfter(text: string): Promise<void> {
+    const target =
+      this.editorMode === 'split'
+        ? this.source().locator('.cm-line').filter({ hasText: text })
+        : this.rendered().getByText(text, { exact: true }).first();
+
+    await target.click();
+    await this.page.keyboard.press('End');
+  }
+
+  /** Picks an item from the formatting toolbar's Insert menu (Table, Code block, Divider, Image) */
+  async insert(item: string): Promise<void> {
+    await this.page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: 'Insert', exact: true }).click();
+    // Code block carries a shortcut hint after its name
+    await this.page.getByRole('menuitem', { name: new RegExp(`^${item}`) }).click();
+    // The menu hands focus back to the editor as it closes; typing before that would be lost
+    await expect(this.page.getByRole('menu')).toBeHidden();
+    await expect(this.editingSurface()).toBeFocused();
+  }
+
+  /** The element that takes typing: the source editor in Markdown mode, the document in rich text */
+  editingSurface(): Locator {
+    return this.editorMode === 'split' ? this.source() : this.rendered();
+  }
+
+  /** The Markdown source, one entry per line (an empty line is ''); Markdown mode only */
+  async sourceLines(): Promise<string[]> {
+    return this.source().locator('.cm-line').allTextContents();
+  }
+
+  private source(): Locator {
+    return this.page.getByLabel('Markdown source');
+  }
+
   private treeItem(name: string): Locator {
     return this.page.getByRole('button', { name, exact: true });
   }
