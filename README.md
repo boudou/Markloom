@@ -48,10 +48,10 @@ Get the desktop app for your system from the [latest release](https://github.com
 | macOS (Apple silicon) | `Markloom-<version>-arm64.dmg` |
 | Linux | `Markloom-<version>.AppImage` |
 
-The installers are not code-signed yet, so your system may warn you the first time:
+The installers are not code-signed yet ([#30](https://github.com/boudou/Markloom/issues/30)), so your system may warn you the first time:
 
-- **Windows**: on the SmartScreen prompt, choose **More info → Run anyway**.
-- **macOS**: right-click the app in Applications, choose **Open**, then **Open** again.
+- **Windows**: on the SmartScreen prompt, choose **More info → Run anyway**. If the message says **Smart App Control** blocked Markloom, there is no Run anyway: Windows 11 only runs unsigned apps it already knows, and it can't make an exception for one app. Until the builds are signed, either turn Smart App Control off (**Windows Security → App & browser control → Smart App Control**) or [run Markloom from source](#run-from-source).
+- **macOS**: open Markloom once; when macOS says it can't verify the developer, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Markloom. If macOS says Markloom is *damaged* (builds up to 0.5.0), run `xattr -cr /Applications/Markloom.app` once.
 - **Linux**: make the AppImage executable (`chmod +x Markloom-*.AppImage`), then run it.
 
 Prefer not to install anything? [Run the web version from source](#run-from-source).
