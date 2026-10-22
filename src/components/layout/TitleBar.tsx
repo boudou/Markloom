@@ -6,7 +6,7 @@ import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/t
 import { useAppStore } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
 import { appCommand, commandHint } from '@/lib/appCommands';
-import { shortcutHint, shortcutSpokenKeys } from '@/lib/shortcuts';
+import { shortcutHint } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { MarkloomMark } from './MarkloomMark';
 import { useRef } from 'react';
@@ -145,7 +145,7 @@ export function TitleBar() {
         <button
           type="button"
           onClick={() => PALETTE.run()}
-          aria-label={`Commands (${shortcutSpokenKeys('commandPalette')})`}
+          // No aria-label: axe reads Kbd's sr-only text as visible, so the name must come from the content
           className={cn(
             'hidden md:flex items-center gap-2 h-7 pl-2 pr-1.5 mr-1.5 rounded-md border border-rule bg-canvas',
             'text-xs text-text-secondary hover:text-text-primary hover:border-[#D9DCE1] transition-colors',

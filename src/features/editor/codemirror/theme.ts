@@ -39,6 +39,10 @@ export const markloomEditorTheme = EditorView.theme(
       border: 'none',
       color: ink.muted,
     },
+    // CodeMirror's default #888 fails AA contrast on the active-line wash
+    '.cm-placeholder': {
+      color: ink.muted,
+    },
     '.cm-lineNumbers .cm-gutterElement': {
       padding: '0 0.5rem 0 1rem',
       fontSize: '12px',

@@ -113,6 +113,7 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
             role="tab"
             data-tab-id={id}
             aria-selected={isActive}
+            aria-keyshortcuts="Delete"
             tabIndex={isActive ? 0 : -1}
             title={path && !path.startsWith('file://') ? path : name}
             onClick={onSelect}
@@ -130,7 +131,8 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
           <button
             type="button"
             tabIndex={-1}
-            aria-label={`Close ${name}`}
+            // A tablist may own only tabs; keyboard and AT users close via Delete or the context menu
+            aria-hidden="true"
             onClick={(e) => {
               e.stopPropagation();
               onClose();
