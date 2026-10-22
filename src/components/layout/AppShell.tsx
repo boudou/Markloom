@@ -15,6 +15,7 @@ import { ExportModal } from '@/features/export/components';
 import { ShortcutsModal } from '@/features/shortcuts-panel';
 import { TemplatesModal } from '@/features/templates';
 import { SettingsModal } from '@/features/settings';
+import { WhatsNewModal, showWhatsNewAfterUpdate } from '@/features/whats-new';
 import { TabBar } from '@/features/tabs';
 import { useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
@@ -41,6 +42,7 @@ export function AppShell() {
     // Session first, so files handed over by the OS become the new session rather than being replaced by it
     void initSession().then(initDesktopFiles).then(initLaunchedFiles);
     startAutoSave();
+    showWhatsNewAfterUpdate();
     // Fetch code highlighting once the window is up and idle (it's off the startup path)
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 300));
     idle(() => void loadHighlighter());
@@ -129,6 +131,7 @@ export function AppShell() {
         <ShortcutsModal {...dialogProps('shortcuts')} />
         <TemplatesModal {...dialogProps('templates')} />
         <SettingsModal {...dialogProps('settings')} />
+        <WhatsNewModal {...dialogProps('whatsNew')} />
         <CloseGuardDialog />
         <CommandPalette />
         <Toaster />
