@@ -11,6 +11,17 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// A full or write-refusing cache must not fail a response the network delivered
+async function store(cache, request, response) {
+  if (!response.ok) return;
+
+  try {
+    await cache.put(request, response.clone());
+  } catch {
+    // Not cached: this file won't be available offline, nothing else changes
+  }
+}
+
 async function cached(request) {
   const cache = await caches.open(CACHE);
   const hit = await cache.match(request);
@@ -19,7 +30,7 @@ async function cached(request) {
 
   const response = await fetch(request);
 
-  if (response.ok) await cache.put(request, response.clone());
+  await store(cache, request, response);
 
   return response;
 }
@@ -30,7 +41,7 @@ async function fresh(request) {
   try {
     const response = await fetch(request);
 
-    if (response.ok) await cache.put(request, response.clone());
+    await store(cache, request, response);
 
     return response;
   } catch (error) {
