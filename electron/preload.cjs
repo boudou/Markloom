@@ -34,4 +34,7 @@ contextBridge.exposeInMainWorld('markloomDesktop', {
   updateWindowPrefs: (changes) => ipcRenderer.invoke('update-window-prefs', changes),
   /** Windows: adds or removes "Open with Markloom" in the Explorer menu and returns { enabled, portable }; no argument only reads */
   setExplorerMenu: (enabled) => ipcRenderer.invoke('set-explorer-menu', enabled),
+
+  /** Asks GitHub for the newest release: { ok: true, current, latest, newer, url, checkedAt } or { ok: false, error } */
+  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
 });

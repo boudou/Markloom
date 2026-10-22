@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { AppWindow, History as HistoryIcon, SlidersHorizontal } from 'lucide-react';
+import { AppWindow, History as HistoryIcon, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { toggleAutoSave } from '@/features/auto-save';
@@ -17,8 +17,9 @@ import { toggleAutoSave } from '@/features/auto-save';
 import { useHistoryStore } from '@/features/version-history/stores/historyStore';
 import { readHistoryUsage, type HistoryUsage } from '@/features/version-history/utils';
 import { AUTO_SAVE_INTERVALS, HISTORY_LIMITS, PAGE_WIDTHS, formatInterval, useSettingsStore } from '@/stores/settingsStore';
+import { UpdatesSection } from './UpdatesSection';
 
-type SectionId = 'editor' | 'history' | 'window';
+type SectionId = 'editor' | 'history' | 'window' | 'updates';
 
 interface Section {
   id: SectionId;
@@ -29,11 +30,12 @@ interface Section {
 // The desktop bridge; this module is a lazy chunk, so the preload has run
 const desktop = window.markloomDesktop;
 
-// Later sections (About, Updates, Appearance) append here
+// Later sections (About, Appearance) append here; Window and Updates are desktop only
 const SECTIONS: readonly Section[] = [
   { id: 'editor', label: 'Editor', icon: SlidersHorizontal },
   { id: 'history', label: 'History', icon: HistoryIcon },
   ...(desktop ? [{ id: 'window' as const, label: 'Window', icon: AppWindow }] : []),
+  ...(desktop ? [{ id: 'updates' as const, label: 'Updates', icon: RefreshCw }] : []),
 ];
 
 const CONTROL_FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary';
@@ -539,6 +541,7 @@ export default function SettingsBody() {
         {current.id === 'editor' && <EditorSection />}
         {current.id === 'history' && <HistorySection />}
         {current.id === 'window' && <WindowSection />}
+        {current.id === 'updates' && <UpdatesSection />}
       </div>
     </div>
   );

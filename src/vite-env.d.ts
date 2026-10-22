@@ -38,5 +38,13 @@ interface Window {
      * Rejects when reg.exe fails.
      */
     setExplorerMenu: (enabled?: boolean) => Promise<{ enabled: boolean; portable: boolean }>;
+    /**
+     * The newest published release on GitHub, compared with the running version by the main process.
+     * `url` is the download for this install (installer or portable on Windows) or the release page.
+     */
+    checkForUpdate: () => Promise<
+      | { ok: true; current: string; latest: string; newer: boolean; url: string; checkedAt: number }
+      | { ok: false; error: 'offline' | 'rate-limited' | 'other' }
+    >;
   };
 }

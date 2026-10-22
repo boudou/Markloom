@@ -92,6 +92,9 @@ interface SettingsState {
   /** App version whose What's new was last shown or recorded; null until the first launch records it */
   lastSeenVersion: string | null;
 
+  /** When the last successful update check finished (ms since epoch); null until one has */
+  lastUpdateCheckAt: number | null;
+
   // Actions
   setAutoSave: (enabled: boolean, interval?: number) => void;
   setAutoSaveInterval: (seconds: number) => void;
@@ -104,6 +107,7 @@ interface SettingsState {
   /** Ignores a count that isn't in `HISTORY_LIMITS` */
   setHistoryLimit: (count: number) => void;
   setLastSeenVersion: (version: string) => void;
+  setLastUpdateCheckAt: (at: number) => void;
 
   // Recent files
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
@@ -118,7 +122,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -152,6 +156,7 @@ const KEPT_TOP_LEVEL_KEYS = [
   'wordGoals',
   'historyLimit',
   'lastSeenVersion',
+  'lastUpdateCheckAt',
 ] as const;
 
 function copyIfPresent<K extends (typeof KEPT_TOP_LEVEL_KEYS)[number]>(
@@ -200,6 +205,7 @@ export const useSettingsStore = create<SettingsState>()(
       wordGoals: {},
       historyLimit: DEFAULT_HISTORY_LIMIT,
       lastSeenVersion: null,
+      lastUpdateCheckAt: null,
 
       // Word-count goals; null or 0 removes the goal
       setWordGoal: (key, goal) =>
@@ -276,6 +282,11 @@ export const useSettingsStore = create<SettingsState>()(
           state.lastSeenVersion = version;
         }),
 
+      setLastUpdateCheckAt: (at) =>
+        set((state) => {
+          state.lastUpdateCheckAt = at;
+        }),
+
       // Recent files
       addRecentFile: (file) =>
         set((state) => {
@@ -337,6 +348,7 @@ export const useSettingsStore = create<SettingsState>()(
         wordGoals: state.wordGoals,
         historyLimit: state.historyLimit,
         lastSeenVersion: state.lastSeenVersion,
+        lastUpdateCheckAt: state.lastUpdateCheckAt,
       }),
       // Only saves from an older version reach here.
       // SAFETY: this app wrote the save with JSON.stringify, so a present key has the type it was written with.

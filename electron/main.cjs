@@ -667,6 +667,89 @@ ipcMain.handle('set-explorer-menu', (event, enabled) => {
 });
 
 // ---------------------------------------------------------------------------
+// Update check: main asks GitHub for the newest published release (no drafts or prereleases, by
+// GitHub's definition of "latest"), so the page's CSP stays closed. Nothing is installed: the
+// page links to the download, which opens in the system browser.
+
+const RELEASES_API = 'https://api.github.com/repos/boudou/Markloom/releases/latest';
+const RELEASE_URL_PREFIX = 'https://github.com/boudou/Markloom/releases/';
+const UPDATE_CHECK_TIMEOUT_MS = 15000;
+
+/** [major, minor, patch] from "v1.2.3" or "1.2.3-beta"; null when unreadable */
+function parseVersion(text) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(text);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function isNewerVersion(candidate, current) {
+  for (let i = 0; i < 3; i++) {
+    if (candidate[i] !== current[i]) return candidate[i] > current[i];
+  }
+  return false;
+}
+
+const isReleaseUrl = (url) => typeof url === 'string' && url.startsWith(RELEASE_URL_PREFIX);
+
+/** The fields used from a GitHub release: { version, page, assets: Map<name, url> }, or null */
+function parseRelease(json) {
+  const version = typeof json?.tag_name === 'string' ? parseVersion(json.tag_name) : null;
+  if (!version || !isReleaseUrl(json.html_url)) return null;
+  const assets = new Map();
+  for (const asset of Array.isArray(json.assets) ? json.assets : []) {
+    // An asset hosted anywhere else counts as missing
+    if (typeof asset?.name === 'string' && isReleaseUrl(asset.browser_download_url)) {
+      assets.set(asset.name, asset.browser_download_url);
+    }
+  }
+  return { version, page: json.html_url, assets };
+}
+
+// Windows gets the file matching how the app was installed; elsewhere, or when it's missing, the release page
+function downloadUrl(release) {
+  if (process.platform !== 'win32') return release.page;
+  const latest = release.version.join('.');
+  const name = process.env.PORTABLE_EXECUTABLE_FILE ? `Markloom-${latest}.exe` : `Markloom-Setup-${latest}.exe`;
+  return release.assets.get(name) ?? release.page;
+}
+
+// Errors thrown from a handler reach the page as a bare message, so failures are return values
+ipcMain.handle('check-for-update', async (event) => {
+  assertFromApp(event);
+  const current = app.getVersion();
+  let response;
+  try {
+    response = await net.fetch(RELEASES_API, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': `Markloom/${current}` },
+      signal: AbortSignal.timeout(UPDATE_CHECK_TIMEOUT_MS),
+    });
+  } catch {
+    // Any net:: failure, or no answer before the timeout
+    return { ok: false, error: 'offline' };
+  }
+  const limited =
+    response.status === 429 || (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0');
+  if (limited) return { ok: false, error: 'rate-limited' };
+  if (!response.ok) return { ok: false, error: 'other' };
+  let release;
+  try {
+    release = parseRelease(await response.json());
+  } catch {
+    release = null;
+  }
+  if (!release) return { ok: false, error: 'other' };
+  const running = parseVersion(current);
+  return {
+    ok: true,
+    current,
+    latest: release.version.join('.'),
+    newer: running !== null && isNewerVersion(release.version, running),
+    url: downloadUrl(release),
+    checkedAt: Date.now(),
+  };
+});
+
+// ---------------------------------------------------------------------------
 
 function setUpSpellCheck() {
   // Windows and macOS use the system checker (installed languages); elsewhere pick ours
