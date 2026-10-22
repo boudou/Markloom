@@ -744,6 +744,12 @@
   --page-width: none;
 }
 
+/* Focus mode (EditorContainer): the last lines can scroll up to mid-screen */
+[data-focus] .cm-editor .cm-content,
+[data-focus] .rt-document {
+  padding-bottom: 50vh;
+}
+
 .rt-document {
   max-width: var(--page-width, 72ch);
   margin-inline: auto;

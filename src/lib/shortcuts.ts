@@ -41,6 +41,7 @@ export type ShortcutId =
   | 'commandPalette'
   | 'toggleMode'
   | 'toggleOutline'
+  | 'toggleFocus'
   | 'versionHistory';
 
 export type ShortcutGroup = 'File' | 'Edit' | 'Format' | 'View';
@@ -86,6 +87,7 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDef> = {
   commandPalette: { label: 'Command palette', group: 'View', combo: 'Mod-Shift-p' },
   toggleMode: { label: 'Switch Markdown / Rich text', group: 'View', combo: 'Mod-Shift-m' },
   toggleOutline: { label: 'Show or hide contents (outline)', group: 'View', combo: 'Mod-Shift-l' },
+  toggleFocus: { label: 'Focus mode', group: 'View', combo: 'Mod-Shift-Enter' },
   versionHistory: { label: 'Version history', group: 'View', combo: 'Mod-Shift-h' },
   toggleSidebar: { label: 'Show or hide sidebar', group: 'View', combo: 'Mod-\\' },
   showShortcuts: { label: 'Keyboard shortcuts', group: 'View', combo: 'Mod-/' },
