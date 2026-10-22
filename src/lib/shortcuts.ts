@@ -23,6 +23,7 @@ export type ShortcutId =
   | 'redo'
   | 'find'
   | 'replace'
+  | 'searchFolder'
   | 'bold'
   | 'italic'
   | 'strikethrough'
@@ -65,6 +66,7 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDef> = {
   redo: { label: 'Redo', group: 'Edit', combo: 'Mod-Shift-z' },
   find: { label: 'Find', group: 'Edit', combo: 'Mod-f' },
   replace: { label: 'Find and replace', group: 'Edit', combo: 'Mod-h' },
+  searchFolder: { label: 'Search in folder', group: 'Edit', combo: 'Mod-Shift-f' },
 
   bold: { label: 'Bold', group: 'Format', combo: 'Mod-b' },
   italic: { label: 'Italic', group: 'Format', combo: 'Mod-i' },
