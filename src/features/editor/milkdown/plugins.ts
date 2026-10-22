@@ -2,7 +2,7 @@
 // Mermaid blocks render as diagrams, relative images load from the open folder
 // (through the preview's image cache), and task-list checkboxes can be ticked.
 import { $prose, $view } from '@milkdown/kit/utils';
-import { codeBlockAttr, codeBlockSchema, headingSchema, htmlSchema, imageSchema, linkSchema } from '@milkdown/kit/preset/commonmark';
+import { codeBlockAttr, codeBlockSchema, headingSchema, imageSchema, linkSchema } from '@milkdown/kit/preset/commonmark';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state';
 import type { Node as ProseNode, NodeType } from '@milkdown/kit/prose/model';
 import type { Transform } from '@milkdown/kit/prose/transform';
@@ -429,6 +429,31 @@ function missingImagePlaceholder(label: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * Shows a document image in an img: a relative src loads from the open folder (through the
+ * preview's image cache), anything else as written. A missing file shows a placeholder that
+ * names `label`.
+ */
+export function showDocumentImage(img: HTMLImageElement, src: string, label: string): void {
+  img.classList.remove('is-missing');
+  const docPath = activeDocumentPath();
+
+  if (!src || isAbsoluteUrl(src) || !canResolveRelative(docPath)) {
+    // Takes the img out of any folder read still in flight and out of focus refreshes
+    delete img.dataset.imagePath;
+    img.src = src;
+
+    return;
+  }
+
+  void showImage(img, resolveSourcePath(docPath, src), () => {
+    img.src = missingImagePlaceholder(label);
+    img.classList.add('is-missing');
+    // Keeps a focus refresh from painting over the placeholder
+    delete img.dataset.imagePath;
+  });
+}
+
 class ImageView implements NodeView {
   dom: HTMLImageElement;
 
@@ -443,23 +468,7 @@ class ImageView implements NodeView {
     this.dom.alt = alt ?? '';
 
     if (title) this.dom.title = title;
-    this.dom.classList.remove('is-missing');
-    const docPath = activeDocumentPath();
-
-    if (!src || isAbsoluteUrl(src) || !canResolveRelative(docPath)) {
-      // Takes the img out of any folder read still in flight and out of focus refreshes
-      delete this.dom.dataset.imagePath;
-      this.dom.src = src;
-
-      return;
-    }
-
-    void showImage(this.dom, resolveSourcePath(docPath, src), () => {
-      this.dom.src = missingImagePlaceholder(alt || src);
-      this.dom.classList.add('is-missing');
-      // Keeps a focus refresh from painting over the placeholder
-      delete this.dom.dataset.imagePath;
-    });
+    showDocumentImage(this.dom, src, alt || src);
   }
 
   update(node: ProseNode) {
@@ -483,7 +492,7 @@ export const imageView = $view(imageSchema.node, () => (node) => new ImageView(n
 // every state update, cursor moves included; these are built when the document changes and
 // reused otherwise.
 
-function documentDecorations(
+export function documentDecorations(
   name: string,
   build: (doc: ProseNode) => Decoration[],
   props: EditorProps<Plugin<DecorationSet>> = {}
@@ -582,32 +591,3 @@ function inlineCodeRanges(doc: ProseNode): Decoration[] {
 }
 
 export const inlineCodeSpellcheck = $prose(() => documentDecorations('markloom-inline-code-spellcheck', inlineCodeRanges));
-
-// ---------------------------------------------------------------------------
-// Raw HTML (inline): comments are metadata for tools and people reading the source, so
-// they shrink to a marker that shows the comment on hover; other tags read as code.
-// Either way the node is untouched, so the Markdown keeps it exactly.
-
-const COMMENT_ICON =
-  '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v6.5H7l-3 2.5V10H3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-
-export const htmlView = $view(htmlSchema.node, () => (node) => {
-  const value = String(node.attrs.value ?? '');
-  const comment = value.match(/^<!--([\s\S]*?)-->$/);
-  const dom = document.createElement('span');
-  dom.contentEditable = 'false';
-
-  if (comment) {
-    const text = comment[1].trim();
-    dom.className = 'rt-html-comment';
-    dom.title = text;
-    dom.setAttribute('role', 'note');
-    dom.setAttribute('aria-label', `Comment: ${text}`);
-    dom.innerHTML = COMMENT_ICON;
-  } else {
-    dom.className = 'rt-html-inline';
-    dom.textContent = value;
-  }
-
-  return { dom, ignoreMutation: () => true };
-});

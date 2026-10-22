@@ -29,7 +29,8 @@ import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
 import { slugify } from '@/lib/markdown';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { useImageDrop } from '@/features/image-drop';
-import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, headingIds, htmlView, imageSchemaFix, imageView, inlineCodeSpellcheck, linkSchemaFix, taskToggle } from '../milkdown/plugins';
+import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, headingIds, imageSchemaFix, imageView, inlineCodeSpellcheck, linkSchemaFix, taskToggle } from '../milkdown/plugins';
+import { htmlLayout, htmlView } from '../milkdown/html';
 import { prosemirrorSearchEngine, searchPlugin } from '../milkdown/search';
 import { preserveUnchangedBlocks } from '../milkdown/preserve';
 import { applyRichLink, insertRichSnippet, runRichAction, type LinkRequest } from '../milkdown/commands';
@@ -158,6 +159,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         .use(inlineCodeSpellcheck)
         .use(imageView)
         .use(htmlView)
+        .use(htmlLayout)
         .use(taskToggle)
         .use(searchPlugin)
         .use(
@@ -318,7 +320,8 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
   const handleKeyDown = (event: React.KeyboardEvent) => {
     const current = get();
 
-    if (!current) return;
+    // Keys typed in a raw HTML source box belong to that box, not to the document
+    if (!current || (event.target instanceof Element && event.target.closest('.rt-html-source'))) return;
 
     if (matchesCombo(event.nativeEvent, SHORTCUTS.link.combo)) {
       event.preventDefault();

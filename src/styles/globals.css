@@ -1021,9 +1021,11 @@
   display: block;
 }
 
-/* Raw HTML in rich text: comments become a quiet marker (hover to read), other tags
-   show as code-like text. Both are kept in the file exactly as written. */
-.rt-html-comment {
+/* Raw HTML in rich text renders as in the preview. Comments and tags that render nothing on
+   their own (an unpaired <div align>) become quiet markers (hover to read), placeholders such
+   as <sha> read as text. All of it is kept in the file exactly as written. */
+.rt-html-comment,
+.rt-html-tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1038,20 +1040,80 @@
   user-select: none;
 }
 
-.rt-html-comment:hover {
+.rt-html-comment:hover,
+.rt-html-tag:hover {
   background: var(--rule);
   color: var(--text-secondary);
 }
 
-.rt-html-comment svg {
+.rt-html-comment svg,
+.rt-html-tag svg {
   width: 0.75em;
   height: 0.75em;
 }
 
-.rt-html-inline {
-  padding: 0.05em 0.3em;
-  border-radius: 4px;
+.rt-html-tag {
+  cursor: pointer;
+}
+
+/* An HTML block is a paragraph holding one html node: lay its rendered fragment out as a block */
+.rt-html-paragraph > .rt-html > .rt-html-render {
+  display: block;
+}
+
+/* Its block layout already ends the line; the trailing break would add an empty one */
+.rt-html-paragraph:has(> .rt-html > .rt-html-render) > br.ProseMirror-trailingBreak {
+  display: none;
+}
+
+/* Blocks between <div align="center"> and </div>. Like the browser's legacy align, it
+   centres block images too, as the preview does. */
+.rt-align-center {
+  text-align: center;
+}
+
+.rt-align-right {
+  text-align: right;
+}
+
+.rt-align-center img {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.rt-align-right img {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+/* A lone tag marker must not read as an empty paragraph */
+.rt-html-paragraph:has(> .rt-html > .rt-html-tag) {
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 1.2;
+}
+
+.rt-html.is-editing > :not(.rt-html-source) {
+  display: none;
+}
+
+.rt-html-source {
+  display: inline-block;
+  min-width: 16em;
+  max-width: 100%;
+  padding: 0.35em 0.5em;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
   background: var(--wash);
-  color: var(--text-secondary);
-  font: 0.85em 'IBM Plex Mono', monospace;
+  color: var(--text-primary);
+  font: 0.85em/1.5 'IBM Plex Mono', monospace;
+  text-align: left;
+  vertical-align: top;
+  resize: vertical;
+}
+
+.rt-html-paragraph > .rt-html.is-editing,
+.rt-html-paragraph > .rt-html > .rt-html-source {
+  display: block;
+  width: 100%;
 }

@@ -32,8 +32,9 @@ function documentSurface(): HTMLElement | null {
 
 /**
  * The rendered element of each outline heading, undefined while the surface hasn't caught up.
- * The preview is matched by source line, because raw HTML headings there have no outline
- * entry; rich text shows raw HTML as text, so its document headings pair up by position.
+ * Raw HTML headings have no outline entry, so they are skipped in both modes: the preview
+ * matches by source line, and rich text pairs its document headings by position, leaving out
+ * headings rendered inside raw HTML.
  */
 function renderedHeadings(surface: HTMLElement, mode: EditorMode, headings: Heading[]): Array<HTMLElement | undefined> {
   if (mode === 'split') {
@@ -44,7 +45,7 @@ function renderedHeadings(surface: HTMLElement, mode: EditorMode, headings: Head
     return headings.map((heading) => byLine.get(String(heading.line)));
   }
 
-  const shown = surface.querySelectorAll<HTMLElement>('.rt-document :is(h1, h2, h3, h4, h5, h6)');
+  const shown = surface.querySelectorAll<HTMLElement>('.rt-document :is(h1, h2, h3, h4, h5, h6):not(.rt-html *)');
 
   return headings.map((_heading, index) => shown[index]);
 }
