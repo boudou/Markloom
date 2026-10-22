@@ -1,6 +1,6 @@
 // Images and diagrams for exports, resolved to self-contained data.
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveSourcePath } from '@/lib/documentPath';
+import { isAbsoluteUrl, resolveSourcePath } from '@/lib/documentPath';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 
 export interface ExportImage {
@@ -10,8 +10,6 @@ export interface ExportImage {
   width: number;
   height: number;
 }
-
-const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
 
 export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -47,21 +45,24 @@ async function fromBlob(blob: Blob): Promise<ExportImage> {
 
 /**
  * Loads an image referenced by a document: relative to the document's folder,
- * a data URL, or a web address. Returns null when it can't be loaded.
+ * a data URL, or a web address (https:, http: or //host). Returns null when it can't be loaded.
  */
 export async function loadDocumentImage(src: string, docPath: string | null): Promise<ExportImage | null> {
   try {
     if (src.startsWith('data:')) return await fromBlob(await (await fetch(src)).blob());
 
-    if (/^https?:/i.test(src)) {
-      const response = await fetch(src, { mode: 'cors' });
+    // An export is a standalone file with no page scheme to inherit, so //host is fetched over https
+    const webAddress = src.startsWith('//') ? `https:${src}` : src;
+
+    if (/^https?:/i.test(webAddress)) {
+      const response = await fetch(webAddress, { mode: 'cors' });
 
       if (!response.ok) return null;
 
       return await fromBlob(await response.blob());
     }
 
-    if (ABSOLUTE_URL.test(src) || !canResolveRelative(docPath)) return null;
+    if (isAbsoluteUrl(src) || !canResolveRelative(docPath)) return null;
     const path = resolveSourcePath(docPath, src);
 
     return await fromBlob(await readFileBlob(path));

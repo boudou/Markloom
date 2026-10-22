@@ -1,5 +1,6 @@
 import { saveAs } from 'file-saver';
 import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
+import { isAbsoluteUrl } from '@/lib/documentPath';
 import { buildStandaloneHtml, renderExportBody } from './html';
 import { loadDocumentImage, loadUnique, renderDiagram, svgDataUrl } from './assets';
 import { imageSources, placedInlines } from './inlineLines';
@@ -52,9 +53,6 @@ export async function exportHtml(request: ExportRequest): Promise<void> {
 
 const IMAGE_SYNTAX = /!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(\s+"[^"]*")?\)/g;
 
-// Portable Markdown leaves data URLs and web images as they are
-const KEEP_AS_LINK = /^(data|https?):/i;
-
 /**
  * A single portable Markdown text: diagrams become embedded SVG images and local images
  * are embedded too, so it reads the same anywhere it's opened.
@@ -66,10 +64,12 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
   const placed = placedInlines(tokens);
   const fences = mermaidFences(tokens);
 
-  // Every distinct image and diagram is requested at once, before the text is rewritten
+  // Every distinct image and diagram is requested at once, before the text is rewritten.
+  // Portable Markdown embeds only the document's own images; web addresses, data URLs and
+  // any other absolute URL stay as written.
   const [images, diagrams] = await Promise.all([
     loadUnique(
-      placed.flatMap(({ token }) => imageSources(token).filter((src) => !KEEP_AS_LINK.test(src))),
+      placed.flatMap(({ token }) => imageSources(token).filter((src) => !isAbsoluteUrl(src))),
       (src) => loadDocumentImage(src, request.docPath)
     ),
     loadUnique(fences.map(({ code }) => code), renderDiagram),
@@ -88,7 +88,7 @@ export async function portableMarkdown(request: ExportRequest): Promise<string> 
     for (const match of [...text.matchAll(IMAGE_SYNTAX)].reverse()) {
       const rawSrc = match[2].replace(/^<|>$/g, '');
 
-      if (KEEP_AS_LINK.test(rawSrc)) continue;
+      if (isAbsoluteUrl(rawSrc)) continue;
 
       // markdown-it unescapes and then normalizes the destination; Word and HTML export load that form
       const src = md.normalizeLink(md.utils.unescapeAll(rawSrc));
