@@ -32,5 +32,11 @@ interface Window {
       minimizeToTray?: boolean;
       closeToTray?: boolean;
     }) => Promise<{ minimizeToTray: boolean; closeToTray: boolean }>;
+    /**
+     * Windows only: adds (true) or removes (false) "Open with Markloom" in the Explorer menu and returns
+     * the state now in effect and whether this is the portable build; no argument only reads.
+     * Rejects when reg.exe fails.
+     */
+    setExplorerMenu: (enabled?: boolean) => Promise<{ enabled: boolean; portable: boolean }>;
   };
 }

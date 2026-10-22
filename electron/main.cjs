@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { pathToFileURL } = require('url');
+const { execFile } = require('child_process');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 
@@ -453,12 +454,13 @@ function guardLinkedFileWindow(child, { url: fileUrl }) {
 }
 
 // ---------------------------------------------------------------------------
-// Window preferences and the tray. Main keeps the two toggles in its own file so it has them
-// before the page loads; the page changes them through update-window-prefs.
+// Window preferences and the tray. Main keeps the tray toggles (and the Explorer menu's, below)
+// in its own file so it has them before the page loads; the page changes the tray toggles
+// through update-window-prefs.
 
 const WINDOW_PREF_KEYS = ['minimizeToTray', 'closeToTray'];
 const windowPrefsFile = () => path.join(app.getPath('userData'), 'window-prefs.json');
-let windowPrefs = { minimizeToTray: false, closeToTray: false };
+let windowPrefs = { minimizeToTray: false, closeToTray: false, explorerMenu: false };
 
 function loadWindowPrefs() {
   try {
@@ -466,9 +468,10 @@ function loadWindowPrefs() {
     windowPrefs = {
       minimizeToTray: saved?.minimizeToTray === true,
       closeToTray: saved?.closeToTray === true,
+      explorerMenu: saved?.explorerMenu === true,
     };
   } catch {
-    windowPrefs = { minimizeToTray: false, closeToTray: false };
+    windowPrefs = { minimizeToTray: false, closeToTray: false, explorerMenu: false };
   }
 }
 
@@ -502,7 +505,7 @@ ipcMain.handle('update-window-prefs', (event, changes) => {
     saveWindowPrefs();
     updateTray();
   }
-  return { ...windowPrefs };
+  return { minimizeToTray: windowPrefs.minimizeToTray, closeToTray: windowPrefs.closeToTray };
 });
 
 function trayIcon() {
@@ -549,6 +552,119 @@ function showMainWindow() {
   hiddenToTray = false;
   updateTray();
 }
+
+// ---------------------------------------------------------------------------
+// Explorer menu (Windows): per-user shell verbs written with reg.exe. The full path, so a reg.exe
+// in the folder Markloom was started from is never run.
+
+const REG_EXE = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'reg.exe');
+const CLASSES = 'HKCU\\Software\\Classes';
+const EXPLORER_MENU_ENTRIES = [
+  ...['.md', '.markdown', '.mdx'].map((ext) => ({
+    key: `${CLASSES}\\SystemFileAssociations\\${ext}\\shell\\Markloom`,
+    label: 'Open with Markloom',
+    arg: '%1',
+  })),
+  { key: `${CLASSES}\\Directory\\shell\\Markloom`, label: 'Open with Markloom', arg: '%1' },
+  { key: `${CLASSES}\\Directory\\Background\\shell\\Markloom`, label: 'Open folder in Markloom', arg: '%V' },
+];
+
+// The exe the user keeps: the portable build runs from a folder it unpacks to on every start
+const menuExe = () => process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+
+// `electron .` (development) needs the app folder before the path, as launchPaths expects
+const menuCommand = (arg) => `"${menuExe()}"${process.defaultApp ? ` "${app.getAppPath()}"` : ''} "${arg}"`;
+
+// No shell: each argument reaches reg.exe as given
+function reg(args) {
+  return new Promise((resolve, reject) => {
+    execFile(REG_EXE, args, { windowsHide: true }, (error, stdout) => (error ? reject(error) : resolve(stdout)));
+  });
+}
+
+async function writeExplorerMenu() {
+  for (const { key, label, arg } of EXPLORER_MENU_ENTRIES) {
+    await reg(['add', key, '/ve', '/d', label, '/f']);
+    await reg(['add', key, '/v', 'Icon', '/d', menuExe(), '/f']);
+    await reg(['add', `${key}\\command`, '/ve', '/d', menuCommand(arg), '/f']);
+  }
+}
+
+// Deleting a key that is already gone fails; that counts as done
+async function removeExplorerMenu() {
+  for (const { key } of EXPLORER_MENU_ENTRIES) {
+    try {
+      await reg(['delete', key, '/f']);
+    } catch (error) {
+      const stillThere = await reg(['query', key]).then(
+        () => true,
+        () => false
+      );
+      if (stillThere) throw error;
+    }
+  }
+}
+
+// The exe the folder entry runs, or null. reg.exe names the default value in the system
+// language, so match the type, not "(Default)".
+async function registeredMenuExe() {
+  try {
+    const stdout = await reg(['query', `${CLASSES}\\Directory\\shell\\Markloom\\command`, '/ve']);
+    return /REG_SZ\s+"([^"]+)"/.exec(stdout)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// At startup: rewrite the entries when they are missing or their exe is gone (a moved portable
+// build, a reinstall). Another copy whose exe still exists keeps them.
+async function repairExplorerMenu() {
+  const registered = await registeredMenuExe();
+  if (registered && fs.existsSync(registered)) return;
+  await writeExplorerMenu();
+}
+
+// One registry change at a time, so an on and an off never interleave their reg.exe calls
+let explorerMenuWork = Promise.resolve();
+
+function queueExplorerMenu(task) {
+  const run = explorerMenuWork.then(task);
+  explorerMenuWork = run.catch(() => {});
+  return run;
+}
+
+// A boolean turns the menu on or off; anything else only reads
+async function applyExplorerMenu(enabled) {
+  if (typeof enabled === 'boolean' && enabled !== windowPrefs.explorerMenu) {
+    if (enabled) {
+      try {
+        await writeExplorerMenu();
+      } catch {
+        // No half-written menu: the toggle stays off
+        await removeExplorerMenu().catch(() => {});
+        throw new Error("Markloom couldn't add the Explorer menu");
+      }
+    } else {
+      try {
+        await removeExplorerMenu();
+      } catch {
+        // The toggle stays on so the user can retry
+        throw new Error("Markloom couldn't remove the Explorer menu");
+      }
+    }
+    windowPrefs.explorerMenu = enabled;
+    saveWindowPrefs();
+  }
+
+  return { enabled: windowPrefs.explorerMenu, portable: Boolean(process.env.PORTABLE_EXECUTABLE_FILE) };
+}
+
+ipcMain.handle('set-explorer-menu', (event, enabled) => {
+  assertFromApp(event);
+  if (process.platform !== 'win32') throw new Error('The Explorer menu is only on Windows');
+
+  return queueExplorerMenu(() => applyExplorerMenu(enabled));
+});
 
 // ---------------------------------------------------------------------------
 
@@ -718,6 +834,9 @@ if (!app.requestSingleInstanceLock()) {
     registerAppProtocol();
     createWindow();
     updateTray();
+    if (process.platform === 'win32' && windowPrefs.explorerMenu) {
+      queueExplorerMenu(repairExplorerMenu).catch((error) => console.error('Explorer menu repair failed:', error));
+    }
     app.on('activate', () => {
       if (!mainWindow) createWindow();
       else if (hiddenToTray) showMainWindow();
