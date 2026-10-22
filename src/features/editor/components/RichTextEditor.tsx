@@ -242,6 +242,23 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
     if (current?.status === EditorStatus.Created) commit(current.action(getMarkdown()));
   };
 
+  // Read from editor state, not window.getSelection(): the palette's input holds the DOM selection
+  const selectionMarkdown = () => {
+    const current = get();
+
+    if (current?.status !== EditorStatus.Created) return '';
+
+    const { state } = current.action((ctx) => ctx.get(editorViewCtx));
+    const { from, to, empty } = state.selection;
+
+    if (empty) return '';
+
+    // getMarkdown(range) yields '' (and only logs) when the slice can't be filled into a document
+    const markdown = current.action(getMarkdown({ from, to }));
+
+    return /\S/.test(markdown) ? markdown : state.doc.textBetween(from, to, '\n\n');
+  };
+
   // Milkdown destroys the editor in <Milkdown />'s passive-effect cleanup, and the listener
   // drops its pending update then. A layout cleanup runs earlier, in the commit that removes
   // the editor, so a tab or mode switch right after typing keeps the edit. `flush` only reads
@@ -267,6 +284,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
       insert: (markdown) => withEditor((current) => insertRichSnippet(current, markdown)),
       focus: () => liveView()?.focus(),
       flush,
+      selectionMarkdown,
     });
 
     return () => onCommands(null);

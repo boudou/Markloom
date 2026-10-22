@@ -37,21 +37,20 @@ export function sourceFormatState(state: EditorState): FormatState {
   return result;
 }
 
-/** Calls `report` whenever the format at the cursor changes. */
+/** The selected source text, all ranges one per line; '' when nothing is selected */
+export function selectedSource(state: EditorState): string {
+  return state.selection.ranges.flatMap((range) => (range.empty ? [] : [state.sliceDoc(range.from, range.to)])).join('\n');
+}
+
 /** Reports the selected text (all ranges, one per line) for the selection count */
 export function selectionReporter(report: (text: string) => void) {
   return EditorView.updateListener.of((update) => {
     if (!update.selectionSet && !update.docChanged) return;
-    const { state } = update;
-    report(
-      state.selection.ranges
-        .filter((range) => !range.empty)
-        .map((range) => state.sliceDoc(range.from, range.to))
-        .join('\n')
-    );
+    report(selectedSource(update.state));
   });
 }
 
+/** Calls `report` whenever the format at the cursor changes. */
 export function formatStateReporter(report: (state: FormatState) => void) {
   let last = EMPTY_FORMAT_STATE;
 
