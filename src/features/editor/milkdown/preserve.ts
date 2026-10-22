@@ -53,8 +53,9 @@ function splitBlocks(lines: string[], markdown: string): Block[] {
  * Order and content always follow `serialized`.
  */
 export function preserveUnchangedBlocks(original: string, serialized: string): string {
-  if (!original.trim()) return serialized;
-
+  // A blank original has no blocks to keep, but still goes through the loop below so an
+  // emptied heading gets the same `# ` fix-up; its trailing newline follows `serialized`
+  const endsWithNewline = (original.trim() ? original : serialized).endsWith('\n');
   const originalLines = original.split('\n');
   const originalBlocks = splitBlocks(originalLines, original);
   const available = new Map<string, number[]>();
@@ -84,5 +85,5 @@ export function preserveUnchangedBlocks(original: string, serialized: string): s
     previousOriginal = index ?? -2;
   });
 
-  return output + (original.endsWith('\n') ? '\n' : '');
+  return output + (endsWithNewline ? '\n' : '');
 }
