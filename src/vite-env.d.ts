@@ -13,6 +13,15 @@ interface Window {
     readFile: (filePath: string) => Promise<{ bytes: Uint8Array; mtimeMs: number }>;
     statFile: (filePath: string) => Promise<{ mtimeMs: number; size: number }>;
     writeFile: (filePath: string, data: string | Uint8Array) => Promise<void>;
-    printToPdf: (html: string, options?: { pageSize?: string; landscape?: boolean }) => Promise<Uint8Array>;
+    // Inline import() types: a top-level import would turn this global script into a module
+    printToPdf: (
+      html: string,
+      options?: {
+        pageSize?: import('./features/export/pipeline/pageGeometry').PageSize;
+        landscape?: boolean;
+        /** Inches */
+        margins?: import('./features/export/pipeline/pageGeometry').Margins;
+      }
+    ) => Promise<Uint8Array>;
   };
 }
