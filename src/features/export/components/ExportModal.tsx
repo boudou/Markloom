@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { m } from 'framer-motion';
-import { FileDown, Loader2, FileType, FileText, Globe, FileCode2, AlertTriangle } from 'lucide-react';
+import { FileDown, Loader2, FileType, FileText, Globe, FileCode2, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import { Button, Input, Modal, ModalFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { selectActiveContent, useActivePath, useTabsStore } from '@/features/tabs';
@@ -8,13 +8,15 @@ import { documentName } from '@/features/file-tree/api/fileSystem';
 import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
 import type { ExportIssue } from '../pipeline/preflight';
+import { DEFAULT_PAGE_SETUP } from '../pipeline/pageGeometry';
+import { PagePreview, type Preview } from './PagePreview';
 
 interface ExportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-type ExportFormat = 'docx' | 'pdf' | 'html' | 'md';
+type ExportFormat = 'docx' | 'pdf' | 'html' | 'md' | 'image';
 
 const isDesktop = !!window.markloomDesktop?.printToPdf;
 
@@ -44,6 +46,12 @@ const FORMATS: { id: ExportFormat; label: string; icon: typeof FileText; descrip
     label: 'Markdown',
     icon: FileCode2,
     description: 'One portable .md file: images and diagrams embedded, no folders needed.',
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    icon: ImageIcon,
+    description: 'Each page as a PNG image, as it would print.',
   },
 ];
 
@@ -100,6 +108,38 @@ const readContent = () => {
   return selectActiveContent(useTabsStore.getState());
 };
 
+const IDLE: Preview = { status: 'idle' };
+
+// Lays the current text out on pages each time the preview is shown, and starts at page 1
+function usePagePreview(enabled: boolean, docPath: string | null) {
+  const [preview, setPreview] = useState<Preview>(IDLE);
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setPreview(IDLE);
+
+      return;
+    }
+
+    let cancelled = false;
+    setPreview({ status: 'loading' });
+    setPage(0);
+
+    // The layout code is a lazy chunk, loaded only for the preview
+    void import('../pipeline/pages')
+      .then(({ previewPages }) => previewPages({ markdown: readContent(), docPath, page: DEFAULT_PAGE_SETUP }))
+      .then(({ doc, html }) => !cancelled && setPreview({ status: 'ready', doc, html }))
+      .catch((err) => !cancelled && setPreview({ status: 'error', message: err instanceof Error ? err.message : String(err) }));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, docPath]);
+
+  return { preview, page, setPage };
+}
+
 export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const hasContent = useTabsStore((s) => /\S/.test(selectActiveContent(s)));
   const docPath = useActivePath();
@@ -110,6 +150,8 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<ExportIssue[]>([]);
+  const showPages = format === 'image';
+  const { preview, page, setPage } = usePagePreview(open && showPages, docPath);
 
   // Suggest a title each time the dialog opens: the first heading, else the file name
   useEffect(() => {
@@ -135,6 +177,9 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   }, [open]);
 
   const handleExport = async () => {
+    // Saving pages as images comes with #194; the button is disabled until then
+    if (format === 'image') return;
+
     setExporting(true);
     setError(null);
     const request = { markdown: readContent(), docPath, title: toFileName(title), author: author.trim() || undefined };
@@ -196,9 +241,14 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
     .join(' · ');
 
   return (
-    <Modal open={open} onOpenChange={(next) => !exporting && onOpenChange(next)} title="Export" size="lg">
+    <Modal
+      open={open}
+      onOpenChange={(next) => !exporting && onOpenChange(next)}
+      title="Export"
+      size={showPages ? '3xl' : 'lg'}
+    >
       <div className="space-y-5">
-        <div role="radiogroup" aria-label="Format" className="grid grid-cols-4 gap-2">
+        <div role="radiogroup" aria-label="Format" className="grid grid-cols-5 gap-2">
           {FORMATS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -221,57 +271,67 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         </div>
         <p className="-mt-2 text-sm text-text-secondary">{current.description}</p>
 
-        <label className="block text-sm">
-          <span className="text-text-secondary">File name</span>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1.5" data-autofocus />
-        </label>
+        <div className={cn(showPages && 'grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-6')}>
+          <div className="space-y-5 min-w-0">
+            <label className="block text-sm">
+              <span className="text-text-secondary">File name</span>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1.5" data-autofocus />
+            </label>
 
-        {format === 'docx' && (
-          <label className="block text-sm">
-            <span className="text-text-secondary">Author (optional)</span>
-            <Input value={author} onChange={(e) => setAuthor(e.target.value)} className="mt-1.5" />
-          </label>
-        )}
+            {format === 'docx' && (
+              <label className="block text-sm">
+                <span className="text-text-secondary">Author (optional)</span>
+                <Input value={author} onChange={(e) => setAuthor(e.target.value)} className="mt-1.5" />
+              </label>
+            )}
 
-        {issues.length > 0 && (
-          <div className="rounded-lg border border-[#FCD34D] bg-[#FFFBEB] p-3 text-sm">
-            <p className="flex items-center gap-2 font-medium text-[#92400E]">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden />
-              {issueSummary}
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {issues.slice(0, 4).map((issue) => (
-                <li key={`${issue.kind}-${issue.line}-${issue.message}`} className="flex items-start gap-3">
-                  <span className="flex-1 min-w-0 text-[#78350F]">
-                    <span className="tabular-nums font-medium">Line {issue.line}</span> · {issue.message}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => review(issue)}
-                    className="flex-shrink-0 text-xs font-medium text-[#92400E] underline underline-offset-2 hover:text-[#78350F]"
-                  >
-                    {inRichText ? 'Show in Markdown' : 'Show'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {issues.length > 4 && <p className="mt-1.5 text-xs text-[#92400E]">and {issues.length - 4} more</p>}
-            <p className="mt-2 text-xs text-[#92400E]">You can still export; these parts will appear as error notes.</p>
+            {issues.length > 0 && (
+              <div className="rounded-lg border border-[#FCD34D] bg-[#FFFBEB] p-3 text-sm">
+                <p className="flex items-center gap-2 font-medium text-[#92400E]">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden />
+                  {issueSummary}
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {issues.slice(0, 4).map((issue) => (
+                    <li key={`${issue.kind}-${issue.line}-${issue.message}`} className="flex items-start gap-3">
+                      <span className="flex-1 min-w-0 text-[#78350F]">
+                        <span className="tabular-nums font-medium">Line {issue.line}</span> · {issue.message}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => review(issue)}
+                        className="flex-shrink-0 text-xs font-medium text-[#92400E] underline underline-offset-2 hover:text-[#78350F]"
+                      >
+                        {inRichText ? 'Show in Markdown' : 'Show'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {issues.length > 4 && <p className="mt-1.5 text-xs text-[#92400E]">and {issues.length - 4} more</p>}
+                <p className="mt-2 text-xs text-[#92400E]">You can still export; these parts will appear as error notes.</p>
+              </div>
+            )}
+
+            {error && (
+              <p role="alert" className="text-sm text-[#B91C1C]">
+                Export failed: {error}
+              </p>
+            )}
+
+            {showPages && <p className="text-sm text-text-muted">Saving pages comes next.</p>}
           </div>
-        )}
 
-        {error && (
-          <p role="alert" className="text-sm text-[#B91C1C]">
-            Export failed: {error}
-          </p>
-        )}
+          {showPages && (
+            <PagePreview preview={preview} page={page} onPageChange={setPage} />
+          )}
+        </div>
       </div>
 
       <ModalFooter>
         <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={exporting}>
           Cancel
         </Button>
-        <Button onClick={() => void handleExport()} disabled={exporting || !hasContent} aria-busy={exporting || undefined}>
+        <Button onClick={() => void handleExport()} disabled={exporting || !hasContent || showPages} aria-busy={exporting || undefined}>
           <ExportButtonLabel active={exporting ? 'exporting' : format} />
         </Button>
       </ModalFooter>
