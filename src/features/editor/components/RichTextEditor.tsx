@@ -320,8 +320,10 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
   const handleKeyDown = (event: React.KeyboardEvent) => {
     const current = get();
 
-    // Keys typed in a raw HTML source box belong to that box, not to the document
-    if (!current || (event.target instanceof Element && event.target.closest('.rt-html-source'))) return;
+    // Keys typed in a raw HTML source box or a rendered HTML control belong to it, not to the document
+    if (!current || (event.target instanceof Element && event.target.closest('.rt-html-source, .rt-html-render'))) {
+      return;
+    }
 
     if (matchesCombo(event.nativeEvent, SHORTCUTS.link.combo)) {
       event.preventDefault();

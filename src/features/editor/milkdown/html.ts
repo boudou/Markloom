@@ -22,6 +22,10 @@ const TAG_ICON =
 // Elements that show something even without text
 const VISIBLE_ELEMENTS = 'img, picture, video, audio, svg, hr, br, input';
 
+// Elements the browser would make Tab stops; rendered HTML is an atom, so Tab moves past it
+const TAB_STOPS =
+  'a[href], area[href], button, input, select, textarea, summary, audio[controls], video[controls], [tabindex]';
+
 // Inline tag pairs whose text in between is wrapped in the element, as the preview shows it.
 // Links are left out: in rich text they come from Markdown links.
 const INLINE_PAIRS = new Set(['kbd', 'sub', 'sup', 'mark', 'u', 's', 'del', 'ins', 'b', 'strong', 'i', 'em', 'small']);
@@ -53,6 +57,17 @@ function renderedFragment(value: string): DocumentFragment | null {
   if (!content.textContent?.trim() && !content.querySelector(VISIBLE_ELEMENTS)) return null;
 
   return content;
+}
+
+// Every kind of keyboard, text input and clipboard event, keypress included: ProseMirror's
+// keypress handler inserts text when the html node is node-selected.
+function isTypingEvent(event: Event): boolean {
+  return (
+    event instanceof KeyboardEvent ||
+    event instanceof InputEvent ||
+    event instanceof CompositionEvent ||
+    event instanceof ClipboardEvent
+  );
 }
 
 // The view behind each html node's DOM, so the keymap can open the selected node's source
@@ -131,6 +146,8 @@ class HtmlView implements NodeView {
 
       return { img, src };
     });
+
+    for (const element of fragment.querySelectorAll(TAB_STOPS)) element.setAttribute('tabindex', '-1');
 
     display.append(fragment);
 
@@ -233,8 +250,16 @@ class HtmlView implements NodeView {
   }
 
   stopEvent(event: Event) {
+    const target = event.target;
+
+    if (!(target instanceof Node)) return false;
+
     // The source textarea handles its own typing, clicks and shortcuts
-    return !!this.source && event.target instanceof Node && this.source.contains(event.target);
+    if (this.source) return this.source.contains(target);
+
+    // Keys, typing and paste in a rendered control (a mouse-focused <input>) belong to it, not to
+    // the document's selection. Mouse events still reach the editor: a click opens the source.
+    return this.display.contains(target) && isTypingEvent(event);
   }
 
   ignoreMutation() {
