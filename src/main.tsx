@@ -16,3 +16,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </TooltipProvider>
   </React.StrictMode>
 );
+
+// The web version works offline and can be installed; the desktop app ships its files and needs neither
+if (import.meta.env.PROD && !window.markloomDesktop && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      .catch((error) => console.warn('Markloom: offline support is unavailable', error));
+  });
+}

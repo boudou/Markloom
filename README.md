@@ -42,7 +42,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 
 ## Download
 
-**No install:** open the web version at **[boudou.github.io/Markloom](https://boudou.github.io/Markloom/)**. Your documents stay on your computer. Use Chrome or Edge to open and save files and folders.
+**No install:** open the web version at **[boudou.github.io/Markloom](https://boudou.github.io/Markloom/)**. Your documents stay on your computer. Use Chrome or Edge to open and save files and folders. They can also install it as an app (the install icon in the address bar), and it opens offline after your first visit.
 
 Or get the desktop app for your system from the [latest release](https://github.com/boudou/Markloom/releases/latest):
 
