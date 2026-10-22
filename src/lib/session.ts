@@ -5,7 +5,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore, type LastSession } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
 import { showFolder } from '@/lib/documentActions';
-import { readFile, restoreRememberedFolder } from '@/features/file-tree/api/fileSystem';
+import { isDesktopPath, readFile, restoreRememberedFolder } from '@/features/file-tree/api/fileSystem';
 import { ROOT_KEY, hasPermission, recallDirectoryHandle } from '@/features/file-tree/api/handleStore';
 import { deleteDrafts, listDrafts, saveDraftsNow, startDraftTracking, type Draft } from '@/lib/drafts';
 
@@ -28,9 +28,12 @@ let tracking = false;
 function currentSession(): LastSession {
   const state = useTabsStore.getState();
   const paths = state.tabs.map((t) => t.path).filter((p): p is string => !!p);
+  const rootPath = useAppStore.getState().rootPath;
 
   return {
-    rootName: useAppStore.getState().rootPath,
+    // A folder handed to the desktop app isn't remembered yet: restoreLastSession reopens the
+    // File System Access folder stored under ROOT_KEY, which would be a different folder
+    rootName: rootPath && !isDesktopPath(rootPath) ? rootPath : null,
     paths,
     activePath: selectActiveTab(state)?.path ?? null,
   };

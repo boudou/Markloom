@@ -8,8 +8,12 @@ interface Window {
   markloomDesktop?: {
     isDesktop: true;
     platform: string;
-    takePendingFiles: () => Promise<string[]>;
+    /** Documents and the folder (an OS path) handed over before the page was ready */
+    takePendingFiles: () => Promise<{ files: string[]; folder: string | null }>;
     onOpenFiles: (callback: (files: string[]) => void) => () => void;
+    onOpenFolder: (callback: (folder: string) => void) => () => void;
+    /** One level of a folder the desktop app trusts: its subfolders and documents */
+    listFolder: (dirPath: string) => Promise<{ name: string; isDirectory: boolean }[]>;
     readFile: (filePath: string) => Promise<{ bytes: Uint8Array; mtimeMs: number }>;
     statFile: (filePath: string) => Promise<{ mtimeMs: number; size: number }>;
     writeFile: (filePath: string, data: string | Uint8Array) => Promise<void>;

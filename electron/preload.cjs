@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('markloomDesktop', {
   isDesktop: true,
   platform: process.platform,
 
-  /** Documents handed to the app by the OS before the page was ready */
+  /** Documents and the folder handed to the app by the OS before the page was ready: { files, folder } */
   takePendingFiles: () => ipcRenderer.invoke('take-pending-files'),
   /** Documents handed over while the app is running (double-click, "Open with") */
   onOpenFiles: (callback) => {
@@ -14,7 +14,15 @@ contextBridge.exposeInMainWorld('markloomDesktop', {
     ipcRenderer.on('open-files', listener);
     return () => ipcRenderer.removeListener('open-files', listener);
   },
+  /** A folder handed over while the app is running (command line, second instance) */
+  onOpenFolder: (callback) => {
+    const listener = (_event, folder) => callback(folder);
+    ipcRenderer.on('open-folder', listener);
+    return () => ipcRenderer.removeListener('open-folder', listener);
+  },
 
+  /** One level of a trusted folder: [{ name, isDirectory }] */
+  listFolder: (dirPath) => ipcRenderer.invoke('list-folder', dirPath),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   statFile: (filePath) => ipcRenderer.invoke('stat-file', filePath),
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),

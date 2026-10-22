@@ -12,7 +12,8 @@ import {
 } from './handleStore';
 
 // The three kinds of document path. Only this file tells them apart (see storeFor):
-// - "desktop:C:/Users/me/notes/plan.md": a file the OS handed to the desktop app, read through the Electron bridge
+// - "desktop:C:/Users/me/notes/plan.md": a file the OS handed to the desktop app, or a file in a folder handed
+//   to it (the folder itself is then the open root, "desktop:C:/Users/me/notes"), read through the Electron bridge
 // - "file://<id>/plan.md": a file opened on its own (Open file, Save as, or handed to the installed web app by the OS; see standalonePathFor)
 // - "<open folder name>/sub/plan.md": a file inside the open folder
 const DESKTOP_PREFIX = 'desktop:';
@@ -209,37 +210,11 @@ export async function saveFileDialog(
  * Lists a directory's folders and the documents Markloom opens (Markdown and Mermaid); hidden entries
  * and other files are left out. Subdirectories come back with `children` undefined (not loaded yet).
  * Throws when no folder is open or the directory can't be read, so a failure never looks like an empty folder.
+ * A desktop path lists through the Electron bridge (the desktop app's main process skips hidden entries too).
  */
 export async function readDirectory(path: string): Promise<FileNode[]> {
-  const dirParts = partsBelowRoot(path);
-
   try {
-    const nodes = await inFolder(dirParts, { create: false }, async (dir, folders) => {
-      const entries: FileNode[] = [];
-
-      for await (const entry of dir.values()) {
-        // Skip hidden files
-        if (entry.name.startsWith('.')) continue;
-
-        const childPath = `${path}/${entry.name}`;
-
-        // Cache directory handles as we find them, under the keys inFolder looks up
-        if (entry.kind === 'directory') {
-          // SAFETY: an entry whose kind is 'directory' is a FileSystemDirectoryHandle
-          folders.set(childPath, entry as FileSystemDirectoryHandle);
-        } else if (!isMarkdownFile(entry.name) && !isMermaidFile(entry.name)) {
-          continue;
-        }
-
-        entries.push({
-          name: entry.name,
-          path: childPath,
-          isDirectory: entry.kind === 'directory',
-        });
-      }
-
-      return entries;
-    });
+    const nodes = isDesktopPath(path) ? await readDesktopDirectory(path) : await readFolderDirectory(path);
 
     // Sort: directories first, then alphabetically
     nodes.sort((a, b) => {
@@ -255,6 +230,45 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
     console.error('Error reading directory:', error);
     throw error;
   }
+}
+
+async function readDesktopDirectory(path: string): Promise<FileNode[]> {
+  const entries = await desktopBridge().listFolder(osPathOf(path));
+
+  return entries.flatMap(({ name, isDirectory }) =>
+    isDirectory || isMarkdownFile(name) || isMermaidFile(name) ? [{ name, path: `${path}/${name}`, isDirectory }] : []
+  );
+}
+
+async function readFolderDirectory(path: string): Promise<FileNode[]> {
+  const dirParts = partsBelowRoot(path);
+
+  return inFolder(dirParts, { create: false }, async (dir, folders) => {
+    const entries: FileNode[] = [];
+
+    for await (const entry of dir.values()) {
+      // Skip hidden files
+      if (entry.name.startsWith('.')) continue;
+
+      const childPath = `${path}/${entry.name}`;
+
+      // Cache directory handles as we find them, under the keys inFolder looks up
+      if (entry.kind === 'directory') {
+        // SAFETY: an entry whose kind is 'directory' is a FileSystemDirectoryHandle
+        folders.set(childPath, entry as FileSystemDirectoryHandle);
+      } else if (!isMarkdownFile(entry.name) && !isMermaidFile(entry.name)) {
+        continue;
+      }
+
+      entries.push({
+        name: entry.name,
+        path: childPath,
+        isDirectory: entry.kind === 'directory',
+      });
+    }
+
+    return entries;
+  });
 }
 
 /**
@@ -277,6 +291,11 @@ export function documentName(path: string): string {
 
 export function desktopPathFor(osPath: string): string {
   return DESKTOP_PREFIX + osPath.replace(/\\/g, '/');
+}
+
+/** A document or folder the desktop app reads through its main process (see the path kinds above) */
+export function isDesktopPath(path: string): boolean {
+  return path.startsWith(DESKTOP_PREFIX);
 }
 
 function osPathOf(path: string): string {
@@ -512,7 +531,7 @@ const folderStore: DocumentStore = {
 };
 
 function storeFor(path: string): DocumentStore {
-  if (path.startsWith(DESKTOP_PREFIX)) return desktopStore;
+  if (isDesktopPath(path)) return desktopStore;
 
   if (path.startsWith(STANDALONE_PREFIX)) return standaloneStore;
 

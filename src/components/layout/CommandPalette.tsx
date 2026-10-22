@@ -189,12 +189,14 @@ function useFileRows(shown: boolean, walk: boolean, query: string): PaletteView 
   const files = useFolderFiles(walk);
   const rootPath = useAppStore((s) => s.rootPath);
   const recentFiles = useSettingsStore((s) => s.recentFiles);
+  // The folder's name, never its path ("desktop:C:/notes" for a folder handed to the desktop app)
+  const folderName = rootPath ? documentName(rootPath) : null;
   const paths = shown && files.status === 'ready' ? files.paths : null;
 
   const view = {
     title: 'Quick open',
     inputLabel: 'File name',
-    placeholder: rootPath ? `Search files in ${rootPath}` : 'Search files',
+    placeholder: folderName ? `Search files in ${folderName}` : 'Search files',
     listLabel: 'Files',
     groupHeaders: false,
   };
@@ -218,15 +220,15 @@ function useFileRows(shown: boolean, walk: boolean, query: string): PaletteView 
     return { ...view, results: OPEN_FOLDER_ROWS, notice: 'No folder is open', footer: null };
   }
 
-  if (files.status === 'loading') return { ...view, results, notice: `Reading ${rootPath}…`, footer: null };
+  if (files.status === 'loading') return { ...view, results, notice: `Reading ${folderName}…`, footer: null };
 
   if (files.status === 'error') {
-    return { ...view, results, notice: `Couldn't read ${rootPath}: ${files.message}`, footer: null };
+    return { ...view, results, notice: `Couldn't read ${folderName}: ${files.message}`, footer: null };
   }
 
   const footer = files.truncated ? `Only the first ${MAX_FILES} files are searched` : null;
 
-  if (!files.paths.length) return { ...view, results, notice: `No Markdown or Mermaid files in ${rootPath}`, footer };
+  if (!files.paths.length) return { ...view, results, notice: `No Markdown or Mermaid files in ${folderName}`, footer };
 
   return { ...view, results, notice: results.length ? null : 'No matching files', footer };
 }
