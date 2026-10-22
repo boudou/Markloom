@@ -15,6 +15,16 @@ const KNOWN_HTML_TAGS = new Set(
   ).split(' ')
 );
 
+/**
+ * True when raw HTML starts with a tag that isn't a real element, such as a <sha> or <path>
+ * placeholder: the preview shows it as text, and so does rich text.
+ */
+export function isUnknownHtmlTag(html: string): boolean {
+  const name = html.trim().match(/^<\/?([A-Za-z][\w-]*)[\s/>]/)?.[1]?.toLowerCase();
+
+  return !!name && !KNOWN_HTML_TAGS.has(name);
+}
+
 export type Token = ReturnType<MarkdownIt['parse']>[number];
 
 /**
@@ -119,12 +129,6 @@ export function createMarkdownParser(): MarkdownIt {
   // Placeholders such as <sha>, <path> or <field> aren't HTML: show them as text instead of
   // letting the sanitizer delete them (and the words around them) as unknown tags.
   md.core.ruler.push('literal_unknown_tags', (state) => {
-    const isUnknownTag = (html: string) => {
-      const name = html.match(/^<\/?([A-Za-z][\w-]*)[\s/>]/)?.[1]?.toLowerCase();
-
-      return !!name && !KNOWN_HTML_TAGS.has(name);
-    };
-
     // HTML comments never display, so drop them here. Left in, a comment next to a literal
     // "<sha>" trips DOMPurify's mutation-XSS guard, which deletes the whole list item.
     const isComment = (html: string) => html.trimStart().startsWith('<!--');
@@ -133,7 +137,7 @@ export function createMarkdownParser(): MarkdownIt {
       if (token.type === 'html_block' && isComment(token.content)) {
         token.type = 'text';
         token.content = '';
-      } else if (token.type === 'html_block' && isUnknownTag(token.content.trim())) {
+      } else if (token.type === 'html_block' && isUnknownHtmlTag(token.content)) {
         token.type = 'text';
       }
 
@@ -143,7 +147,7 @@ export function createMarkdownParser(): MarkdownIt {
         if (isComment(child.content)) {
           child.type = 'text';
           child.content = '';
-        } else if (isUnknownTag(child.content)) {
+        } else if (isUnknownHtmlTag(child.content)) {
           child.type = 'text';
         }
       }
@@ -290,15 +294,18 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
 });
 
 /**
- * Markdown to safe HTML. Raw HTML in documents is allowed for formatting, but scripts,
- * event handlers and javascript: URLs are stripped: an opened file must never be able
- * to run code with access to the user's folder.
+ * HTML made safe to insert into the app. Raw HTML in documents is allowed for formatting, but
+ * scripts, event handlers and javascript: URLs are stripped: an opened file must never be able
+ * to run code with access to the user's folder. The preview and rich text's raw HTML share it.
  */
-export function parseMarkdown(content: string): string {
-  const html = getMarkdownParser().render(content);
-
+export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['style', 'form'],
   });
+}
+
+/** Markdown to safe HTML (see sanitizeHtml) */
+export function parseMarkdown(content: string): string {
+  return sanitizeHtml(getMarkdownParser().render(content));
 }
