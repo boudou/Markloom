@@ -22,6 +22,7 @@ import { initSession } from '@/lib/session';
 import { startAutoSave } from '@/features/auto-save';
 import { loadHighlighter } from '@/features/syntax-highlight';
 import { initDesktopFiles } from '@/lib/desktopFiles';
+import { initLaunchedFiles } from '@/lib/launchedFiles';
 
 // Module-level so React StrictMode's double effect doesn't start it twice
 let sessionStarted = false;
@@ -34,7 +35,7 @@ export function AppShell() {
     if (sessionStarted) return;
     sessionStarted = true;
     // Session first, so files handed over by the OS become the new session rather than being replaced by it
-    void initSession().then(initDesktopFiles);
+    void initSession().then(initDesktopFiles).then(initLaunchedFiles);
     startAutoSave();
     // Fetch code highlighting once the window is up and idle (it's off the startup path)
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 300));

@@ -86,10 +86,22 @@ interface FilePickerAcceptType {
   accept: Record<string, string | string[]>;
 }
 
+// Launch Queue API: files the OS hands to the installed web app (file_handlers in the manifest)
+interface LaunchParams {
+  readonly targetURL?: string;
+  readonly files: readonly FileSystemHandle[];
+}
+
+interface LaunchQueue {
+  setConsumer(consumer: (params: LaunchParams) => void): void;
+}
+
 type WellKnownDirectory = 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
 
 interface Window {
   showOpenFilePicker(options?: OpenFilePickerOptions): Promise<FileSystemFileHandle[]>;
   showSaveFilePicker(options?: SaveFilePickerOptions): Promise<FileSystemFileHandle>;
   showDirectoryPicker(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>;
+  // Absent in browsers without the Launch Queue API (Firefox, Safari)
+  launchQueue?: LaunchQueue;
 }

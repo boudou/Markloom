@@ -5,7 +5,7 @@ import { ROOT_KEY, ensurePermission, recallDirectoryHandle, recallFileHandle, re
 
 // The three kinds of document path. Only this file tells them apart (see storeFor):
 // - "desktop:C:/Users/me/notes/plan.md": a file the OS handed to the desktop app, read through the Electron bridge
-// - "file://<id>/plan.md": a file opened on its own with Open file (see standalonePathFor)
+// - "file://<id>/plan.md": a file opened on its own (Open file, Save as, or handed to the installed web app by the OS; see standalonePathFor)
 // - "<open folder name>/sub/plan.md": a file inside the open folder
 const DESKTOP_PREFIX = 'desktop:';
 
@@ -59,6 +59,15 @@ export async function openFolderDialog(): Promise<string | null> {
   }
 }
 
+/** Gives a standalone file its path and keeps its handle (here and in IndexedDB), so it can be read and saved later. */
+export async function adoptFileHandle(handle: FileSystemFileHandle): Promise<string> {
+  const path = await standalonePathFor(handle);
+  fileHandleCache.set(path, handle);
+  void rememberHandle(path, handle);
+
+  return path;
+}
+
 // Open file dialog
 export async function openFileDialog(): Promise<{ path: string; content: string } | null> {
   try {
@@ -89,11 +98,7 @@ export async function openFileDialog(): Promise<{ path: string; content: string 
 
     const file = await fileHandle.getFile();
     const content = normalizeLineEndings(await file.text());
-    const filePath = await standalonePathFor(fileHandle);
-
-    // Store the handle so we can write back to it later
-    fileHandleCache.set(filePath, fileHandle);
-    void rememberHandle(filePath, fileHandle);
+    const filePath = await adoptFileHandle(fileHandle);
 
     return {
       path: filePath,
@@ -126,11 +131,7 @@ export async function saveFileDialog(
 
     await writeHandle(handle, content);
 
-    const filePath = await standalonePathFor(handle);
-    fileHandleCache.set(filePath, handle);
-    void rememberHandle(filePath, handle);
-
-    return filePath;
+    return await adoptFileHandle(handle);
   } catch (error) {
     if (isAbortError(error)) return null;
     throw error;
