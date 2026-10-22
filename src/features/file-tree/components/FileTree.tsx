@@ -4,17 +4,20 @@ import { m } from 'framer-motion';
 import { IconButton, Tooltip } from '@/components/ui';
 import { useFileTreeStore } from '../stores/fileTreeStore';
 import { useAppStore } from '@/stores/appStore';
-import { useTabsStore } from '@/features/tabs';
-import { readDirectory, readFile, isFileSystemSupported, documentName } from '../api/fileSystem';
-import { openFolder } from '@/lib/documentActions';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { readDirectory, isFileSystemSupported, documentName } from '../api/fileSystem';
+import { openFolder, openPath } from '@/lib/documentActions';
 import { notify } from '@/stores/uiStore';
 import { TreeNode } from './TreeNode';
-import { errorMessage, getFileName } from '@/lib/utils';
+import { errorMessage } from '@/lib/utils';
 
 // Each read of the open folder takes the next number; only the latest may change the tree or report an error.
 // Kept outside the component so a read from before the sidebar remounted the tree is still superseded.
 let latestLoad = 0;
+
+// Module-level, so the memo'd TreeNodes get the same callback on every render
+function openFromTree(path: string): void {
+  void openPath(path);
+}
 
 export function FileTree() {
   const nodes = useFileTreeStore((s) => s.nodes);
@@ -24,8 +27,6 @@ export function FileTree() {
   const setNodes = useFileTreeStore((s) => s.setNodes);
   const setLoading = useFileTreeStore((s) => s.setLoading);
   const rootPath = useAppStore((s) => s.rootPath);
-  const openDocument = useTabsStore((s) => s.openDocument);
-  const addRecentFile = useSettingsStore((s) => s.addRecentFile);
 
   const isSupported = isFileSystemSupported();
 
@@ -48,7 +49,7 @@ export function FileTree() {
         // A failed Refresh keeps the tree; a folder that failed to open shows none (openRoot already cleared it)
         notify({
           tone: 'error',
-          title: `Couldn't read ${getFileName(path)}`,
+          title: `Couldn't read ${documentName(path)}`,
           detail: errorMessage(error),
         });
       }
@@ -71,23 +72,6 @@ export function FileTree() {
       void loadDirectory(rootPath, rootId);
     }
   }, [rootPath, rootId, loadDirectory]);
-
-  const handleFileSelect = useCallback(
-    async (path: string) => {
-      try {
-        const content = await readFile(path);
-        openDocument(path, content);
-        addRecentFile({ path, name: documentName(path) });
-      } catch (error) {
-        notify({
-          tone: 'error',
-          title: `Couldn't open ${documentName(path)}`,
-          detail: errorMessage(error),
-        });
-      }
-    },
-    [openDocument, addRecentFile]
-  );
 
   // Show browser compatibility warning
   if (!isSupported) {
@@ -116,7 +100,7 @@ export function FileTree() {
       {/* Header */}
       <div className="h-8 flex items-center justify-between gap-2 pl-4 pr-1.5 border-b border-rule">
         <h2 className="min-w-0 truncate text-xs font-medium text-text-secondary" title={rootPath ?? undefined}>
-          {rootPath ? getFileName(rootPath) : 'Files'}
+          {rootPath ? documentName(rootPath) : 'Files'}
         </h2>
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <Tooltip content="Open another folder">
@@ -162,7 +146,7 @@ export function FileTree() {
                 key={node.path}
                 node={node}
                 depth={0}
-                onFileSelect={handleFileSelect}
+                onFileSelect={openFromTree}
               />
             ))}
           </div>

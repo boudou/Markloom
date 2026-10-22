@@ -2,14 +2,14 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Clock, FileText, X, Trash2 } from 'lucide-react';
 import { IconButton, Tooltip } from '@/components/ui';
 import { useMenuHighlight } from '@/components/ui/useMenuHighlight';
-import { cn, errorMessage } from '@/lib/utils';
-import { useRecentFiles } from '../hooks';
-import { notify } from '@/stores/uiStore';
-import { documentName } from '@/features/file-tree/api/fileSystem';
+import { cn } from '@/lib/utils';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { openPath } from '@/lib/documentActions';
 
 export function RecentFilesMenu() {
-  const { recentFiles, openRecentFile, removeRecentFile, clearRecentFiles } =
-    useRecentFiles();
+  const recentFiles = useSettingsStore((s) => s.recentFiles);
+  const removeRecentFile = useSettingsStore((s) => s.removeRecentFile);
+  const clearRecentFiles = useSettingsStore((s) => s.clearRecentFiles);
 
   const { onFocusCapture, highlight } = useMenuHighlight();
 
@@ -30,17 +30,6 @@ export function RecentFilesMenu() {
     } else {
       return date.toLocaleDateString();
     }
-  };
-
-  const handleOpen = (path: string) => {
-    openRecentFile(path).catch((error) => {
-      const name = documentName(path);
-      notify({
-        tone: 'error',
-        title: `Couldn't open ${name}`,
-        detail: `${errorMessage(error)}. It was removed from Recent files.`,
-      });
-    });
   };
 
   if (recentFiles.length === 0) {
@@ -94,7 +83,7 @@ export function RecentFilesMenu() {
                 'relative flex items-center gap-2 px-2 py-2 rounded-[7px] cursor-pointer',
                 'outline-none group'
               )}
-              onSelect={() => handleOpen(file.path)}
+              onSelect={() => void openPath(file.path)}
             >
               <FileText className="w-4 h-4 text-text-muted flex-shrink-0" />
               <div className="flex-1 min-w-0">

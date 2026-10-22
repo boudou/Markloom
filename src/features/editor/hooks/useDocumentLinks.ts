@@ -1,6 +1,9 @@
 import { useEffect, type RefObject } from 'react';
-import { useActivePath, useTabsStore } from '@/features/tabs';
-import { canResolveRelative, readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { useActivePath } from '@/features/tabs';
+import { canResolveRelative, documentName, readFileBlob } from '@/features/file-tree/api/fileSystem';
+import { openPath } from '@/lib/documentActions';
+import { notify } from '@/stores/uiStore';
+import { errorMessage } from '@/lib/utils';
 import { refreshImages, showImage } from '../utils/previewImages';
 import { isAbsoluteUrl, resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
 
@@ -119,7 +122,6 @@ export function useDocumentLinks(
 ): void {
   const { requireModifier = false, resolveImages = true } = options;
   const activeFilePath = useActivePath();
-  const openDocument = useTabsStore((s) => s.openDocument);
 
   // Swap relative image sources for object URLs read through the file system API
   useEffect(() => {
@@ -201,28 +203,28 @@ export function useDocumentLinks(
 
       const targetPath = resolveRelativePath(activeFilePath, path);
 
-      try {
-        if (/\.(md|markdown|mdx|mmd|txt)$/i.test(targetPath)) {
-          openDocument(targetPath, await readFile(targetPath));
+      if (/\.(md|markdown|mdx|mmd|txt)$/i.test(targetPath)) {
+        // openPath reports a failure itself; scroll only once the document is open and has rendered
+        if ((await openPath(targetPath)) && hash) {
+          setTimeout(() => {
+            const current = containerRef.current;
 
-          if (hash) {
-            // Wait for the newly opened document to render before scrolling
-            setTimeout(() => {
-              const current = containerRef.current;
-
-              if (current) scrollToAnchor(current, hash);
-            }, 150);
-          }
-        } else {
-          await openLinkedFile(targetPath, await readFileBlob(targetPath));
+            if (current) scrollToAnchor(current, hash);
+          }, 150);
         }
+
+        return;
+      }
+
+      try {
+        await openLinkedFile(targetPath, await readFileBlob(targetPath));
       } catch (error) {
-        console.error(`Failed to open linked file: ${targetPath}`, error);
+        notify({ tone: 'error', title: `Couldn't open ${documentName(targetPath)}`, detail: errorMessage(error) });
       }
     };
 
     container.addEventListener('click', handleClick);
 
     return () => container.removeEventListener('click', handleClick);
-  }, [containerRef, activeFilePath, openDocument, requireModifier]);
+  }, [containerRef, activeFilePath, requireModifier]);
 }
