@@ -61,6 +61,7 @@ const FACE_SWAP = { type: 'spring', stiffness: 260, damping: 34, mass: 0.8 } as 
 
 const BUTTON_FACES = [
   ...FORMATS.map((f) => ({ key: f.id, text: `Export ${f.label}`, busy: false })),
+  { key: 'image-all', text: 'Save all pages', busy: false },
   { key: 'exporting', text: 'Exporting…', busy: true },
 ];
 
@@ -176,17 +177,25 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const handleExport = async () => {
-    // Saving pages as images comes with #194; the button is disabled until then
-    if (format === 'image') return;
+  const pagedDoc = preview.status === 'ready' ? preview.doc : null;
+  const pageCount = pagedDoc?.pages.length ?? 0;
+  // Several pages: Save this page beside Save all pages (a .zip); one page: a single Export Image
+  const primaryFace = showPages && pageCount > 1 ? 'image-all' : format;
 
+  const handleExport = async (which: 'all' | number = 'all') => {
     setExporting(true);
     setError(null);
     const request = { markdown: readContent(), docPath, title: toFileName(title), author: author.trim() || undefined };
 
     try {
       // Exporters pull in large libraries; load them only when used
-      if (format === 'docx') {
+      if (format === 'image') {
+        // The buttons are enabled only once the preview has laid the pages out
+        if (!pagedDoc) return;
+
+        const { savePages } = await import('../pipeline/pageImages');
+        await savePages(pagedDoc, request.title, which);
+      } else if (format === 'docx') {
         const { exportDocx } = await import('../pipeline/docx');
         await exportDocx(request);
       } else {
@@ -317,8 +326,6 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
                 Export failed: {error}
               </p>
             )}
-
-            {showPages && <p className="text-sm text-text-muted">Saving pages comes next.</p>}
           </div>
 
           {showPages && (
@@ -331,8 +338,17 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={exporting}>
           Cancel
         </Button>
-        <Button onClick={() => void handleExport()} disabled={exporting || !hasContent || showPages} aria-busy={exporting || undefined}>
-          <ExportButtonLabel active={exporting ? 'exporting' : format} />
+        {showPages && pageCount > 1 && (
+          <Button variant="secondary" onClick={() => void handleExport(page)} disabled={exporting}>
+            Save this page
+          </Button>
+        )}
+        <Button
+          onClick={() => void handleExport()}
+          disabled={exporting || !hasContent || (showPages && pageCount === 0)}
+          aria-busy={exporting || undefined}
+        >
+          <ExportButtonLabel active={exporting ? 'exporting' : primaryFace} />
         </Button>
       </ModalFooter>
     </Modal>

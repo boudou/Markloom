@@ -122,3 +122,34 @@ export async function toPngBytes(dataUrl: string, width: number, height: number,
 
   return new Uint8Array(await blob.arrayBuffer());
 }
+
+const XHTML_NS = 'http://www.w3.org/1999/xhtml';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * Rasterizes HTML to PNG bytes (on white, 2x): `content` and a stylesheet of `css`, drawn in
+ * an SVG `<foreignObject>` of `width` × `height` CSS px. An SVG image can't load anything, so
+ * fonts and images must already be data URLs. It is drawn from a `data:` URL, which leaves
+ * the canvas readable (a `blob:` URL would taint it).
+ */
+export function htmlToPng(content: Element, css: string, width: number, height: number): Promise<Uint8Array> {
+  // An XHTML <html><body> so the stylesheet's `html` and `body` rules apply as on a page
+  const doc = document.implementation.createDocument(XHTML_NS, 'html', null);
+  const body = doc.createElementNS(XHTML_NS, 'body');
+  const style = doc.createElementNS(XHTML_NS, 'style');
+  style.textContent = css;
+  body.append(style, doc.importNode(content, true));
+  doc.documentElement.append(body);
+
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', String(width));
+  svg.setAttribute('height', String(height));
+  const foreignObject = doc.createElementNS(SVG_NS, 'foreignObject');
+  foreignObject.setAttribute('width', '100%');
+  foreignObject.setAttribute('height', '100%');
+  foreignObject.append(doc.documentElement);
+  svg.append(foreignObject);
+
+  return toPngBytes(svgDataUrl(new XMLSerializer().serializeToString(svg)), width, height);
+}
