@@ -4,6 +4,32 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-22
+
+### Added
+
+- Markloom runs in the browser with nothing to install: the web version is published at [boudou.github.io/Markloom](https://boudou.github.io/Markloom/) with every release.
+- Quick open (`Ctrl+P`) finds any file in the open folder by name (#5).
+- Search across files (`Ctrl+Shift+F`): a Search view in the sidebar lists matching lines grouped by file, with match case, whole word and regular expressions; clicking a result opens the file at that line (#6).
+- Copy as rich text, in the title bar and the command palette, copies the selection or the whole document so it pastes formatted into email, Google Docs or Confluence, with diagrams as images (#8).
+- The status bar shows the version and links to the user manual and the source; the web version also links to the desktop download.
+
+### Changed
+
+- New documents are numbered (Untitled 2, Untitled 3…), so tabs and the save prompt tell them apart; the palette says "Insert ER diagram" and "Insert Gantt chart", and the Export tooltip mentions Web page (#151).
+- Both editors share one image cache: an image edited in another app now refreshes in rich text too, and the desktop app reads a file in one call (#123).
+- Every way of opening a document (file tree, recent files, links, files from the OS) goes through one path (#106).
+- macOS builds are ad-hoc signed, so macOS offers **Open Anyway** instead of calling the app damaged; the README explains Windows Smart App Control (#161).
+
+### Fixed
+
+- Rich text no longer writes an emptied paragraph as `<br />` or an emptied heading as a bare `#` (#152).
+- Images addressed as `//host/…` are no longer reported missing by the export check and are embedded in exports (#119).
+
+### Internal
+
+- Event targets are narrowed instead of cast (#139).
+
 ## [0.5.0] - 2026-10-22
 
 ### Added
@@ -118,6 +144,7 @@ First public release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
 [Unreleased]: https://github.com/boudou/Markloom/compare/v0.5.0...HEAD
+[0.6.0]: https://github.com/boudou/Markloom/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/boudou/Markloom/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/boudou/Markloom/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/boudou/Markloom/compare/v0.2.0...v0.3.0
