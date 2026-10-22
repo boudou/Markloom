@@ -318,8 +318,9 @@ class CodeBlockView implements NodeView {
 
   stopEvent(event: Event) {
     // Our own controls (toggle, Show line, Details) handle their events themselves
-    // SAFETY: events reach a node view from its own DOM, so the target is a Node.
-    const target = event.target as Node;
+    const target = event.target;
+
+    if (!(target instanceof Node)) return false;
 
     return this.dom.contains(target) && !this.contentDOM.contains(target);
   }
@@ -544,9 +545,10 @@ export const taskToggle = $prose(() =>
     },
     handleClickOn(view: EditorView, _pos, node, nodePos, event, direct) {
       if (!direct || node.type.name !== 'list_item' || node.attrs.checked == null) return false;
-      // SAFETY: a click ProseMirror routes to a node landed on that node's rendered HTML element
-      const target = event.target as HTMLElement;
-      const box = target.getBoundingClientRect();
+
+      if (!(event.target instanceof Element)) return false;
+
+      const box = event.target.getBoundingClientRect();
 
       // The checkbox is drawn in the item's left padding
       if (event.clientX - box.left > 24) return false;

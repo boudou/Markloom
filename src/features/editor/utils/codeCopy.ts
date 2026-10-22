@@ -78,8 +78,7 @@ export function addCopyButtons(root: HTMLElement): void {
 
 /** Delegated click handler for the preview; `announce` reports the result to screen readers. */
 export async function handleCopyClick(event: MouseEvent, announce: (message: string) => void): Promise<void> {
-  // SAFETY: click events fire on elements (never text nodes), and only Element.closest is used.
-  const button = (event.target as Element | null)?.closest<HTMLButtonElement>('.code-copy');
+  const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.code-copy') : null;
 
   if (!button) return;
   event.preventDefault();

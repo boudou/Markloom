@@ -34,6 +34,13 @@ function openRoot(handle: FileSystemDirectoryHandle): void {
   openFolder = { handle, folders: new Map() };
 }
 
+// The pickers reject with an AbortError when the user cancels them.
+// SAFETY: `unknown` is the subject of this type predicate (a catch binding),
+// the exemption anti-slop allows; instanceof does the narrowing.
+function isAbortError(error: unknown): error is DOMException {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
 // Open folder dialog using File System Access API
 export async function openFolderDialog(): Promise<string | null> {
   try {
@@ -46,8 +53,7 @@ export async function openFolderDialog(): Promise<string | null> {
 
     return handle.name;
   } catch (error) {
-    // The pickers reject with an AbortError when the user cancels them
-    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+    if (!isAbortError(error)) {
       console.error('Error opening folder:', error);
     }
 
@@ -96,7 +102,7 @@ export async function openFileDialog(): Promise<{ path: string; content: string 
       content,
     };
   } catch (error) {
-    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+    if (!isAbortError(error)) {
       console.error('Error opening file:', error);
     }
 
@@ -128,7 +134,7 @@ export async function saveFileDialog(
 
     return filePath;
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') return null;
+    if (isAbortError(error)) return null;
     throw error;
   }
 }
