@@ -120,6 +120,17 @@ npm run electron:build  # build installers for your OS into release/
 
 `electron:build` produces the installer for the system you run it on (an `.exe` on Windows, a `.dmg` on macOS, an `.AppImage` on Linux). On Windows, `start-desktop.bat` launches the packaged app, and `start-desktop.bat rebuild` rebuilds it first.
 
+### End-to-end tests
+
+The end-to-end tests in `e2e/` use [Playwright](https://playwright.dev/) and drive your installed Google Chrome, so there is no browser to download. They build the app, serve the build and run every test twice: in Markdown mode, and with the document opened straight into Rich text.
+
+```bash
+npm run test:e2e            # build, serve and run all tests headless
+npm run test:e2e -- --ui    # pick and watch tests in Playwright's UI
+```
+
+The build is served on port 4173; set `E2E_PORT` to use another. A test for a known gap is marked with the issue that tracks it and is expected to fail until that issue is fixed.
+
 ### Command reference
 
 | Command | What it does |
@@ -127,7 +138,8 @@ npm run electron:build  # build installers for your OS into release/
 | `npm run dev` | Web app with hot reload on port 1420 |
 | `npm run build` | Type-check and production build into `dist/` |
 | `npm run preview` | Serve the production build |
-| `npm run lint` | Lint `src/` with Oxlint and the anti-slop rules |
+| `npm run lint` | Lint `src/` and `e2e/` with Oxlint and the anti-slop rules; type-check `e2e/` |
+| `npm run test:e2e` | End-to-end tests against the production build, in both editors |
 | `npm run electron:dev` | Desktop app with live reload |
 | `npm run electron:start` | Build, then run the desktop app |
 | `npm run electron:build` | Desktop installers in `release/` |
@@ -136,6 +148,7 @@ npm run electron:build  # build installers for your OS into release/
 
 ```
 electron/          Desktop shell: app:// scheme, file access, PDF printing
+e2e/               End-to-end tests (Playwright) and the test folder they open
 src/
   components/      App shell, title bar, sidebar, status bar, UI primitives
   features/        One folder per feature: editor, export, mermaid, tabs, find-replace, …
