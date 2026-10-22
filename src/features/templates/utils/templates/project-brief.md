@@ -3,7 +3,9 @@
 ## Overview
 
 **Project Name:**
+
 **Start Date:** {{date}}
+
 **Target Completion:**
 
 ## Objectives
