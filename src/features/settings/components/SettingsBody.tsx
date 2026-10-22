@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { History as HistoryIcon, SlidersHorizontal } from 'lucide-react';
+import { AppWindow, History as HistoryIcon, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { toggleAutoSave } from '@/features/auto-save';
@@ -18,7 +18,7 @@ import { useHistoryStore } from '@/features/version-history/stores/historyStore'
 import { readHistoryUsage, type HistoryUsage } from '@/features/version-history/utils';
 import { AUTO_SAVE_INTERVALS, HISTORY_LIMITS, PAGE_WIDTHS, formatInterval, useSettingsStore } from '@/stores/settingsStore';
 
-type SectionId = 'editor' | 'history';
+type SectionId = 'editor' | 'history' | 'window';
 
 interface Section {
   id: SectionId;
@@ -26,10 +26,14 @@ interface Section {
   icon: ElementType;
 }
 
-// Later sections (About, Updates, Window, Appearance) append here
+// The desktop bridge; this module is a lazy chunk, so the preload has run
+const desktop = window.markloomDesktop;
+
+// Later sections (About, Updates, Appearance) append here
 const SECTIONS: readonly Section[] = [
   { id: 'editor', label: 'Editor', icon: SlidersHorizontal },
   { id: 'history', label: 'History', icon: HistoryIcon },
+  ...(desktop ? [{ id: 'window' as const, label: 'Window', icon: AppWindow }] : []),
 ];
 
 const CONTROL_FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary';
@@ -40,17 +44,19 @@ interface CheckboxRowProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   autoFocus?: boolean;
+  disabled?: boolean;
 }
 
-function CheckboxRow({ label, hint, checked, onChange, autoFocus }: CheckboxRowProps) {
+function CheckboxRow({ label, hint, checked, onChange, autoFocus, disabled }: CheckboxRowProps) {
   const hintId = useId();
 
   return (
     <div className="py-3">
-      <label className="flex items-center gap-2.5 text-sm text-text-primary cursor-pointer">
+      <label className={cn('flex items-center gap-2.5 text-sm text-text-primary', disabled ? 'cursor-default opacity-60' : 'cursor-pointer')}>
         <input
           type="checkbox"
           checked={checked}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
           aria-describedby={hintId}
           data-autofocus={autoFocus || undefined}
@@ -347,6 +353,139 @@ function HistorySection() {
   );
 }
 
+interface TrayPrefs {
+  minimizeToTray: boolean;
+  closeToTray: boolean;
+}
+
+interface ExplorerMenu {
+  enabled: boolean;
+  portable: boolean;
+}
+
+const GROUP_HEADING = 'pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted';
+
+/** Desktop only: the tray toggles and, on Windows, the Explorer menu. Main stores all three. */
+function WindowSection() {
+  const [prefs, setPrefs] = useState<TrayPrefs | null>(null);
+  const [prefsFailed, setPrefsFailed] = useState(false);
+  const [explorer, setExplorer] = useState<ExplorerMenu | null>(null);
+  const [explorerBusy, setExplorerBusy] = useState(false);
+  const [explorerFailed, setExplorerFailed] = useState(false);
+  // Replies that arrive after Settings closed are dropped
+  const mounted = useRef(true);
+  const windows = desktop?.platform === 'win32';
+
+  useEffect(() => {
+    mounted.current = true;
+
+    if (!desktop) return;
+
+    desktop.updateWindowPrefs({}).then(
+      (reply) => mounted.current && setPrefs(reply),
+      () => mounted.current && setPrefsFailed(true)
+    );
+
+    if (windows) {
+      desktop.setExplorerMenu().then(
+        (reply) => mounted.current && setExplorer(reply),
+        () => mounted.current && setExplorerFailed(true)
+      );
+    }
+
+    return () => {
+      mounted.current = false;
+    };
+  }, [windows]);
+
+  if (!desktop) return null;
+
+  const changeTray = async (changes: Partial<TrayPrefs>) => {
+    setPrefsFailed(false);
+
+    try {
+      const reply = await desktop.updateWindowPrefs(changes);
+
+      if (mounted.current) setPrefs(reply);
+    } catch {
+      if (mounted.current) setPrefsFailed(true);
+    }
+  };
+
+  const changeExplorer = async (on: boolean) => {
+    setExplorerBusy(true);
+    setExplorerFailed(false);
+
+    try {
+      const reply = await desktop.setExplorerMenu(on);
+
+      if (mounted.current) setExplorer(reply);
+    } catch {
+      if (mounted.current) setExplorerFailed(true);
+
+      // Show what main has now; keep the old state if even that can't be read
+      try {
+        const reply = await desktop.setExplorerMenu();
+
+        if (mounted.current) setExplorer(reply);
+      } catch {
+        // The error above already shows
+      }
+    }
+
+    if (mounted.current) setExplorerBusy(false);
+  };
+
+  const explorerHint =
+    'Right-click a Markdown file, a folder, or the empty space in a folder. On Windows 11 it is under Show more options.' +
+    (explorer?.portable ? ' Turn this off before deleting Markloom.' : '');
+
+  return (
+    <div className="divide-y divide-rule">
+      <div>
+        <h3 className={GROUP_HEADING}>Tray</h3>
+        <CheckboxRow
+          label="Minimize to tray"
+          hint="Minimizing hides the window; click the tray icon to bring it back"
+          checked={prefs?.minimizeToTray ?? false}
+          onChange={(on) => void changeTray({ minimizeToTray: on })}
+          disabled={!prefs}
+          autoFocus
+        />
+        <CheckboxRow
+          label="Close to tray"
+          hint="Closing the window keeps Markloom running; quit from the tray icon"
+          checked={prefs?.closeToTray ?? false}
+          onChange={(on) => void changeTray({ closeToTray: on })}
+          disabled={!prefs}
+        />
+        {prefsFailed && (
+          <p role="alert" className={cn(ERROR_TEXT, 'pb-3')}>
+            Couldn't change the window settings.
+          </p>
+        )}
+      </div>
+      {windows && (
+        <div className="pt-3">
+          <h3 className={GROUP_HEADING}>Explorer</h3>
+          <CheckboxRow
+            label='Add "Open with Markloom" to the Explorer menu'
+            hint={explorerHint}
+            checked={explorer?.enabled ?? false}
+            onChange={(on) => void changeExplorer(on)}
+            disabled={!explorer || explorerBusy}
+          />
+          {explorerFailed && (
+            <p role="alert" className={cn(ERROR_TEXT, 'pb-3')}>
+              Couldn't change the Explorer menu.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Settings window: a section list on the left, the chosen section on the right */
 export default function SettingsBody() {
   const [section, setSection] = useState<SectionId>('editor');
@@ -399,6 +538,7 @@ export default function SettingsBody() {
       <div id={`${baseId}-panel`} role="tabpanel" aria-labelledby={tabId(current.id)} className="flex-1 min-w-0">
         {current.id === 'editor' && <EditorSection />}
         {current.id === 'history' && <HistorySection />}
+        {current.id === 'window' && <WindowSection />}
       </div>
     </div>
   );

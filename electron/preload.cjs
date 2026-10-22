@@ -32,4 +32,6 @@ contextBridge.exposeInMainWorld('markloomDesktop', {
 
   /** Sets minimize to tray / close to tray ({ minimizeToTray?, closeToTray? }) and returns both; {} only reads them */
   updateWindowPrefs: (changes) => ipcRenderer.invoke('update-window-prefs', changes),
+  /** Windows: adds or removes "Open with Markloom" in the Explorer menu and returns { enabled, portable }; no argument only reads */
+  setExplorerMenu: (enabled) => ipcRenderer.invoke('set-explorer-menu', enabled),
 });
