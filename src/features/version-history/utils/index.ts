@@ -3,6 +3,9 @@ export {
   readVersionContent,
   saveVersion,
   deleteVersion,
-  MAX_VERSIONS,
+  trimVersions,
+  clearAllVersions,
+  readHistoryUsage,
+  type HistoryUsage,
   type VersionMeta,
 } from './historyDb';

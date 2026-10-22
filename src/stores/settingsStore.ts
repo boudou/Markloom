@@ -41,6 +41,11 @@ export const PAGE_WIDTHS: readonly { value: PageWidth; label: string }[] = [
 /** Auto-save delays offered in Settings, in seconds */
 export const AUTO_SAVE_INTERVALS: readonly number[] = [10, 30, 60, 300];
 
+/** Versions kept per file in version history, offered in Settings */
+export const HISTORY_LIMITS: readonly number[] = [10, 25, 50, 100];
+
+export const DEFAULT_HISTORY_LIMIT = 50;
+
 /** "10 seconds", "1 minute", "5 minutes": whole minutes read as minutes */
 export function formatInterval(seconds: number): string {
   if (seconds >= 60 && seconds % 60 === 0) {
@@ -81,6 +86,9 @@ interface SettingsState {
   /** Word-count goals, keyed by document path (or tab id for unsaved documents) */
   wordGoals: Record<string, number>;
 
+  /** Versions kept per file in version history */
+  historyLimit: number;
+
   // Actions
   setAutoSave: (enabled: boolean, interval?: number) => void;
   setAutoSaveInterval: (seconds: number) => void;
@@ -90,6 +98,8 @@ interface SettingsState {
   setSplitRatio: (ratio: number) => void;
   setPageWidth: (width: PageWidth) => void;
   setLastSession: (session: LastSession | null) => void;
+  /** Ignores a count that isn't in `HISTORY_LIMITS` */
+  setHistoryLimit: (count: number) => void;
 
   // Recent files
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
@@ -104,7 +114,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -136,6 +146,7 @@ const KEPT_TOP_LEVEL_KEYS = [
   'recentFiles',
   'recentFolders',
   'wordGoals',
+  'historyLimit',
 ] as const;
 
 function copyIfPresent<K extends (typeof KEPT_TOP_LEVEL_KEYS)[number]>(
@@ -182,6 +193,7 @@ export const useSettingsStore = create<SettingsState>()(
       recentFiles: [],
       recentFolders: [],
       wordGoals: {},
+      historyLimit: DEFAULT_HISTORY_LIMIT,
 
       // Word-count goals; null or 0 removes the goal
       setWordGoal: (key, goal) =>
@@ -247,6 +259,12 @@ export const useSettingsStore = create<SettingsState>()(
           state.lastSession = session;
         }),
 
+      // Only an offered count, so a stray call can never store 0 and empty every file's history
+      setHistoryLimit: (count) =>
+        set((state) => {
+          if (HISTORY_LIMITS.includes(count)) state.historyLimit = count;
+        }),
+
       // Recent files
       addRecentFile: (file) =>
         set((state) => {
@@ -306,6 +324,7 @@ export const useSettingsStore = create<SettingsState>()(
         recentFiles: state.recentFiles,
         recentFolders: state.recentFolders,
         wordGoals: state.wordGoals,
+        historyLimit: state.historyLimit,
       }),
       // Only saves from an older version reach here.
       // SAFETY: this app wrote the save with JSON.stringify, so a present key has the type it was written with.

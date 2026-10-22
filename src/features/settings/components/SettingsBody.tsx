@@ -1,10 +1,24 @@
-import { useId, useState, type ChangeEvent, type ElementType, type KeyboardEvent, type ReactNode } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ElementType,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
+import { History as HistoryIcon, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui';
 import { toggleAutoSave } from '@/features/auto-save';
-import { AUTO_SAVE_INTERVALS, PAGE_WIDTHS, formatInterval, useSettingsStore } from '@/stores/settingsStore';
+// Deep paths: the version-history barrel is imported eagerly by the title bar, and these must stay in this lazy chunk
+import { useHistoryStore } from '@/features/version-history/stores/historyStore';
+import { readHistoryUsage, type HistoryUsage } from '@/features/version-history/utils';
+import { AUTO_SAVE_INTERVALS, HISTORY_LIMITS, PAGE_WIDTHS, formatInterval, useSettingsStore } from '@/stores/settingsStore';
 
-type SectionId = 'editor';
+type SectionId = 'editor' | 'history';
 
 interface Section {
   id: SectionId;
@@ -12,8 +26,11 @@ interface Section {
   icon: ElementType;
 }
 
-// Later sections (About, History, Updates, Window, Appearance) append here
-const SECTIONS: readonly Section[] = [{ id: 'editor', label: 'Editor', icon: SlidersHorizontal }];
+// Later sections (About, Updates, Window, Appearance) append here
+const SECTIONS: readonly Section[] = [
+  { id: 'editor', label: 'Editor', icon: SlidersHorizontal },
+  { id: 'history', label: 'History', icon: HistoryIcon },
+];
 
 const CONTROL_FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary';
 
@@ -149,6 +166,187 @@ function EditorSection() {
   );
 }
 
+/** "0 bytes", "1 byte", "12.3 KB", "4.5 MB" */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return bytes === 1 ? '1 byte' : `${bytes} bytes`;
+
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+type UsageReadout = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; usage: HistoryUsage };
+
+/** Where focus goes when the confirm group closes */
+type FocusAfterConfirm = 'clear' | 'storage' | null;
+
+const ERROR_TEXT = 'mt-1 text-xs text-error';
+
+function HistorySection() {
+  const historyLimit = useSettingsStore((s) => s.historyLimit);
+  const setHistoryLimit = useSettingsStore((s) => s.setHistoryLimit);
+  const [readout, setReadout] = useState<UsageReadout>({ status: 'loading' });
+  const [confirming, setConfirming] = useState(false);
+  const [trimFailed, setTrimFailed] = useState(false);
+  const [clearFailed, setClearFailed] = useState(false);
+  // Only the newest read may update the numbers; unmounting bumps it so a late reply is dropped
+  const latestRead = useRef(0);
+  const focusAfterConfirm = useRef<FocusAfterConfirm>(null);
+  const clearButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const storageGroup = useRef<HTMLDivElement>(null);
+
+  // A stored limit that isn't offered still shows, so the select is never blank and nothing is rewritten
+  const limits = HISTORY_LIMITS.includes(historyLimit) ? HISTORY_LIMITS : [...HISTORY_LIMITS, historyLimit].sort((a, b) => a - b);
+
+  // The old numbers stay up while a refresh runs, so the Clear button doesn't flicker
+  const refresh = useCallback(async () => {
+    latestRead.current += 1;
+    const read = latestRead.current;
+
+    try {
+      const usage = await readHistoryUsage();
+
+      if (read === latestRead.current) setReadout({ status: 'ready', usage });
+    } catch (error) {
+      console.error('Failed to read history usage:', error);
+
+      if (read === latestRead.current) setReadout({ status: 'failed' });
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+
+    return () => {
+      latestRead.current += 1;
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    if (confirming) {
+      cancelButton.current?.focus();
+
+      return;
+    }
+
+    if (focusAfterConfirm.current === 'clear') clearButton.current?.focus();
+    else if (focusAfterConfirm.current === 'storage') storageGroup.current?.focus();
+
+    focusAfterConfirm.current = null;
+  }, [confirming]);
+
+  const changeLimit = async (event: ChangeEvent<HTMLSelectElement>) => {
+    const count = limits.find((n) => String(n) === event.target.value);
+
+    if (count === undefined) return;
+
+    const lowered = count < historyLimit;
+    setHistoryLimit(count);
+    setTrimFailed(false);
+
+    if (!lowered) return;
+
+    try {
+      await useHistoryStore.getState().trimAll(count);
+    } catch {
+      setTrimFailed(true);
+    }
+
+    await refresh();
+  };
+
+  const cancelClear = () => {
+    focusAfterConfirm.current = 'clear';
+    setConfirming(false);
+  };
+
+  const deleteAll = async () => {
+    setClearFailed(false);
+
+    try {
+      await useHistoryStore.getState().clearAll();
+      // The Clear button is disabled once nothing is left, so focus goes to the numbers that changed
+      focusAfterConfirm.current = 'storage';
+    } catch {
+      setClearFailed(true);
+      focusAfterConfirm.current = 'clear';
+    }
+
+    await refresh();
+    setConfirming(false);
+  };
+
+  const usage = readout.status === 'ready' ? readout.usage : null;
+  const pending = readout.status === 'loading' ? '…' : 'Not available';
+
+  return (
+    <div className="divide-y divide-rule">
+      <div>
+        <h3 className="pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Versions</h3>
+        <SelectRow
+          label="Versions to keep per file"
+          hint="Older versions of each file are deleted past this number"
+          value={String(historyLimit)}
+          onChange={(event) => void changeLimit(event)}
+        >
+          {limits.map((count) => (
+            <option key={count} value={count}>
+              {count}
+            </option>
+          ))}
+        </SelectRow>
+        {trimFailed && (
+          <p role="alert" className={cn(ERROR_TEXT, 'pb-3')}>
+            Couldn't remove older versions. They will go the next time you save a version.
+          </p>
+        )}
+      </div>
+      <div ref={storageGroup} tabIndex={-1} className="pt-3 outline-none">
+        <h3 className="pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Storage</h3>
+        <dl className="py-2 text-sm">
+          <div className="flex justify-between gap-4 py-1">
+            <dt className="text-text-primary">Storage used</dt>
+            <dd className="text-text-secondary tabular-nums">{usage ? formatBytes(usage.bytes) : pending}</dd>
+          </div>
+          <div className="flex justify-between gap-4 py-1">
+            <dt className="text-text-primary">Files with history</dt>
+            <dd className="text-text-secondary tabular-nums">{usage ? usage.files : pending}</dd>
+          </div>
+        </dl>
+        <div className="py-3">
+          {confirming && usage ? (
+            <div role="group" aria-label="Confirm clear all history" className="flex flex-wrap items-center gap-2">
+              <p className="w-full text-sm text-text-primary">
+                Delete all {plural(usage.versions, 'version')} of {plural(usage.files, 'file')}? This can't be undone.
+              </p>
+              <Button ref={cancelButton} variant="secondary" size="sm" onClick={cancelClear}>
+                Cancel
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => void deleteAll()}>
+                Delete all
+              </Button>
+            </div>
+          ) : (
+            <Button ref={clearButton} variant="danger" size="sm" disabled={!usage || usage.versions === 0} onClick={() => setConfirming(true)}>
+              Clear all history…
+            </Button>
+          )}
+          {clearFailed && (
+            <p role="alert" className={ERROR_TEXT}>
+              Couldn't clear the history.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Settings window: a section list on the left, the chosen section on the right */
 export default function SettingsBody() {
   const [section, setSection] = useState<SectionId>('editor');
@@ -200,6 +398,7 @@ export default function SettingsBody() {
       </div>
       <div id={`${baseId}-panel`} role="tabpanel" aria-labelledby={tabId(current.id)} className="flex-1 min-w-0">
         {current.id === 'editor' && <EditorSection />}
+        {current.id === 'history' && <HistorySection />}
       </div>
     </div>
   );
