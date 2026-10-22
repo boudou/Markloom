@@ -30,14 +30,17 @@ interface Command {
   run: () => void;
 }
 
-/** Toggle labels and `when` read the stores directly, so the list reflects the moment it's built */
-/** "Mind map" -> "Insert mind map", but acronyms keep their case: "ER diagram" -> "Insert ER diagram" */
+/**
+ * "Mind map" -> "Insert mind map", but acronyms and names keep their case:
+ * "ER diagram" -> "Insert ER diagram", "Gantt chart" -> "Insert Gantt chart"
+ */
 function insertLabel(name: string): string {
-  const lead = /^[A-Z]{2}/.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1);
+  const lead = /^([A-Z]{2}|Gantt\b)/.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1);
 
   return `Insert ${lead}`;
 }
 
+/** Toggle labels and `when` read the stores directly, so the list reflects the moment it's built */
 function buildCommands(editorCommands: EditorCommands | null, recentFiles: RecentFile[]): Command[] {
   const commands: Command[] = APP_COMMANDS.flatMap((c) =>
     c.id === 'palette' || !isOffered(c)
