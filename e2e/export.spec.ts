@@ -352,3 +352,104 @@ test.describe('broken.md', () => {
     await expect(dialog.getByRole('listitem').filter({ hasText: 'Line 14' })).toBeVisible();
   });
 });
+
+/** Width and height of a downloaded PNG, read from its IHDR chunk */
+function pngSize(path: string): { width: number; height: number } {
+  const bytes = readFileSync(path);
+
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
+/** Width over height of the page the preview shows */
+async function previewAspect(page: Page): Promise<number> {
+  const box = await page.getByRole('dialog').locator('iframe[title^="Page "]').boundingBox();
+
+  return box ? box.width / box.height : 0;
+}
+
+/** Saves the shown page (which closes the dialog) and reopens Export > Image */
+async function saveThisPage(page: Page): Promise<{ width: number; height: number }> {
+  const dialog = page.getByRole('dialog');
+  const download = page.waitForEvent('download');
+
+  await dialog.getByRole('button', { name: 'Save this page' }).click();
+
+  const size = pngSize(await (await download).path());
+
+  await expect(dialog).toBeHidden();
+  await page.keyboard.press('ControlOrMeta+e');
+  await dialog.getByRole('radio', { name: 'Image' }).click();
+
+  return size;
+}
+
+test('Image and PDF use the chosen page size and orientation, and remember it', async ({ app, page }) => {
+  // Lays the document out about ten times and saves two pages
+  test.setTimeout(180_000);
+
+  await page.addInitScript(() => {
+    if (window === window.top) return;
+
+    window.print = () => {
+      // SAFETY: the print frame is same-origin with the app, so its top window is the app's
+      (window.top as Window).__e2ePrinted = `<!doctype html>\n${document.documentElement.outerHTML}`;
+    };
+  });
+
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const dialog = page.getByRole('dialog');
+  const size = dialog.getByRole('radiogroup', { name: 'Page size' });
+  const orientation = dialog.getByRole('radiogroup', { name: 'Orientation' });
+
+  // Paged formats only
+  await expect(size).toHaveCount(0);
+  await dialog.getByRole('radio', { name: 'Image' }).click();
+  await expect(size.getByRole('radio', { name: 'A4' })).toHaveAttribute('aria-checked', 'true');
+  await expect(orientation.getByRole('radio', { name: 'Portrait' })).toHaveAttribute('aria-checked', 'true');
+
+  const portraitPages = await pageCount(page);
+
+  await expect.poll(() => previewAspect(page)).toBeCloseTo(210 / 297, 2);
+
+  // Letter portrait: 8.5 × 11 in at 96 dpi, 2x
+  await size.getByRole('radio', { name: 'Letter' }).click();
+  await expect.poll(() => previewAspect(page)).toBeCloseTo(8.5 / 11, 2);
+  await pageCount(page);
+  expect(await saveThisPage(page)).toEqual({ width: 1632, height: 2112 });
+
+  // Quick toggling ends on the last choice, not on a slower earlier layout
+  await orientation.getByRole('radio', { name: 'Landscape' }).click();
+  await size.getByRole('radio', { name: 'A4' }).click();
+  await size.getByRole('radio', { name: 'Letter' }).click();
+  await size.getByRole('radio', { name: 'A4' }).click();
+  await expect.poll(() => previewAspect(page)).toBeCloseTo(297 / 210, 2);
+  await dialog.getByRole('button', { name: 'Next page' }).click();
+  await expect(dialog.getByText(/^Page 2 of \d+$/)).toBeVisible();
+
+  // A shorter content box holds less per page; changing the paper starts again at page 1
+  await size.getByRole('radio', { name: 'Letter' }).click();
+  await size.getByRole('radio', { name: 'A4' }).click();
+  expect(await pageCount(page)).toBeGreaterThan(portraitPages);
+  expect(await saveThisPage(page)).toEqual({ width: 2246, height: 1588 });
+
+  // PDF prints the same paper, so the print dialog preselects it
+  await size.getByRole('radio', { name: 'Letter' }).click();
+  await dialog.getByRole('radio', { name: 'PDF' }).click();
+  await expect(size.getByRole('radio', { name: 'Letter' })).toHaveAttribute('aria-checked', 'true');
+  await pageCount(page);
+  await dialog.getByRole('button', { name: 'Export PDF' }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__e2ePrinted ?? null)).not.toBeNull();
+  expect((await page.evaluate(() => window.__e2ePrinted)) ?? '').toContain('@page { size: Letter landscape; margin: 0; }');
+
+  // Kept across a restart
+  await page.reload();
+  await app.openFolder();
+  await app.openFile('pages.md');
+  await page.keyboard.press('ControlOrMeta+e');
+  await dialog.getByRole('radio', { name: 'Image' }).click();
+  await expect(size.getByRole('radio', { name: 'Letter' })).toHaveAttribute('aria-checked', 'true');
+  await expect(orientation.getByRole('radio', { name: 'Landscape' })).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(() => previewAspect(page)).toBeCloseTo(11 / 8.5, 2);
+});

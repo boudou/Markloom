@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import type { Orientation, PageSize } from '@/features/export/pipeline/pageGeometry';
 
 export interface RecentFile {
   path: string;
@@ -95,6 +96,11 @@ interface SettingsState {
   /** When the last successful update check finished (ms since epoch); null until one has */
   lastUpdateCheckAt: number | null;
 
+  /** Paper of Image and PDF export */
+  exportPageSize: PageSize;
+
+  exportOrientation: Orientation;
+
   // Actions
   setAutoSave: (enabled: boolean, interval?: number) => void;
   setAutoSaveInterval: (seconds: number) => void;
@@ -108,6 +114,8 @@ interface SettingsState {
   setHistoryLimit: (count: number) => void;
   setLastSeenVersion: (version: string) => void;
   setLastUpdateCheckAt: (at: number) => void;
+  setExportPageSize: (size: PageSize) => void;
+  setExportOrientation: (orientation: Orientation) => void;
 
   // Recent files
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
@@ -122,7 +130,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt' | 'exportPageSize' | 'exportOrientation'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -157,6 +165,8 @@ const KEPT_TOP_LEVEL_KEYS = [
   'historyLimit',
   'lastSeenVersion',
   'lastUpdateCheckAt',
+  'exportPageSize',
+  'exportOrientation',
 ] as const;
 
 function copyIfPresent<K extends (typeof KEPT_TOP_LEVEL_KEYS)[number]>(
@@ -206,6 +216,8 @@ export const useSettingsStore = create<SettingsState>()(
       historyLimit: DEFAULT_HISTORY_LIMIT,
       lastSeenVersion: null,
       lastUpdateCheckAt: null,
+      exportPageSize: 'A4',
+      exportOrientation: 'portrait',
 
       // Word-count goals; null or 0 removes the goal
       setWordGoal: (key, goal) =>
@@ -287,6 +299,16 @@ export const useSettingsStore = create<SettingsState>()(
           state.lastUpdateCheckAt = at;
         }),
 
+      setExportPageSize: (size) =>
+        set((state) => {
+          state.exportPageSize = size;
+        }),
+
+      setExportOrientation: (orientation) =>
+        set((state) => {
+          state.exportOrientation = orientation;
+        }),
+
       // Recent files
       addRecentFile: (file) =>
         set((state) => {
@@ -349,6 +371,8 @@ export const useSettingsStore = create<SettingsState>()(
         historyLimit: state.historyLimit,
         lastSeenVersion: state.lastSeenVersion,
         lastUpdateCheckAt: state.lastUpdateCheckAt,
+        exportPageSize: state.exportPageSize,
+        exportOrientation: state.exportOrientation,
       }),
       // Only saves from an older version reach here.
       // SAFETY: this app wrote the save with JSON.stringify, so a present key has the type it was written with.
@@ -356,3 +380,10 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
+
+// A hand-edited save can hold any value; an unknown one reads as the default (A4 portrait)
+
+export const selectExportPageSize = (s: SettingsState): PageSize => (s.exportPageSize === 'Letter' ? 'Letter' : 'A4');
+
+export const selectExportOrientation = (s: SettingsState): Orientation =>
+  s.exportOrientation === 'landscape' ? 'landscape' : 'portrait';
