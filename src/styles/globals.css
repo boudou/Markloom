@@ -197,7 +197,7 @@
 
   /* Comfortable measure for long-form reading */
   .reading-column {
-    max-width: 72ch;
+    max-width: var(--page-width, 72ch);
     margin-inline: auto;
   }
 
@@ -734,8 +734,18 @@
   outline: none;
 }
 
+/* Page width preference (EditorContainer). Readable is the 72ch fallback. The property stays
+   unregistered so `ch` resolves in the font of the element that reads it. */
+[data-page-width='wide'] {
+  --page-width: 110ch;
+}
+
+[data-page-width='full'] {
+  --page-width: none;
+}
+
 .rt-document {
-  max-width: 72ch;
+  max-width: var(--page-width, 72ch);
   margin-inline: auto;
   min-height: 60vh;
   padding-bottom: 30vh;

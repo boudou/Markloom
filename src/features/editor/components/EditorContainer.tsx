@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
-import { ArrowDownUp } from 'lucide-react';
+import { ArrowDownUp, MoveHorizontal } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { PAGE_WIDTHS, useSettingsStore } from '@/stores/settingsStore';
 import { selectActiveTab, useTabsStore } from '@/features/tabs';
 import { FindReplaceBar, IDLE_SEARCH_ENGINE } from '@/features/find-replace';
 import { useUiStore } from '@/stores/uiStore';
@@ -29,8 +29,27 @@ function SyncScrollToggle() {
   );
 }
 
+/** Cycles Readable, Wide, Full; an unknown stored value shows as Readable */
+function PageWidthToggle() {
+  const pageWidth = useSettingsStore((s) => s.pageWidth);
+  const setPageWidth = useSettingsStore((s) => s.setPageWidth);
+  const index = Math.max(0, PAGE_WIDTHS.findIndex((w) => w.value === pageWidth));
+  const current = PAGE_WIDTHS[index];
+  const next = PAGE_WIDTHS[(index + 1) % PAGE_WIDTHS.length];
+
+  return (
+    <Tooltip content={`Page width: ${current.label} (click for ${next.label})`}>
+      <IconButton variant="ghost" size="sm" className="w-auto px-1.5 gap-1" onClick={() => setPageWidth(next.value)}>
+        <MoveHorizontal className="w-4 h-4" />
+        <span className="hidden lg:inline text-xs font-medium">{current.label}</span>
+      </IconButton>
+    </Tooltip>
+  );
+}
+
 export function EditorContainer() {
   const editorMode = useAppStore((s) => s.editorMode);
+  const pageWidth = useSettingsStore((s) => s.pageWidth);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const activePath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);
   const loadId = useTabsStore((s) => selectActiveTab(s)?.loadId);
@@ -66,13 +85,14 @@ export function EditorContainer() {
   const keepRich = showRich || (loadId !== undefined && richLoadId === loadId);
 
   return (
-    <div className="h-full flex flex-col bg-canvas">
+    <div className="h-full flex flex-col bg-canvas" data-page-width={pageWidth}>
       <EditorToolbar
         commands={commands}
         active={formatState}
         trailing={
           <div className="flex items-center gap-2 pl-2">
             {editorMode === 'split' && <SyncScrollToggle />}
+            <PageWidthToggle />
             <ModeToggle />
           </div>
         }
