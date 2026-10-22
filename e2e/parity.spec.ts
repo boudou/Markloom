@@ -2,13 +2,7 @@
 // text opened on its own. A known gap is marked with knownGap(), so the test is expected to fail in
 // that project; once the gap is fixed the test passes, which turns it red until the marker goes.
 import type { Locator } from '@playwright/test';
-import { test, expect } from './fixtures';
-
-type ProjectName = 'markdown' | 'rich-text';
-
-function knownGap(project: ProjectName, issue: number, gap: string): void {
-  test.fail(test.info().project.name === project, `#${issue}: ${gap}`);
-}
+import { test, expect, expectNoPreviewInRichText, knownGap } from './fixtures';
 
 async function expectImageShown(image: Locator): Promise<void> {
   await expect(image).toBeVisible();
@@ -20,9 +14,8 @@ test.beforeEach(async ({ app }) => {
   await app.openFile('fixture.md');
 });
 
-// Rich text has to manage without anything only the preview loads (a library, its CSS, a cache)
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
 test.describe('images', () => {
@@ -74,14 +67,14 @@ test('strikethrough', async ({ app }) => {
 });
 
 test('callout', async ({ app }) => {
-  knownGap('rich-text', 211, 'rich text shows callouts as a plain quote with a literal [!NOTE]');
+  knownGap(app, 'wysiwyg', 211, 'rich text shows callouts as a plain quote with a literal [!NOTE]');
 
   await expect(app.rendered().locator('[data-callout="note"]')).toContainText('Callout body text.');
   await expect(app.rendered()).not.toContainText('[!NOTE]');
 });
 
 test('highlighted code', async ({ app }) => {
-  knownGap('rich-text', 212, 'rich text code blocks have no syntax highlighting');
+  knownGap(app, 'wysiwyg', 212, 'rich text code blocks have no syntax highlighting');
 
   await expect(app.rendered().locator('pre .hljs-keyword')).toHaveText('const');
 });
@@ -92,7 +85,7 @@ test('math', async ({ app }) => {
 });
 
 test('footnotes', async ({ app }) => {
-  knownGap('markdown', 203, 'the preview shows footnotes as literal [^1] text');
+  knownGap(app, 'split', 203, 'the preview shows footnotes as literal [^1] text');
 
   await expect(app.rendered().locator('sup')).toHaveText('1');
   await expect(app.rendered()).toContainText('The footnote text.');

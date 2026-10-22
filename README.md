@@ -129,7 +129,21 @@ npm run test:e2e            # build, serve and run all tests headless
 npm run test:e2e -- --ui    # pick and watch tests in Playwright's UI
 ```
 
-The build is served on port 4173; set `E2E_PORT` to use another. A test for a known gap is marked with the issue that tracks it and is expected to fail until that issue is fixed.
+The build is served on port 4173, and a second build with a test Google Analytics ID on port 5173; set `E2E_PORT` to move both (the second one is `E2E_PORT` + 1000). A test for a known gap is marked with the issue that tracks it and is expected to fail until that issue is fixed.
+
+What the tests cover, one file per area:
+
+| File | Area |
+| --- | --- |
+| `documents.spec.ts` | New document, open from the file tree, edit and save, closing with unsaved changes, tabs, Quick open, folder search, a file tree of documents only, recent files and folders on the start screen, session restore |
+| `editing.spec.ts` | Toolbar formatting and its pressed state, find and replace, the command palette, focus mode, page width, smart typography |
+| `rich-text.spec.ts` | Raw HTML in rich text (no Tab stops inside, its source survives the window losing focus); saving keeps untouched Markdown byte for byte |
+| `parity.spec.ts` | Every construct renders in both editors: images, diagrams, tables, task lists, strikethrough, callouts, highlighted code, math, footnotes |
+| `diagrams.spec.ts` | Mermaid renders and follows edits; an error names its document line and Show line goes there |
+| `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page or a .zip), the preflight warnings, Copy as rich text |
+| `settings.spec.ts` | The Settings window and each editor preference |
+| `offline.spec.ts` | The service worker: the web version opens offline, and loads when its cache can't be written |
+| `web.spec.ts` | Nothing loads from Google before the visitor allows usage statistics |
 
 ### Command reference
 

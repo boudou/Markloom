@@ -1,7 +1,7 @@
 // A folder handed to the desktop app (#159): `Markloom.exe <folder>` makes it the open folder, listed
 // through the desktop bridge. The bridge is faked here; the main process half has its own harness.
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, expectNoPreviewInRichText } from './fixtures';
 
 const ROOT = 'C:/e2e-desktop';
 
@@ -97,9 +97,8 @@ test.beforeEach(async ({ app: _app, page }) => {
   await expect(page.getByRole('heading', { name: 'e2e-desktop', exact: true })).toBeVisible();
 });
 
-// Rich text has to manage without anything only the preview loads (a library, its CSS, a cache)
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
 test('the folder is listed with its subfolders and documents only', async ({ page }) => {

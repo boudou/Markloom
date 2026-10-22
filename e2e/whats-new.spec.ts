@@ -1,14 +1,14 @@
 // What's new (#156): the current version's changelog section shows once after an update; a first
 // launch and a downgrade only record the version. Runs in both editors.
 import type { Locator, Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, expectNoPreviewInRichText } from './fixtures';
 
 const CHANGELOG_URL = 'https://github.com/boudou/Markloom/blob/main/CHANGELOG.md';
 
 const VERSION = /^\d+\.\d+\.\d+$/;
 
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
 function whatsNewDialog(page: Page): Locator {

@@ -2,7 +2,7 @@
 // never inside it, and leaves the cursor where the next thing typed is its own paragraph. The Link
 // button fills in the link text first and the address second, with no placeholder left over.
 import type { Locator } from '@playwright/test';
-import { test, expect, type MarkloomApp } from './fixtures';
+import { test, expect, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
 
 const NEW_TABLE_HEADER = '| Column | Column | Column |';
 
@@ -42,9 +42,8 @@ test.beforeEach(async ({ app }) => {
   await app.openFile('insert.md');
 });
 
-// Rich text has to manage without anything only the preview loads (a library, its CSS, a cache)
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
 test('Insert > Table twice gives two separate tables, then a paragraph', async ({ app, page }) => {

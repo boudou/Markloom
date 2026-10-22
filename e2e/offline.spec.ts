@@ -1,7 +1,7 @@
 // Service worker of the web version (#174, #213): once controlled, the app still loads when the
 // worker can't write its cache, and opens offline after a visit, in both editors.
 import type { Page } from '@playwright/test';
-import { test as base, expect, type MarkloomApp } from './fixtures';
+import { test as base, expect, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
 
 interface WorkerOptions {
   /** Serve a sw.js whose every cache write rejects, like a full or write-refusing CacheStorage */
@@ -56,9 +56,8 @@ async function openFixture(app: MarkloomApp): Promise<void> {
   await expect(app.rendered()).toContainText(/\S/);
 }
 
-// Rich text has to manage without anything only the preview loads (a library, its CSS, a cache)
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
 test.describe('when cache writes fail', () => {

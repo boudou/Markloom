@@ -1,7 +1,7 @@
 // Settings > History (#155): how many versions each file keeps, what the history takes, and
 // Clear all history, in both editors.
 import type { Locator, Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, expectNoPreviewInRichText } from './fixtures';
 
 function settingsDialog(page: Page): Locator {
   return page.getByRole('dialog', { name: 'Settings' });
@@ -71,9 +71,8 @@ test.beforeEach(async ({ app }) => {
   await app.openFile('fixture.md');
 });
 
-// Rich text has to manage without anything only the preview loads (a library, its CSS, a cache)
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
 test('keeps the chosen number of versions', async ({ page }) => {

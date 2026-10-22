@@ -10,6 +10,7 @@ vite.config.d.ts
 # End-to-end test output
 test-results/
 playwright-report/
+dist-analytics/
 
 # Env and secrets
 .env

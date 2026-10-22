@@ -1,14 +1,20 @@
-// Export: PDF prints the pages the export preview shows (#196), and Web page stays one flowing
-// page. The browser's print dialog is replaced by a stub that keeps the printed document, which
-// is then printed for real by the same engine to count its sheets.
+// Export, started from either editor: PDF prints the pages the export preview shows (#196), Web
+// page stays one flowing page with fonts and images built in, Word, portable Markdown, Image (page
+// PNGs and a .zip, #193-#195), the preflight warnings and Copy as rich text. The browser's print
+// dialog is replaced by a stub that keeps the printed document, which is then printed for real by
+// the same engine to count its sheets.
 import { readFileSync } from 'node:fs';
-import type { Page } from '@playwright/test';
-import { test, expect, type MarkloomApp } from './fixtures';
+import JSZip from 'jszip';
+import type { Locator, Page } from '@playwright/test';
+import { test, expect, downloadOf, expectNoPreviewInRichText, knownGap, type MarkloomApp, type SavedFile } from './fixtures';
 
 const EDIT = 'Edited right before export';
 
 /** The last paragraph of pages.md */
 const LAST_PARAGRAPH = 'The last paragraph of the fixture.';
+
+/** An A4 page at 96 dpi, saved at 2x */
+const A4_PNG: PngSize = { width: 1588, height: 2246 };
 
 declare global {
   interface Window {
@@ -19,7 +25,7 @@ declare global {
 /** Adds a paragraph at the end of the document in the active editor, as a user would. */
 async function appendParagraph(app: MarkloomApp, text: string): Promise<void> {
   if (app.editorMode === 'split') {
-    await app.page.locator('.cm-content').click();
+    await app.editingSurface().click();
     await app.page.keyboard.press('ControlOrMeta+End');
     await app.page.keyboard.press('Enter');
   } else {
@@ -53,92 +59,296 @@ async function pageCount(page: Page): Promise<number> {
   return Number((await label.textContent())?.match(/of (\d+)/)?.[1]);
 }
 
+/** Opens the Export dialog on a format */
+async function openExport(page: Page, format: string): Promise<Locator> {
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const dialog = page.getByRole('dialog', { name: 'Export' });
+
+  await dialog.getByRole('radio', { name: format }).click();
+
+  return dialog;
+}
+
+interface PngSize {
+  width: number;
+  height: number;
+}
+
+/** Width and height from a PNG's header */
+function pngSize(bytes: Buffer): PngSize {
+  expect(bytes.subarray(1, 4).toString('latin1')).toBe('PNG');
+
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
+async function zipText(file: SavedFile, path: string): Promise<string> {
+  return (await (await JSZip.loadAsync(file.bytes)).file(path)?.async('string')) ?? '';
+}
+
+/** The text of a Word document's runs */
+async function docxText(file: SavedFile): Promise<string> {
+  const xml = await zipText(file, 'word/document.xml');
+
+  return Array.from(xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g), (match) => match[1]).join('');
+}
+
+async function exportWord(page: Page): Promise<SavedFile> {
+  const dialog = await openExport(page, 'Word');
+
+  return downloadOf(page, () => dialog.getByRole('button', { name: 'Export Word' }).click());
+}
+
 test.beforeEach(async ({ app }) => {
   await app.openFolder();
-  await app.openFile('pages.md');
 });
 
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
-test('PDF prints the previewed pages, page for page', async ({ app, page, context }) => {
-  // The print iframe is a child frame: keep what it prints instead of opening the dialog
-  await page.addInitScript(() => {
-    if (window === window.top) return;
-
-    window.print = () => {
-      // SAFETY: the print frame is same-origin with the app, so its top window is the app's
-      (window.top as Window).__e2ePrinted = `<!doctype html>\n${document.documentElement.outerHTML}`;
-    };
+test.describe('pages.md', () => {
+  test.beforeEach(async ({ app }) => {
+    await app.openFile('pages.md');
   });
 
-  await appendParagraph(app, EDIT);
-  await page.keyboard.press('ControlOrMeta+e');
+  test('PDF prints the previewed pages, page for page', async ({ app, page, context }) => {
+    // The print iframe is a child frame: keep what it prints instead of opening the dialog
+    await page.addInitScript(() => {
+      if (window === window.top) return;
 
-  const dialog = page.getByRole('dialog');
+      window.print = () => {
+        // SAFETY: the print frame is same-origin with the app, so its top window is the app's
+        (window.top as Window).__e2ePrinted = `<!doctype html>\n${document.documentElement.outerHTML}`;
+      };
+    });
 
-  await dialog.getByRole('radio', { name: 'PDF' }).click();
+    await appendParagraph(app, EDIT);
+    await page.keyboard.press('ControlOrMeta+e');
 
-  const count = await pageCount(page);
+    const dialog = page.getByRole('dialog');
 
-  expect(count).toBeGreaterThan(2);
+    await dialog.getByRole('radio', { name: 'PDF' }).click();
 
-  const preview = await previewPages(page);
+    const count = await pageCount(page);
 
-  expect(preview).toHaveLength(count);
+    expect(count).toBeGreaterThan(2);
 
-  // Image shows the same layout
-  await dialog.getByRole('radio', { name: 'Image' }).click();
-  expect(await pageCount(page)).toBe(count);
-  await dialog.getByRole('radio', { name: 'PDF' }).click();
+    const preview = await previewPages(page);
 
-  await dialog.getByRole('button', { name: 'Export PDF' }).click();
-  await expect(dialog).toBeHidden();
-  await expect.poll(() => page.evaluate(() => window.__e2ePrinted ?? null)).not.toBeNull();
+    expect(preview).toHaveLength(count);
 
-  const printed = (await page.evaluate(() => window.__e2ePrinted)) ?? '';
+    // Image shows the same layout
+    await dialog.getByRole('radio', { name: 'Image' }).click();
+    expect(await pageCount(page)).toBe(count);
+    await dialog.getByRole('radio', { name: 'PDF' }).click();
 
-  expect(printed).toContain('@page { size: A4 portrait; margin: 0; }');
-  // The edit made just before opening the dialog ends the last page
-  expect(printed).toMatch(/<p[^>]*>Edited right before export<\/p>\s*<\/section>\s*<\/body>/);
+    await dialog.getByRole('button', { name: 'Export PDF' }).click();
+    await expect(dialog).toBeHidden();
+    await expect.poll(() => page.evaluate(() => window.__e2ePrinted ?? null)).not.toBeNull();
 
-  const printedPages = await page.evaluate((html) => {
-    const sections = new DOMParser().parseFromString(html, 'text/html').querySelectorAll('section.page');
+    const printed = (await page.evaluate(() => window.__e2ePrinted)) ?? '';
 
-    return Array.from(sections, (section) => (section.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60));
-  }, printed);
+    expect(printed).toContain('@page { size: A4 portrait; margin: 0; }');
+    // The edit made just before opening the dialog ends the last page
+    expect(printed).toMatch(/<p[^>]*>Edited right before export<\/p>\s*<\/section>\s*<\/body>/);
 
-  expect(printedPages).toEqual(preview);
+    const printedPages = await page.evaluate((html) => {
+      const sections = new DOMParser().parseFromString(html, 'text/html').querySelectorAll('section.page');
 
-  // Print the same document: one sheet per page, no blank page at the end
-  const printer = await context.newPage();
+      return Array.from(sections, (section) => (section.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60));
+    }, printed);
 
-  await printer.setContent(printed);
-  await printer.evaluate(() => document.fonts.ready);
+    expect(printedPages).toEqual(preview);
 
-  const pdf = (await printer.pdf({ preferCSSPageSize: true, printBackground: true })).toString('latin1');
+    // Print the same document: one sheet per page, no blank page at the end
+    const printer = await context.newPage();
 
-  expect(pdf.match(/\/Type\s*\/Page(?!s)/g)).toHaveLength(count);
-  await printer.close();
+    await printer.setContent(printed);
+    await printer.evaluate(() => document.fonts.ready);
+
+    const pdf = (await printer.pdf({ preferCSSPageSize: true, printBackground: true })).toString('latin1');
+
+    expect(pdf.match(/\/Type\s*\/Page(?!s)/g)).toHaveLength(count);
+    await printer.close();
+  });
+
+  test('Web page export stays one flowing page', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+e');
+
+    const dialog = page.getByRole('dialog');
+
+    await dialog.getByRole('radio', { name: 'Web page' }).click();
+    await expect(dialog.getByText(/^Page 1 of/)).toHaveCount(0);
+
+    const download = page.waitForEvent('download');
+
+    await dialog.getByRole('button', { name: 'Export Web page' }).click();
+
+    const path = await (await download).path();
+    const html = readFileSync(path, 'utf8');
+
+    expect(html).toContain('<main class="document">');
+    expect(html).not.toContain('class="page"');
+    expect(html).toContain('Paragraph 6.5.');
+  });
+
+  test('Image saves one page or every page as PNG (#194)', async ({ page }) => {
+    // Draws every page as a 2x PNG, which takes a while next to other busy workers
+    test.slow();
+
+    const dialog = await openExport(page, 'Image');
+    const count = await pageCount(page);
+
+    expect(count).toBeGreaterThan(2);
+
+    const one = await downloadOf(page, () => dialog.getByRole('button', { name: 'Save this page' }).click());
+
+    expect(one.name).toBe('Pages fixture-01.png');
+    expect(pngSize(one.bytes)).toEqual(A4_PNG);
+
+    await openExport(page, 'Image');
+    await pageCount(page);
+
+    const all = await downloadOf(page, () => dialog.getByRole('button', { name: 'Save all pages' }).click());
+    const zip = await JSZip.loadAsync(all.bytes);
+    const names = Object.keys(zip.files);
+
+    expect(all.name).toBe('Pages fixture.zip');
+    expect(names).toHaveLength(count);
+    expect(names).toContain(`Pages fixture-${String(count).padStart(2, '0')}.png`);
+
+    const second = zip.file('Pages fixture-02.png');
+
+    expect(second).not.toBeNull();
+    expect(pngSize(Buffer.from((await second?.async('uint8array')) ?? []))).toEqual(A4_PNG);
+  });
+
+  test('Image pages follow the chosen page size (#197)', async ({ app, page }) => {
+    knownGap(app, 'both', 197, 'Image and PDF export are A4 portrait only');
+
+    const dialog = await openExport(page, 'Image');
+
+    await pageCount(page);
+    await dialog.getByRole('radio', { name: 'Letter' }).click({ timeout: 3_000 });
+    await pageCount(page);
+
+    const one = await downloadOf(page, () => dialog.getByRole('button', { name: 'Save this page' }).click());
+
+    expect(pngSize(one.bytes)).toEqual({ width: 1632, height: 2112 });
+  });
 });
 
-test('Web page export stays one flowing page', async ({ page }) => {
-  await page.keyboard.press('ControlOrMeta+e');
+test.describe('fixture.md', () => {
+  test.beforeEach(async ({ app }) => {
+    await app.openFile('fixture.md');
+  });
 
-  const dialog = page.getByRole('dialog');
+  test('Word', async ({ page }) => {
+    const file = await exportWord(page);
+    const media = Object.keys((await JSZip.loadAsync(file.bytes)).files).filter((name) => name.startsWith('word/media/'));
 
-  await dialog.getByRole('radio', { name: 'Web page' }).click();
-  await expect(dialog.getByText(/^Page 1 of/)).toHaveCount(0);
+    expect(file.name).toBe('Parity fixture.docx');
+    expect(await docxText(file)).toContain('Callout body text.');
+    // Images and the diagram are embedded
+    expect(media.length).toBeGreaterThanOrEqual(2);
+  });
 
-  const download = page.waitForEvent('download');
+  test('Word typesets math (#201)', async ({ app, page }) => {
+    knownGap(app, 'both', 201, 'Word export writes math as its TeX source');
 
-  await dialog.getByRole('button', { name: 'Export Web page' }).click();
+    expect(await docxText(await exportWord(page))).not.toContain('a^2');
+  });
 
-  const path = await (await download).path();
-  const html = readFileSync(path, 'utf8');
+  test('Word writes footnotes as footnotes (#204)', async ({ app, page }) => {
+    knownGap(app, 'both', 204, 'Word export has no footnotes');
 
-  expect(html).toContain('<main class="document">');
-  expect(html).not.toContain('class="page"');
-  expect(html).toContain('Paragraph 6.5.');
+    const file = await exportWord(page);
+
+    expect(await zipText(file, 'word/footnotes.xml')).toContain('The footnote text.');
+    expect(await docxText(file)).not.toContain('[^1]');
+  });
+
+  test('Web page has its fonts, images and diagram built in', async ({ page }) => {
+    const dialog = await openExport(page, 'Web page');
+    const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Web page' }).click());
+    const html = file.bytes.toString('utf8');
+    const relativeImage = /<img\b[^>]*\balt="Relative image"[^>]*>/.exec(html)?.[0] ?? '';
+
+    expect(file.name).toBe('Parity fixture.html');
+    expect(html).toMatch(/@font-face\s*\{[^}]*src:\s*url\(\s*["']?data:/);
+    expect(relativeImage).toContain('src="data:image/png;base64,');
+    expect(html).toMatch(/<svg[\s\S]*Finish/);
+  });
+
+  test('portable Markdown embeds images and diagrams', async ({ page }) => {
+    const dialog = await openExport(page, 'Markdown');
+    const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Markdown' }).click());
+    const text = file.bytes.toString('utf8');
+
+    expect(file.name).toBe('Parity fixture.md');
+    expect(text).toContain('![Relative image](data:image/png;base64,');
+    expect(text).toContain('![Diagram](data:image/svg+xml');
+    expect(text).not.toContain('```mermaid');
+    // Web addresses stay as written
+    expect(text).toContain('![Web image](https://images.e2e.test/web.png)');
+  });
+
+  test('Copy as rich text puts formatted HTML on the clipboard', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('toolbar', { name: 'Document actions' }).getByRole('button', { name: 'Copy as rich text' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Copied as rich text' })).toBeVisible({ timeout: 15_000 });
+
+    const clipboard = await page.evaluate(async () => {
+      const [item] = await navigator.clipboard.read();
+
+      return {
+        html: await (await item.getType('text/html')).text(),
+        text: await (await item.getType('text/plain')).text(),
+      };
+    });
+
+    expect(clipboard.html).toContain('Callout body text.');
+    expect(clipboard.html).toContain('<table');
+    // Diagrams go as PNG, which email clients show
+    expect(clipboard.html).toMatch(/<img\b[^>]*src="data:image\/png;base64,/);
+    // Plain-text targets get the Markdown itself
+    expect(clipboard.text).toContain('```mermaid');
+  });
+});
+
+test.describe('broken.md', () => {
+  test.beforeEach(async ({ app }) => {
+    await app.openFile('broken.md');
+  });
+
+  test('preflight warns about a broken diagram and shows its line', async ({ app, page }) => {
+    const dialog = await openExport(page, 'Web page');
+
+    await expect(dialog).toContainText('1 diagram has an error');
+
+    const issue = dialog.getByRole('listitem').filter({ hasText: 'Line 9' });
+
+    await expect(issue).toBeVisible();
+
+    if (app.editorMode === 'wysiwyg') {
+      // Showing the line switches to Markdown, which this project keeps out of rich text
+      await expect(issue.getByRole('button', { name: 'Show in Markdown' })).toBeVisible();
+
+      return;
+    }
+
+    await issue.getByRole('button', { name: 'Show', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('.cm-activeLine')).toHaveText('  C --> D');
+  });
+
+  test('preflight warns about a broken formula (#202)', async ({ app, page }) => {
+    knownGap(app, 'both', 202, 'the preflight does not check formulas');
+
+    const dialog = await openExport(page, 'Web page');
+
+    await expect(dialog).toContainText('1 formula has an error');
+    await expect(dialog.getByRole('listitem').filter({ hasText: 'Line 14' })).toBeVisible();
+  });
 });
