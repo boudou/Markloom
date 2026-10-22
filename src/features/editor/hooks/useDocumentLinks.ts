@@ -131,8 +131,15 @@ export function useDocumentLinks(
 
     container.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
       const src = img.getAttribute('src') ?? '';
-      // Any image that fails to load (remote 404, bad data URL) gets a readable placeholder
-      img.addEventListener('error', () => showMissingImage(img, src), { once: true });
+
+      // Any image that fails to load (remote 404, bad data URL) gets a readable placeholder. A relative
+      // address first fails against the app's own server; until its file is read (showImage swaps in
+      // an object URL, or reports it missing), that failure says nothing about the image.
+      img.addEventListener('error', () => {
+        if (img.dataset.imagePath && !img.src.startsWith('blob:')) return;
+
+        showMissingImage(img, src);
+      });
 
       if (!src || isAbsoluteUrl(src) || src.startsWith('#')) return;
 

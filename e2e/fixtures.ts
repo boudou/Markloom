@@ -66,19 +66,80 @@ export class MarkloomApp {
     return this.page.locator('[data-doc-surface] .rt-document');
   }
 
+  /** Selects the whole first line (Markdown) or block (rich text) that contains `text` */
+  async selectLine(text: string): Promise<void> {
+    await this.placeCursorAfter(text);
+    await this.page.keyboard.press('Shift+Home');
+  }
+
+  /** Saves the active document (Ctrl+S) and waits until the title bar says it is saved */
+  async save(): Promise<void> {
+    await this.page.keyboard.press('ControlOrMeta+s');
+    await expect(this.page.getByRole('toolbar', { name: 'Document actions' }).getByText('Saved', { exact: true })).toBeVisible();
+  }
+
+  /** A file of the test folder as the app sees it now, read back from the origin-private file system */
+  async readFile(path: string): Promise<string> {
+    return (await this.fileState(path)).text;
+  }
+
+  /** When a file of the test folder was last written (ms since the epoch) */
+  async fileModified(path: string): Promise<number> {
+    return (await this.fileState(path)).modified;
+  }
+
+  private fileState(path: string): Promise<{ text: string; modified: number }> {
+    return this.page.evaluate(
+      async ([folderName, filePath]) => {
+        const parts = filePath.split('/');
+        const fileName = parts.pop() ?? '';
+        let directory = await (await navigator.storage.getDirectory()).getDirectoryHandle(folderName);
+
+        for (const part of parts) directory = await directory.getDirectoryHandle(part);
+
+        const handle = await directory.getFileHandle(fileName);
+
+        // A file being written can't be read until the write closes
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const file = await handle.getFile();
+
+            return { text: await file.text(), modified: file.lastModified };
+          } catch (error) {
+            if (attempt === 20) throw error;
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+        }
+      },
+      [FOLDER_NAME, path] as const
+    );
+  }
+
   /** Whether the Markdown preview has mounted at any point since the page loaded */
   async previewEverMounted(): Promise<boolean> {
     return this.page.evaluate((attribute) => document.documentElement.hasAttribute(attribute), PREVIEW_SEEN_ATTRIBUTE);
   }
 
-  /** Clicks the source line (Markdown mode) or the rendered text (rich text) holding `text`, then moves to its end */
+  /** Puts the caret at the end of the first source line (Markdown) or block (rich text) that contains `text` */
   async placeCursorAfter(text: string): Promise<void> {
-    const target =
-      this.editorMode === 'split'
-        ? this.source().locator('.cm-line').filter({ hasText: text })
-        : this.rendered().getByText(text, { exact: true }).first();
+    if (this.editorMode === 'wysiwyg') {
+      await this.rendered().locator(':is(p, h1, h2, h3, li, th, td)', { hasText: text }).first().click();
+      await this.page.keyboard.press('End');
 
-    await target.click();
+      return;
+    }
+
+    // The source draws only the lines near the viewport: page down until the line is drawn
+    const line = this.source().locator('.cm-line', { hasText: text }).first();
+
+    if (!(await line.isVisible())) {
+      await this.source().click();
+      await this.page.keyboard.press('ControlOrMeta+Home');
+
+      for (let page = 0; page < 50 && !(await line.isVisible()); page++) await this.page.keyboard.press('PageDown');
+    }
+
+    await line.click();
     await this.page.keyboard.press('End');
   }
 
@@ -106,9 +167,49 @@ export class MarkloomApp {
     return this.page.getByLabel('Markdown source');
   }
 
-  private treeItem(name: string): Locator {
-    return this.page.getByRole('button', { name, exact: true });
+  /** A file or folder in the sidebar's tree, by its exact name */
+  treeItem(name: string): Locator {
+    return this.page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name, exact: true });
   }
+
+  /** A document's tab, by its exact name, saved or not */
+  tab(name: string): Locator {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    return this.page
+      .getByRole('tablist', { name: 'Open documents' })
+      .getByRole('tab', { name: new RegExp(`^${escaped}( \\(unsaved changes\\))?$`) });
+  }
+}
+
+/** A file of the test folder as the tests seeded it, with `/` separators */
+export function seedText(path: string): string {
+  return readFileSync(join(FOLDER_SOURCE, ...path.split('/')), 'utf8');
+}
+
+export interface SavedFile {
+  name: string;
+  bytes: Buffer;
+}
+
+/** Runs `action`, which must start a download, and returns the downloaded file */
+export async function downloadOf(page: Page, action: () => Promise<void>): Promise<SavedFile> {
+  const [download] = await Promise.all([page.waitForEvent('download'), action()]);
+
+  return { name: download.suggestedFilename(), bytes: readFileSync(await download.path()) };
+}
+
+/**
+ * Marks the test as a known gap in `mode` (or in both editors), naming the issue that closes it: the
+ * test is expected to fail there, so once the gap is fixed it turns red until the marker goes
+ */
+export function knownGap(app: MarkloomApp, mode: EditorMode | 'both', issue: number, gap: string): void {
+  test.fail(mode === 'both' || app.editorMode === mode, `#${issue}: ${gap}`);
+}
+
+/** Rich text has to manage without anything only the preview loads (a library, its CSS, a cache) */
+export async function expectNoPreviewInRichText(app: MarkloomApp): Promise<void> {
+  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
 }
 
 export const test = base.extend<{ app: MarkloomApp }, EditorOptions>({

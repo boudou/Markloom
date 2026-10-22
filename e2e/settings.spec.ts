@@ -1,15 +1,10 @@
 // Settings window (#154): how it opens and closes, and that each Editor control drives the same
 // setting as the toolbar and status bar, in both editors.
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, type MarkloomApp } from './fixtures';
+import { test, expect, expectNoPreviewInRichText } from './fixtures';
 
 function settingsDialog(page: Page): Locator {
   return page.getByRole('dialog', { name: 'Settings' });
-}
-
-/** Where typing goes: the Markdown source, or the rich-text document */
-function editor(app: MarkloomApp): Locator {
-  return app.editorMode === 'split' ? app.page.locator('.cm-content') : app.page.locator('[data-doc-surface] .rt-document');
 }
 
 async function openSettings(page: Page): Promise<Locator> {
@@ -30,16 +25,15 @@ test.beforeEach(async ({ app }) => {
   await app.openFile('fixture.md');
 });
 
-// Rich text has to manage without anything only the preview loads (a library, its CSS, a cache)
 test.afterEach(async ({ app }) => {
-  if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
+  await expectNoPreviewInRichText(app);
 });
 
 test('opens by key, title bar and palette; Escape returns focus', async ({ app, page }) => {
-  await editor(app).click();
+  await app.editingSurface().click();
   await openSettings(page);
   await closeSettings(page);
-  await expect(editor(app)).toBeFocused();
+  await expect(app.editingSurface()).toBeFocused();
 
   await page.getByRole('toolbar', { name: 'Document actions' }).getByRole('button', { name: /^Settings/ }).click();
   await expect(settingsDialog(page)).toBeVisible();
@@ -61,7 +55,7 @@ test('the Shortcuts window lists Settings', async ({ page }) => {
 
 test('line numbers and wrap turn off at once and stay off', async ({ app, page }) => {
   // An edit made before the editor is reconfigured can still be undone after it
-  await editor(app).click();
+  await app.editingSurface().click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type('zqx');
 
@@ -70,14 +64,14 @@ test('line numbers and wrap turn off at once and stay off', async ({ app, page }
   await dialog.getByRole('checkbox', { name: 'Line numbers' }).uncheck();
   await dialog.getByRole('checkbox', { name: 'Wrap long lines' }).uncheck();
   await closeSettings(page);
-  await expect(editor(app)).toContainText('zqx');
+  await expect(app.editingSurface()).toContainText('zqx');
   await page.keyboard.press('ControlOrMeta+Z');
-  await expect(editor(app)).not.toContainText('zqx');
+  await expect(app.editingSurface()).not.toContainText('zqx');
 
   const expectOff = async () => {
     if (app.editorMode === 'split') {
       await expect(page.locator('.cm-lineNumbers')).toHaveCount(0);
-      await expect(page.locator('.cm-content')).not.toHaveClass(/cm-lineWrapping/);
+      await expect(app.editingSurface()).not.toHaveClass(/cm-lineWrapping/);
 
       return;
     }
@@ -90,7 +84,7 @@ test('line numbers and wrap turn off at once and stay off', async ({ app, page }
 
   await expectOff();
   await page.reload();
-  await expect(editor(app)).toBeVisible();
+  await expect(app.editingSurface()).toBeVisible();
   await expectOff();
 });
 
@@ -114,7 +108,7 @@ test('scroll panes together follows the toolbar', async ({ app, page }) => {
 
   // Rich text has no toolbar button; the choice is still kept
   await page.reload();
-  await expect(editor(app)).toBeVisible();
+  await expect(app.editingSurface()).toBeVisible();
   await expect((await openSettings(page)).getByRole('checkbox', { name: 'Scroll panes together' })).not.toBeChecked();
 });
 
@@ -137,7 +131,7 @@ test('auto-save interval', async ({ app, page }) => {
   await expect(page.getByRole('button', { name: /^Auto-save on, 10 seconds after you stop typing/ })).toBeVisible();
 
   const titleBar = page.getByRole('toolbar', { name: 'Document actions' });
-  await editor(app).click();
+  await app.editingSurface().click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type(' autosaved');
   await expect(titleBar.getByText('Edited', { exact: true })).toBeVisible();

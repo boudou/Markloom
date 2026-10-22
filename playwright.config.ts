@@ -1,11 +1,8 @@
 import { defineConfig } from '@playwright/test';
 import type { EditorOptions } from './e2e/fixtures';
+import { ANALYTICS_ID, ANALYTICS_PORT, APP_PORT, appURL } from './e2e/servers';
 
-// Several worktrees can run the suite at once, each on its own port (E2E_PORT) with CI=1, so none
-// of them reuses another one's server
-const port = Number(process.env.E2E_PORT ?? 4173);
-
-const baseURL = `http://localhost:${port}/`;
+const baseURL = appURL(APP_PORT);
 
 export default defineConfig<EditorOptions>({
   testDir: './e2e',
@@ -26,10 +23,20 @@ export default defineConfig<EditorOptions>({
     { name: 'markdown', use: { editorMode: 'split' } },
     { name: 'rich-text', use: { editorMode: 'wysiwyg' } },
   ],
-  webServer: {
-    command: `npm run build && npx vite preview --port ${port} --strictPort`,
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 300_000,
-  },
+  webServer: [
+    {
+      command: `npm run build && npx vite preview --port ${APP_PORT} --strictPort`,
+      url: baseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 300_000,
+    },
+    {
+      // The web version's analytics exist only in a build with an ID (web.spec.ts)
+      command: `npx vite build --outDir dist-analytics --emptyOutDir && npx vite preview --outDir dist-analytics --port ${ANALYTICS_PORT} --strictPort`,
+      env: { VITE_GA_ID: ANALYTICS_ID },
+      url: appURL(ANALYTICS_PORT),
+      reuseExistingServer: !process.env.CI,
+      timeout: 300_000,
+    },
+  ],
 });
