@@ -1,26 +1,11 @@
 // Documents the operating system hands to the desktop app: double-clicking a .md file,
 // "Open with Markloom", or dropping a file on the app icon.
-import { useTabsStore } from '@/features/tabs';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { notify } from '@/stores/uiStore';
-import { desktopPathFor, documentName, readFile } from '@/features/file-tree/api/fileSystem';
-import { errorMessage } from '@/lib/utils';
+import { desktopPathFor } from '@/features/file-tree/api/fileSystem';
+import { openPath } from '@/lib/documentActions';
 
+// One at a time, so documents open in the order the OS sent them and the last one ends up active
 async function openFromOs(osPaths: string[]) {
-  for (const osPath of osPaths) {
-    const path = desktopPathFor(osPath);
-
-    try {
-      useTabsStore.getState().openDocument(path, await readFile(path));
-      useSettingsStore.getState().addRecentFile({ path, name: documentName(path) });
-    } catch (error) {
-      notify({
-        tone: 'error',
-        title: `Couldn't open ${documentName(path)}`,
-        detail: errorMessage(error),
-      });
-    }
-  }
+  for (const osPath of osPaths) await openPath(desktopPathFor(osPath));
 }
 
 /** Call once at startup; does nothing outside the desktop app. */
