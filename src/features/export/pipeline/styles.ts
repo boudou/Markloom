@@ -94,6 +94,9 @@ figure.diagram {
 }
 figure.diagram svg { max-width: 100%; height: auto; }
 
+.math-display { margin: 0 0 0.9em; text-align: center; overflow-x: auto; break-inside: avoid; }
+.katex-error { color: #B91C1C; }
+
 .export-error {
   margin: 0 0 0.9em;
   padding: 0.75em 1em;

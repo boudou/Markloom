@@ -1,7 +1,8 @@
-import { useEffect, useRef, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useMemo, useSyncExternalStore } from 'react';
 import { m } from 'framer-motion';
 import { parseMarkdown } from '@/lib/markdown';
 import { isHighlighterReady, onHighlighterReady } from '@/features/syntax-highlight';
+import { fillMath, isMathReady, loadMath, onMathReady } from '@/features/math';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
@@ -35,6 +36,18 @@ export function MarkdownPreview({
   // Code renders plain until the highlighter chunk arrives, then once more with colour
   const highlighterReady = useSyncExternalStore(onHighlighterReady, isHighlighterReady);
   const html = useMemo(() => parseMarkdown(debouncedContent), [debouncedContent, highlighterReady]);
+
+  // Typeset math placeholders before paint, so the TeX source never flashes between React
+  // setting the HTML and the fill. Until KaTeX has loaded they show the source.
+  const mathReady = useSyncExternalStore(onMathReady, isMathReady);
+  useLayoutEffect(() => {
+    const article = contentRef.current;
+
+    if (!article?.querySelector('[data-math]')) return;
+
+    if (mathReady) fillMath(article);
+    else void loadMath();
+  }, [html, mathReady, contentRef]);
 
   // Resolve relative images and make links navigable
   useDocumentLinks(surfaceRef, html);

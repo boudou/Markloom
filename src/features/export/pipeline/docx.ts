@@ -181,6 +181,10 @@ function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunStyle = {
       case 'code_inline':
         push(text(token.content, { font: CODE_FONT, color: '9F1239', shading: { type: ShadingType.CLEAR, fill: 'F1F3F5', color: 'auto' } }));
         break;
+      case 'math_inline':
+        // Typeset math comes later; until then the formula stays readable as its source
+        push(text(`$${token.content}$`));
+        break;
       case 'strong_open': style.bold = true; break;
       case 'strong_close': style.bold = base.bold ?? false; break;
       case 'em_open': style.italics = true; break;
@@ -395,6 +399,11 @@ function walk(tokens: Token[], state: WalkState): (Paragraph | Table)[] {
         blocks.push(make ? make() : codeParagraph(token.content));
         break;
       }
+
+      case 'math_block':
+        // Written as source, in the code style, until typeset math comes to Word
+        blocks.push(codeParagraph(token.content.includes('\n') ? `$$\n${token.content}\n$$` : `$$${token.content}$$`));
+        break;
 
       case 'hr':
         blocks.push(
