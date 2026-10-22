@@ -12,6 +12,9 @@ import { shortcutHint } from '@/lib/shortcuts';
 const menuItemClass =
   'relative flex items-center px-2 py-1.5 text-sm text-text-primary rounded-[7px] cursor-default outline-none';
 
+// The key a focused tab closes on, also announced through aria-keyshortcuts
+const CLOSE_TAB_KEY = 'Delete';
+
 export function TabBar() {
   // Ids only: typing changes a tab's content, which must not re-render the bar
   const tabIds = useTabsStore(useShallow((s) => s.tabs.map((t) => t.id)));
@@ -31,7 +34,7 @@ export function TabBar() {
     else if (e.key === 'ArrowLeft') focusTab(index - 1);
     else if (e.key === 'Home') focusTab(0);
     else if (e.key === 'End') focusTab(tabIds.length - 1);
-    else if (e.key === 'Delete') requestCloseTabs([tabIds[index]]);
+    else if (e.key === CLOSE_TAB_KEY) requestCloseTabs([tabIds[index]]);
     else return;
     e.preventDefault();
   };
@@ -113,7 +116,7 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
             role="tab"
             data-tab-id={id}
             aria-selected={isActive}
-            aria-keyshortcuts="Delete"
+            aria-keyshortcuts={CLOSE_TAB_KEY}
             tabIndex={isActive ? 0 : -1}
             title={path && !path.startsWith('file://') ? path : name}
             onClick={onSelect}
@@ -133,6 +136,8 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
             tabIndex={-1}
             // A tablist may own only tabs; keyboard and AT users close via Delete or the context menu
             aria-hidden="true"
+            // A click must not move focus to a button hidden from assistive tech
+            onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
               e.stopPropagation();
               onClose();
