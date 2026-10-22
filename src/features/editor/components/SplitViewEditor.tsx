@@ -17,7 +17,7 @@ import { codemirrorSearchEngine, findHighlights } from '@/features/find-replace'
 import { useImageDrop } from '@/features/image-drop';
 import { useSyncScroll } from '@/features/sync-scroll';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
-import { markdownKeymap, editingKeymap, runMarkdownAction, insertSnippet } from '../codemirror/commands';
+import { markdownKeymap, editingKeymap, linkUrlStep, runMarkdownAction, insertSnippet } from '../codemirror/commands';
 import { useLineRequest } from '../codemirror/useLineRequest';
 import { diagramErrorLines, diagramErrorTheme, setDiagramErrorLines } from '../codemirror/diagramErrors';
 import type { EditorCommands, FormatState } from '../types';
@@ -88,6 +88,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       markloomEditorTheme,
       markloomHighlight,
       markdownKeymap,
+      linkUrlStep,
       editingKeymap,
       highlightSelectionMatches(),
       sourceAttributes,

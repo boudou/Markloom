@@ -1,7 +1,16 @@
 // Markdown formatting for the source editor. Every action is a single CodeMirror
 // transaction, so one Ctrl+Z undoes exactly one formatting step.
-import { EditorSelection, Prec, type ChangeSpec, type EditorState } from '@codemirror/state';
+import {
+  EditorSelection,
+  Prec,
+  StateEffect,
+  StateField,
+  type ChangeSpec,
+  type EditorState,
+  type Line,
+} from '@codemirror/state';
 import { keymap, EditorView } from '@codemirror/view';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { defaultKeymap } from '@codemirror/commands';
 import type { MarkdownAction } from '../types';
 import { SHORTCUTS } from '@/lib/shortcuts';
@@ -27,10 +36,9 @@ const LINE_PREFIXES: Partial<Record<MarkdownAction, string>> = {
 // Any existing block prefix we replace when changing a line's type
 const BLOCK_PREFIX = /^(\s*)(#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+)?/;
 
-const BLOCK_SNIPPETS: Partial<Record<MarkdownAction, string>> = {
-  hr: '---',
-  table: '| Column | Column | Column |\n| ------ | ------ | ------ |\n|        |        |        |',
-};
+// Ends with a blank line and an empty one for the cursor: text typed directly under a table
+// would become a table row
+const TABLE = '| Column | Column | Column |\n| ------ | ------ | ------ |\n|        |        |        |\n\n';
 
 const INLINE_PAIRS = Object.values(INLINE_MARKERS).map(([open, close]) => [open, close] as const);
 
@@ -128,36 +136,148 @@ function toggleLinePrefix(view: EditorView, action: MarkdownAction): void {
   view.dispatch({ changes, scrollIntoView: true, userEvent: 'input.format' });
 }
 
+/**
+ * The top-level block (paragraph, whole list, fence, quote) that overlaps a line. The source
+ * parser is CommonMark, so a table is one Paragraph, which is the extent wanted here.
+ */
+function topLevelBlockAt(state: EditorState, line: Line): { from: number; to: number } | null {
+  const tree = ensureSyntaxTree(state, line.to, 100) ?? syntaxTree(state);
+
+  for (let node = tree.topNode.firstChild; node; node = node.nextSibling) {
+    if (node.from <= line.to && node.to >= line.from) return node;
+  }
+
+  return null;
+}
+
+/**
+ * Inserts a block after the top-level block that holds the cursor (never inside a table, list or
+ * fence), with exactly one blank line on each side. `selectFrom` is relative to the snippet's
+ * start.
+ */
 function insertBlock(view: EditorView, snippet: string, selectFrom = 0, selectLength = 0): void {
   const { state } = view;
-  const line = state.doc.lineAt(state.selection.main.head);
-  const lineIsEmpty = line.text.trim().length === 0;
+  const { doc } = state;
+  const isBlank = (lineNumber: number) => doc.line(lineNumber).text.trim() === '';
+  const line = doc.lineAt(state.selection.main.head);
+  const block = topLevelBlockAt(state, line);
+  let gapFrom: number;
+  let hasBefore: boolean;
+  let next: number;
 
-  // On an empty line the block takes its place; otherwise it goes below, after a blank line
-  const from = lineIsEmpty ? line.from : line.to;
-  const to = line.to;
-  const lead = lineIsEmpty ? '' : '\n\n';
-  const insert = `${lead}${snippet}\n`;
-  const anchor = from + lead.length + selectFrom;
+  if (block || !isBlank(line.number)) {
+    // A line the parser hasn't reached yet counts as its own block
+    const before = doc.lineAt(block ? block.to : line.to);
+
+    gapFrom = before.to;
+    hasBefore = true;
+    next = before.number + 1;
+  } else {
+    // A blank line between blocks: the snippet replaces the blank lines around it
+    let above = line.number - 1;
+
+    while (above >= 1 && isBlank(above)) above--;
+
+    hasBefore = above >= 1;
+    gapFrom = hasBefore ? doc.line(above).to : 0;
+    next = line.number;
+  }
+
+  while (next <= doc.lines && isBlank(next)) next++;
+
+  const hasAfter = next <= doc.lines;
+  const gapTo = hasAfter ? doc.line(next).from : doc.length;
+  const lead = hasBefore ? '\n\n' : '';
+  const tail = hasAfter ? '\n\n' : '\n';
+  const anchor = gapFrom + lead.length + selectFrom;
 
   view.dispatch({
-    changes: { from, to, insert },
+    changes: { from: gapFrom, to: gapTo, insert: lead + snippet + tail },
     selection: EditorSelection.range(anchor, anchor + selectLength),
     scrollIntoView: true,
     userEvent: 'input.format',
   });
 }
 
+/** Where a just-inserted link's placeholders are, while the cursor is still in its text */
+interface LinkStep {
+  textFrom: number;
+  urlFrom: number;
+  urlTo: number;
+}
+
+const setLinkStep = StateEffect.define<LinkStep | null>();
+
+const linkStep = StateField.define<LinkStep | null>({
+  create: () => null,
+
+  update(step, tr) {
+    for (const effect of tr.effects) if (effect.is(setLinkStep)) return effect.value;
+
+    if (!step) return null;
+
+    const mapped = {
+      textFrom: tr.changes.mapPos(step.textFrom, -1),
+      urlFrom: tr.changes.mapPos(step.urlFrom, -1),
+      urlTo: tr.changes.mapPos(step.urlTo, 1),
+    };
+
+    const head = tr.newSelection.main.head;
+
+    // The link was deleted or undone, or the cursor left the link text (`urlFrom - 2` is the `]`)
+    if (mapped.urlTo <= mapped.urlFrom || head < mapped.textFrom || head > mapped.urlFrom - 2) return null;
+
+    return mapped;
+  },
+});
+
+/** Tab after typing a new link's text selects its address placeholder; otherwise Tab indents */
+function jumpToLinkUrl(view: EditorView): boolean {
+  const step = view.state.field(linkStep, false);
+
+  if (!step) return false;
+
+  view.dispatch({
+    selection: EditorSelection.range(step.urlFrom, step.urlTo),
+    effects: setLinkStep.of(null),
+    scrollIntoView: true,
+  });
+
+  return true;
+}
+
+/** The Tab step from a new link's text to its address; part of the source editor's extensions */
+export const linkUrlStep = [linkStep, Prec.high(keymap.of([{ key: 'Tab', run: jumpToLinkUrl }]))];
+
 function insertLink(view: EditorView, image: boolean): void {
   const { state } = view;
   const range = state.selection.main;
-  const text = state.sliceDoc(range.from, range.to) || (image ? 'description' : 'link text');
+  const selected = state.sliceDoc(range.from, range.to);
+  const text = selected || (image ? 'description' : 'link text');
   const url = image ? 'images/picture.png' : 'https://';
   const insert = `${image ? '!' : ''}[${text}](${url})`;
-  const urlStart = range.from + insert.length - url.length - 1;
+  const urlFrom = range.from + insert.length - url.length - 1;
+  const urlTo = urlFrom + url.length;
+
+  // Selected text becomes the link text, so the address is all that's left to fill in
+  if (selected) {
+    view.dispatch({
+      changes: { from: range.from, to: range.to, insert },
+      selection: EditorSelection.range(urlFrom, urlTo),
+      scrollIntoView: true,
+      userEvent: 'input.format',
+    });
+
+    return;
+  }
+
+  // Otherwise the text placeholder comes first and Tab moves on to the address
+  const textFrom = range.from + (image ? 2 : 1);
+
   view.dispatch({
     changes: { from: range.from, to: range.to, insert },
-    selection: EditorSelection.range(urlStart, urlStart + url.length),
+    selection: EditorSelection.range(textFrom, textFrom + text.length),
+    effects: setLinkStep.of({ textFrom, urlFrom, urlTo }),
     scrollIntoView: true,
     userEvent: 'input.format',
   });
@@ -171,7 +291,9 @@ export function runMarkdownAction(view: EditorView, action: MarkdownAction): voi
   else if (action === 'image') insertLink(view, true);
   // Cursor lands on the empty line inside the fence
   else if (action === 'codeblock') insertBlock(view, '```\n\n```', 4, 0);
-  else if (BLOCK_SNIPPETS[action]) insertBlock(view, BLOCK_SNIPPETS[action]!, action === 'table' ? 2 : 0, action === 'table' ? 6 : 0);
+  // Cursor lands on an empty line below the table, where typing starts a paragraph
+  else if (action === 'table') insertBlock(view, TABLE, TABLE.length);
+  else if (action === 'hr') insertBlock(view, '---');
   view.focus();
 }
 
