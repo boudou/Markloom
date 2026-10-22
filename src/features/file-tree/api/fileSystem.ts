@@ -1,5 +1,6 @@
 // Browser-based File System Access API implementation
 import { nanoid } from 'nanoid';
+import { isMarkdownFile, isMermaidFile } from '@/lib/utils';
 import type { FileNode } from '../types';
 import {
   FOLDER_KEY_PREFIX,
@@ -205,7 +206,8 @@ export async function saveFileDialog(
 }
 
 /**
- * Lists a directory. Subdirectories come back with `children` undefined (not loaded yet).
+ * Lists a directory's folders and the documents Markloom opens (Markdown and Mermaid); hidden entries
+ * and other files are left out. Subdirectories come back with `children` undefined (not loaded yet).
  * Throws when no folder is open or the directory can't be read, so a failure never looks like an empty folder.
  */
 export async function readDirectory(path: string): Promise<FileNode[]> {
@@ -225,6 +227,8 @@ export async function readDirectory(path: string): Promise<FileNode[]> {
         if (entry.kind === 'directory') {
           // SAFETY: an entry whose kind is 'directory' is a FileSystemDirectoryHandle
           folders.set(childPath, entry as FileSystemDirectoryHandle);
+        } else if (!isMarkdownFile(entry.name) && !isMermaidFile(entry.name)) {
+          continue;
         }
 
         entries.push({

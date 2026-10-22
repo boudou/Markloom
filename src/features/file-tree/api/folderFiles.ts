@@ -1,6 +1,5 @@
 // Every document in the open folder, for Quick open. The sidebar tree reads a folder only when it is
 // expanded, so this walks the whole folder on its own.
-import { isMarkdownFile, isMermaidFile } from '@/lib/utils';
 import type { FileNode } from '../types';
 import { readDirectory } from './fileSystem';
 
@@ -34,7 +33,8 @@ export async function listDocumentFiles(rootPath: string): Promise<FolderListing
     for (const node of level.flat()) {
       if (node.isDirectory) {
         if (!SKIPPED_FOLDERS.has(node.name)) subfolders.push(node.path);
-      } else if (isMarkdownFile(node.name) || isMermaidFile(node.name)) {
+      } else {
+        // readDirectory lists only documents, so every file here is one
         if (paths.length === MAX_FILES) {
           truncated = true;
           break;
