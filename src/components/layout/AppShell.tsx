@@ -14,6 +14,7 @@ import { EditorContainer } from '@/features/editor/components';
 import { ExportModal } from '@/features/export/components';
 import { ShortcutsModal } from '@/features/shortcuts-panel';
 import { TemplatesModal } from '@/features/templates';
+import { SettingsModal } from '@/features/settings';
 import { TabBar } from '@/features/tabs';
 import { useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
@@ -127,6 +128,7 @@ export function AppShell() {
         <ExportModal {...dialogProps('export')} />
         <ShortcutsModal {...dialogProps('shortcuts')} />
         <TemplatesModal {...dialogProps('templates')} />
+        <SettingsModal {...dialogProps('settings')} />
         <CloseGuardDialog />
         <CommandPalette />
         <Toaster />

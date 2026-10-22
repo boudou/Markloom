@@ -17,6 +17,7 @@ export type ShortcutId =
   | 'saveAs'
   | 'closeTab'
   | 'export'
+  | 'openSettings'
   | 'toggleSidebar'
   | 'showShortcuts'
   | 'undo'
@@ -62,6 +63,7 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDef> = {
   saveAs: { label: 'Save as…', group: 'File', combo: 'Mod-Shift-s' },
   closeTab: { label: 'Close tab', group: 'File', combo: isDesktop ? 'Mod-w' : 'Alt-w' },
   export: { label: 'Export…', group: 'File', combo: 'Mod-e' },
+  openSettings: { label: 'Settings', group: 'File', combo: 'Mod-,' },
 
   undo: { label: 'Undo', group: 'Edit', combo: 'Mod-z' },
   redo: { label: 'Redo', group: 'Edit', combo: 'Mod-Shift-z' },
@@ -109,6 +111,7 @@ const KEY_LABELS = new Map([
   ['`', 'Backtick'],
   ['\\', 'Backslash'],
   ['/', 'Slash'],
+  [',', 'Comma'],
 ]);
 
 const MODIFIERS = ['Mod', 'Alt', 'Shift'] as const;
