@@ -5,6 +5,7 @@ import { parseMarkdown } from '@/lib/markdown';
 import { loadHighlighter } from '@/features/syntax-highlight';
 import { blobToDataUrl, loadDocumentImage, loadUnique, renderDiagram } from './assets';
 import { EXPORT_STYLES } from './styles';
+import { DEFAULT_PAGE_SETUP, pageRule, type PageSetup } from './pageGeometry';
 
 const EXPORT_FONT_FAMILIES = ['Literata', 'Fraunces', 'IBM Plex Mono'];
 
@@ -231,7 +232,7 @@ function escapeHtml(text: string): string {
 /** A complete standalone HTML document around the rendered body. */
 export async function buildStandaloneHtml(
   body: string,
-  options: { title: string; author?: string; pageSize?: string }
+  options: { title: string; author?: string; page?: PageSetup }
 ): Promise<string> {
   const fonts = await embeddedFontFaces();
 
@@ -245,7 +246,7 @@ ${options.author ? `<meta name="author" content="${escapeHtml(options.author)}">
 <title>${escapeHtml(options.title)}</title>
 <style>
 ${fonts}
-@page { size: ${options.pageSize ?? 'A4'}; margin: 18mm 16mm; }
+${pageRule(options.page ?? DEFAULT_PAGE_SETUP)}
 ${EXPORT_STYLES}
 </style>
 </head>

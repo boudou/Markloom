@@ -4,6 +4,7 @@ import { isAbsoluteUrl } from '@/lib/documentPath';
 import { buildStandaloneHtml, renderExportBody } from './html';
 import { loadDocumentImage, loadUnique, renderDiagram, svgDataUrl } from './assets';
 import { imageSources, placedInlines } from './inlineLines';
+import { DEFAULT_PAGE_SETUP, marginsInInches } from './pageGeometry';
 
 export interface ExportRequest {
   markdown: string;
@@ -16,13 +17,20 @@ export interface ExportRequest {
 
 /** Returns 'saved' or, in a browser, 'print-dialog' when the user finishes in the print dialog. */
 export async function exportPdf(request: ExportRequest): Promise<'saved' | 'print-dialog'> {
+  // Always A4 portrait for now (#197 makes it a choice)
+  const page = DEFAULT_PAGE_SETUP;
   const body = await renderExportBody(request.markdown, request.docPath);
-  const html = await buildStandaloneHtml(body, request);
+  const html = await buildStandaloneHtml(body, { ...request, page });
 
   const bridge = window.markloomDesktop;
 
   if (bridge?.printToPdf) {
-    const bytes = await bridge.printToPdf(html, { pageSize: 'A4' });
+    const bytes = await bridge.printToPdf(html, {
+      pageSize: page.size,
+      landscape: page.orientation === 'landscape',
+      margins: marginsInInches(),
+    });
+
     saveAs(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `${request.title}.pdf`);
 
     return 'saved';

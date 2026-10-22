@@ -244,7 +244,24 @@ ipcMain.handle('write-file', async (event, filePath, data) => {
 const PRINT_CSP = "default-src 'none'; img-src data: https: http:; font-src data:; style-src 'unsafe-inline'";
 const MAX_PRINT_HTML = 256 * 1024 * 1024;
 const PAGE_SIZES = new Set(['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid']);
+// The renderer sends the margins from src/features/export/pipeline/pageGeometry.ts (inches);
+// this copy of its 18mm/16mm is used only when they're missing or invalid.
+const DEFAULT_PRINT_MARGINS = { top: 18 / 25.4, right: 16 / 25.4, bottom: 18 / 25.4, left: 16 / 25.4 };
+const MAX_PRINT_MARGIN = 2;
 const printablePages = new Set();
+
+function printMargins(margins) {
+  const sides = ['top', 'right', 'bottom', 'left'];
+  const valid =
+    margins !== null &&
+    typeof margins === 'object' &&
+    sides.every((side) => {
+      const value = margins[side];
+      return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= MAX_PRINT_MARGIN;
+    });
+  const { top, right, bottom, left } = valid ? margins : DEFAULT_PRINT_MARGINS;
+  return { marginType: 'custom', top, right, bottom, left };
+}
 let printSession;
 
 function getPrintSession() {
@@ -277,7 +294,7 @@ ipcMain.handle('print-pdf', async (event, html, options = {}) => {
       pageSize: PAGE_SIZES.has(options?.pageSize) ? options.pageSize : 'A4',
       landscape: options?.landscape === true,
       printBackground: true,
-      margins: { marginType: 'custom', top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 },
+      margins: printMargins(options?.margins),
     });
   } finally {
     printablePages.delete(pageUrl);
