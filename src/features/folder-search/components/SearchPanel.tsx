@@ -25,7 +25,7 @@ function openDocumentTexts(): Map<string, string> {
   return new Map(state.tabs.flatMap((tab) => (tab.path ? [[tab.path, selectTabContent(state, tab.id)] as const] : [])));
 }
 
-/** Opens the file (or switches to its tab) and reveals the line in the Markdown source */
+/** Opens the file (or switches to its tab) and reveals the line in its source (Markdown or Mermaid) */
 async function openResult(path: string, line: number): Promise<void> {
   const tabs = useTabsStore.getState();
   let tab = tabs.tabs.find((t) => t.path === path);
@@ -38,13 +38,12 @@ async function openResult(path: string, line: number): Promise<void> {
     tab = useTabsStore.getState().tabs.find((t) => t.path === path);
   }
 
-  // The Mermaid source doesn't take line requests; the file just opens
-  if (!tab || isMermaidFile(path)) return;
+  if (!tab) return;
 
   const app = useAppStore.getState();
 
-  // Source lines live in the Markdown view
-  if (app.editorMode === 'wysiwyg') app.setEditorMode('split');
+  // Markdown source lines live in the Markdown view; a .mmd file has one editor in either mode
+  if (app.editorMode === 'wysiwyg' && !isMermaidFile(path)) app.setEditorMode('split');
   useUiStore.getState().navigateToLine(tab.id, line);
 }
 
