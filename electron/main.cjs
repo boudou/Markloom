@@ -1,5 +1,5 @@
 // Electron main process: wraps the Markloom web build in a native desktop window.
-const { app, BrowserWindow, protocol, net, shell, dialog, ipcMain, Menu, session } = require('electron');
+const { app, BrowserWindow, protocol, net, shell, dialog, ipcMain, Menu, Tray, nativeImage, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -195,7 +195,7 @@ function documentsIn(argv) {
 function openDocuments(files) {
   if (files.length === 0) return;
   files.forEach(trustFolderOf);
-  const [win] = BrowserWindow.getAllWindows();
+  const win = mainWindow;
   if (win && rendererReady) win.webContents.send('open-files', files);
   else pendingFiles.push(...files);
 }
@@ -343,6 +343,104 @@ function guardLinkedFileWindow(child, { url: fileUrl }) {
 }
 
 // ---------------------------------------------------------------------------
+// Window preferences and the tray. Main keeps the two toggles in its own file so it has them
+// before the page loads; the page changes them through update-window-prefs.
+
+const WINDOW_PREF_KEYS = ['minimizeToTray', 'closeToTray'];
+const windowPrefsFile = () => path.join(app.getPath('userData'), 'window-prefs.json');
+let windowPrefs = { minimizeToTray: false, closeToTray: false };
+
+function loadWindowPrefs() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(windowPrefsFile(), 'utf8'));
+    windowPrefs = {
+      minimizeToTray: saved?.minimizeToTray === true,
+      closeToTray: saved?.closeToTray === true,
+    };
+  } catch {
+    windowPrefs = { minimizeToTray: false, closeToTray: false };
+  }
+}
+
+function saveWindowPrefs() {
+  try {
+    fs.writeFileSync(windowPrefsFile(), JSON.stringify(windowPrefs));
+  } catch {
+    // Not fatal: the toggles still apply for this session
+  }
+}
+
+// The editor window (not a linked-file or printer window)
+let mainWindow = null;
+let tray = null;
+// The window was hidden by minimize or close to tray
+let hiddenToTray = false;
+// A real quit is under way: closing must close, not hide
+let quitting = false;
+
+ipcMain.handle('update-window-prefs', (event, changes) => {
+  assertFromApp(event);
+  let changed = false;
+  for (const key of WINDOW_PREF_KEYS) {
+    const value = changes?.[key];
+    if (typeof value === 'boolean' && value !== windowPrefs[key]) {
+      windowPrefs[key] = value;
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveWindowPrefs();
+    updateTray();
+  }
+  return { ...windowPrefs };
+});
+
+function trayIcon() {
+  const file = path.join(__dirname, '..', DEV_URL ? 'public' : 'dist', 'icon-192.png');
+  return nativeImage.createFromPath(file).resize({ width: 16, height: 16 });
+}
+
+// The icon exists while either toggle is on, or while the window is hidden
+function updateTray() {
+  const wanted = windowPrefs.minimizeToTray || windowPrefs.closeToTray || hiddenToTray;
+  if (wanted && !tray) {
+    tray = new Tray(trayIcon());
+    tray.setToolTip('Markloom');
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: 'Show Markloom', click: showMainWindow },
+        { type: 'separator' },
+        { label: 'Quit', click: () => app.quit() },
+      ])
+    );
+    tray.on('click', showMainWindow);
+  } else if (!wanted && tray) {
+    tray.destroy();
+    tray = null;
+  }
+}
+
+// The tray icon exists before the window disappears, so there is always a way back
+function hideToTray() {
+  if (!mainWindow) return;
+  hiddenToTray = true;
+  updateTray();
+  mainWindow.hide();
+}
+
+function showMainWindow() {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (hiddenToTray) mainWindow.show();
+  mainWindow.focus();
+  hiddenToTray = false;
+  updateTray();
+}
+
+// ---------------------------------------------------------------------------
 
 function setUpSpellCheck() {
   // Windows and macOS use the system checker (installed languages); elsewhere pick ours
@@ -405,14 +503,39 @@ function createWindow() {
     },
   });
 
-  win.once('ready-to-show', () => win.show());
+  mainWindow = win;
+  // A window hidden to tray before its first paint stays hidden
+  win.once('ready-to-show', () => {
+    if (!hiddenToTray) win.show();
+  });
+  win.on('closed', () => {
+    mainWindow = null;
+  });
+
+  // Minimizing can't be prevented, so the window hides once it has minimized
+  win.on('minimize', () => {
+    if (windowPrefs.minimizeToTray) hideToTray();
+  });
+  // 'close' comes before the page's beforeunload, so a hidden window closes no document
+  win.on('close', (event) => {
+    if (windowPrefs.closeToTray && !quitting) {
+      event.preventDefault();
+      hideToTray();
+    }
+  });
+  // Windows shutdown and logoff skip before-quit
+  win.on('session-end', () => {
+    quitting = true;
+  });
 
   win.webContents.on('context-menu', (_event, params) => {
     contextMenuFor(win, params)?.popup({ window: win });
   });
 
   // The renderer blocks unload while documents have unsaved changes; ask before discarding them.
+  // A quit from the tray reaches here with the window hidden: show it so the prompt is seen.
   win.webContents.on('will-prevent-unload', (event) => {
+    if (!win.isVisible()) showMainWindow();
     const choice = dialog.showMessageBoxSync(win, {
       type: 'warning',
       buttons: ['Close without saving', 'Keep editing'],
@@ -424,6 +547,8 @@ function createWindow() {
       detail: 'If you close Markloom now, those changes will be lost.',
     });
     if (choice === 0) event.preventDefault();
+    // Keep editing cancels the quit: the next close hides again
+    else quitting = false;
   });
 
   // The app never navigates its own window; links open in a tab, a new window, or the browser.
@@ -455,28 +580,37 @@ if (!app.requestSingleInstanceLock()) {
   // macOS delivers files through this event, possibly before the app is ready
   app.on('open-file', (event, filePath) => {
     event.preventDefault();
-    if (app.isReady()) openDocuments([filePath]);
-    else pendingFiles.push(filePath);
+    if (app.isReady()) {
+      openDocuments([filePath]);
+      if (hiddenToTray) showMainWindow();
+    } else {
+      pendingFiles.push(filePath);
+    }
   });
 
   app.on('second-instance', (_event, argv) => {
-    const [win] = BrowserWindow.getAllWindows();
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
-    }
+    if (mainWindow) showMainWindow();
     openDocuments(documentsIn(argv));
   });
 
+  app.on('before-quit', () => {
+    quitting = true;
+  });
+  // An icon left behind on Windows lingers until hovered
+  app.on('will-quit', () => tray?.destroy());
+
   app.whenReady().then(() => {
     loadTrust();
+    loadWindowPrefs();
     pendingFiles.forEach(trustFolderOf);
     openDocuments(documentsIn(process.argv));
     setUpSpellCheck();
     registerAppProtocol();
     createWindow();
+    updateTray();
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (!mainWindow) createWindow();
+      else if (hiddenToTray) showMainWindow();
     });
   });
 
