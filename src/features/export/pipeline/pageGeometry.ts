@@ -1,6 +1,6 @@
-// The one place page size and margins are defined. The `@page` rule of exported HTML (the
-// browser print dialog) and the desktop `printToPDF` options are both written from here, and
-// page layouts done in the renderer read the content box.
+// The one place page size and margins are defined. The `@page` rule of exported HTML and the
+// page boxes of paged documents (preview, images, PDF) are written from here, and page layouts
+// done in the renderer read the content box.
 
 export type PageSize = 'A4' | 'Letter';
 
@@ -74,16 +74,4 @@ export function contentBox(setup: PageSetup): Box {
   const { top, right, bottom, left } = PAGE_MARGINS_MM;
 
   return { width: mmToPx(width - left - right), height: mmToPx(height - top - bottom) };
-}
-
-/** The margins in inches, as Electron's `printToPDF` takes them (unrounded, so they match `@page`). */
-export function marginsInInches(): Margins {
-  const { top, right, bottom, left } = PAGE_MARGINS_MM;
-
-  return {
-    top: top / MM_PER_INCH,
-    right: right / MM_PER_INCH,
-    bottom: bottom / MM_PER_INCH,
-    left: left / MM_PER_INCH,
-  };
 }

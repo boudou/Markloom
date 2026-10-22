@@ -1,10 +1,10 @@
 import { saveAs } from 'file-saver';
 import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
 import { isAbsoluteUrl } from '@/lib/documentPath';
-import { buildStandaloneHtml, renderExportBody } from './html';
+import { buildPagedHtml, buildStandaloneHtml, renderExportBody } from './html';
 import { loadDocumentImage, loadUnique, renderDiagram, svgDataUrl } from './assets';
 import { imageSources, placedInlines } from './inlineLines';
-import { DEFAULT_PAGE_SETUP, marginsInInches } from './pageGeometry';
+import type { PagedDocument } from './pages';
 
 export interface ExportRequest {
   markdown: string;
@@ -15,28 +15,31 @@ export interface ExportRequest {
   author?: string;
 }
 
-/** Returns 'saved' or, in a browser, 'print-dialog' when the user finishes in the print dialog. */
-export async function exportPdf(request: ExportRequest): Promise<'saved' | 'print-dialog'> {
-  // Always A4 portrait for now (#197 makes it a choice)
-  const page = DEFAULT_PAGE_SETUP;
-  const body = await renderExportBody(request.markdown, request.docPath);
-  const html = await buildStandaloneHtml(body, { ...request, page });
+/**
+ * Prints the pages the export preview laid out, one page box per sheet with no print
+ * margins, so the PDF matches the preview page for page. `title` names the file and the
+ * document. Returns 'saved' or, in a browser, 'print-dialog' when the user finishes in the
+ * print dialog.
+ */
+export async function exportPdf(paged: PagedDocument, title: string): Promise<'saved' | 'print-dialog'> {
+  const html = await buildPagedHtml(paged, { title });
 
   const bridge = window.markloomDesktop;
 
   if (bridge?.printToPdf) {
     const bytes = await bridge.printToPdf(html, {
-      pageSize: page.size,
-      landscape: page.orientation === 'landscape',
-      margins: marginsInInches(),
+      pageSize: paged.page.size,
+      landscape: paged.page.orientation === 'landscape',
+      margins: { top: 0, right: 0, bottom: 0, left: 0 },
     });
 
-    saveAs(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `${request.title}.pdf`);
+    saveAs(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `${title}.pdf`);
 
     return 'saved';
   }
 
-  // Browser: hand the same document to the print dialog ("Save as PDF")
+  // Browser: hand the same pages to the print dialog ("Save as PDF"); they match the preview
+  // as long as the dialog keeps its default paper and margins
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden;';

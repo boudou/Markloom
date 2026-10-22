@@ -32,7 +32,7 @@ const FORMATS: { id: ExportFormat; label: string; icon: typeof FileText; descrip
     label: 'PDF',
     icon: FileText,
     description: isDesktop
-      ? 'Print-quality PDF with selectable text and sharp diagrams.'
+      ? 'Print-quality PDF, page for page as previewed, with selectable text.'
       : 'Opens the print dialog; choose “Save as PDF”.',
   },
   {
@@ -111,10 +111,23 @@ const readContent = () => {
 
 const IDLE: Preview = { status: 'idle' };
 
-// Lays the current text out on pages each time the preview is shown, and starts at page 1
-function usePagePreview(enabled: boolean, docPath: string | null) {
+// Formats that show the page preview and export its pages
+const PAGED_FORMATS: ReadonlySet<ExportFormat> = new Set(['image', 'pdf']);
+
+/**
+ * Lays the current text out on pages the first time a paged format is shown in an opening,
+ * and starts at page 1. Image and PDF share the layout: the dialog is modal, so the text
+ * can't change until it closes.
+ */
+function usePagePreview(open: boolean, wanted: boolean, docPath: string | null) {
   const [preview, setPreview] = useState<Preview>(IDLE);
   const [page, setPage] = useState(0);
+  const [enabled, setEnabled] = useState(false);
+
+  // Adjusted while rendering: on once wanted in this opening, off when the dialog closes
+  if (open && wanted && !enabled) setEnabled(true);
+
+  if (!open && enabled) setEnabled(false);
 
   useEffect(() => {
     if (!enabled) {
@@ -151,8 +164,8 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<ExportIssue[]>([]);
-  const showPages = format === 'image';
-  const { preview, page, setPage } = usePagePreview(open && showPages, docPath);
+  const showPages = PAGED_FORMATS.has(format);
+  const { preview, page, setPage } = usePagePreview(open, showPages, docPath);
 
   // Suggest a title each time the dialog opens: the first heading, else the file name
   useEffect(() => {
@@ -179,8 +192,9 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
 
   const pagedDoc = preview.status === 'ready' ? preview.doc : null;
   const pageCount = pagedDoc?.pages.length ?? 0;
-  // Several pages: Save this page beside Save all pages (a .zip); one page: a single Export Image
-  const primaryFace = showPages && pageCount > 1 ? 'image-all' : format;
+  // Image with several pages: Save this page beside Save all pages (a .zip); else one Export button
+  const imagePages = format === 'image' && pageCount > 1;
+  const primaryFace = imagePages ? 'image-all' : format;
 
   const handleExport = async (which: 'all' | number = 'all') => {
     setExporting(true);
@@ -202,7 +216,10 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         const exporters = await import('../pipeline/exporters');
 
         if (format === 'pdf') {
-          const outcome = await exporters.exportPdf(request);
+          // The buttons are enabled only once the preview has laid the pages out; print those
+          if (!pagedDoc) return;
+
+          const outcome = await exporters.exportPdf(pagedDoc, request.title);
 
           if (outcome === 'print-dialog') {
             onOpenChange(false);
@@ -338,7 +355,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={exporting}>
           Cancel
         </Button>
-        {showPages && pageCount > 1 && (
+        {imagePages && (
           <Button variant="secondary" onClick={() => void handleExport(page)} disabled={exporting}>
             Save this page
           </Button>

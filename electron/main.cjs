@@ -244,8 +244,8 @@ ipcMain.handle('write-file', async (event, filePath, data) => {
 const PRINT_CSP = "default-src 'none'; img-src data: https: http:; font-src data:; style-src 'unsafe-inline'";
 const MAX_PRINT_HTML = 256 * 1024 * 1024;
 const PAGE_SIZES = new Set(['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid']);
-// The renderer sends the margins from src/features/export/pipeline/pageGeometry.ts (inches);
-// this copy of its 18mm/16mm is used only when they're missing or invalid.
+// The renderer sends the margins in inches (0 for PDF export, whose page boxes carry the
+// margins); this copy of pageGeometry.ts's 18mm/16mm is used only when they're missing or invalid.
 const DEFAULT_PRINT_MARGINS = { top: 18 / 25.4, right: 16 / 25.4, bottom: 18 / 25.4, left: 16 / 25.4 };
 const MAX_PRINT_MARGIN = 2;
 const printablePages = new Set();
