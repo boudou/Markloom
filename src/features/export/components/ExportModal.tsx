@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { m } from 'framer-motion';
 import { FileDown, Loader2, FileType, FileText, Globe, FileCode2, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import { Button, Input, Modal, ModalFooter } from '@/components/ui';
@@ -7,8 +7,9 @@ import { selectActiveContent, useActivePath, useTabsStore } from '@/features/tab
 import { documentName } from '@/features/file-tree/api/fileSystem';
 import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
+import { selectExportOrientation, selectExportPageSize, useSettingsStore } from '@/stores/settingsStore';
 import type { ExportIssue } from '../pipeline/preflight';
-import { DEFAULT_PAGE_SETUP } from '../pipeline/pageGeometry';
+import type { Orientation, PageSetup, PageSize } from '../pipeline/pageGeometry';
 import { PagePreview, type Preview } from './PagePreview';
 
 interface ExportModalProps {
@@ -111,15 +112,65 @@ const readContent = () => {
 
 const IDLE: Preview = { status: 'idle' };
 
+const PAGE_SIZE_OPTIONS: readonly { value: PageSize; label: string }[] = [
+  { value: 'A4', label: 'A4' },
+  { value: 'Letter', label: 'Letter' },
+];
+
+const ORIENTATION_OPTIONS: readonly { value: Orientation; label: string }[] = [
+  { value: 'portrait', label: 'Portrait' },
+  { value: 'landscape', label: 'Landscape' },
+];
+
+interface ChoiceGroupProps<T extends string> {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}
+
+/** A small labelled radiogroup, styled like the format choice */
+function ChoiceGroup<T extends string>({ label, options, value, onChange }: ChoiceGroupProps<T>) {
+  const labelId = useId();
+
+  return (
+    <div className="text-sm">
+      <span id={labelId} className="text-text-secondary">
+        {label}
+      </span>
+      <div role="radiogroup" aria-labelledby={labelId} className="mt-1.5 grid grid-cols-2 gap-2">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              'py-1.5 rounded-md border text-xs font-medium',
+              'transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
+              value === option.value
+                ? 'border-accent-primary bg-accent-muted/60 text-accent-hover'
+                : 'border-rule text-text-secondary hover:border-text-muted hover:text-text-primary'
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Formats that show the page preview and export its pages
 const PAGED_FORMATS: ReadonlySet<ExportFormat> = new Set(['image', 'pdf']);
 
 /**
  * Lays the current text out on pages the first time a paged format is shown in an opening,
- * and starts at page 1. Image and PDF share the layout: the dialog is modal, so the text
- * can't change until it closes.
+ * and again when the page size or orientation changes, starting at page 1. Image and PDF
+ * share the layout: the dialog is modal, so the text can't change until it closes.
  */
-function usePagePreview(open: boolean, wanted: boolean, docPath: string | null) {
+function usePagePreview(open: boolean, wanted: boolean, docPath: string | null, size: PageSize, orientation: Orientation) {
   const [preview, setPreview] = useState<Preview>(IDLE);
   const [page, setPage] = useState(0);
   const [enabled, setEnabled] = useState(false);
@@ -136,20 +187,22 @@ function usePagePreview(open: boolean, wanted: boolean, docPath: string | null) 
       return;
     }
 
+    // A layout still running for the previous setup is dropped when this one starts
     let cancelled = false;
+    const setup: PageSetup = { size, orientation };
     setPreview({ status: 'loading' });
     setPage(0);
 
     // The layout code is a lazy chunk, loaded only for the preview
     void import('../pipeline/pages')
-      .then(({ previewPages }) => previewPages({ markdown: readContent(), docPath, page: DEFAULT_PAGE_SETUP }))
+      .then(({ previewPages }) => previewPages({ markdown: readContent(), docPath, page: setup }))
       .then(({ doc, html }) => !cancelled && setPreview({ status: 'ready', doc, html }))
       .catch((err) => !cancelled && setPreview({ status: 'error', message: err instanceof Error ? err.message : String(err) }));
 
     return () => {
       cancelled = true;
     };
-  }, [enabled, docPath]);
+  }, [enabled, docPath, size, orientation]);
 
   return { preview, page, setPage };
 }
@@ -165,7 +218,11 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<ExportIssue[]>([]);
   const showPages = PAGED_FORMATS.has(format);
-  const { preview, page, setPage } = usePagePreview(open, showPages, docPath);
+  const pageSize = useSettingsStore(selectExportPageSize);
+  const orientation = useSettingsStore(selectExportOrientation);
+  const setPageSize = useSettingsStore((s) => s.setExportPageSize);
+  const setOrientation = useSettingsStore((s) => s.setExportOrientation);
+  const { preview, page, setPage } = usePagePreview(open, showPages, docPath, pageSize, orientation);
 
   // Suggest a title each time the dialog opens: the first heading, else the file name
   useEffect(() => {
@@ -303,6 +360,13 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
               <span className="text-text-secondary">File name</span>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1.5" data-autofocus />
             </label>
+
+            {showPages && (
+              <div className="grid grid-cols-2 gap-3">
+                <ChoiceGroup label="Page size" options={PAGE_SIZE_OPTIONS} value={pageSize} onChange={setPageSize} />
+                <ChoiceGroup label="Orientation" options={ORIENTATION_OPTIONS} value={orientation} onChange={setOrientation} />
+              </div>
+            )}
 
             {format === 'docx' && (
               <label className="block text-sm">

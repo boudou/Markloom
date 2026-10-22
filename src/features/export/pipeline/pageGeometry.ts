@@ -38,8 +38,10 @@ const MM_PER_INCH = 25.4;
 
 const CSS_PX_PER_INCH = 96;
 
+// Inches first: Letter's 215.9 mm is then exactly 816 px (multiplying first gives
+// 816.0000000000001, which page images round up to 817)
 function mmToPx(mm: number): number {
-  return (mm * CSS_PX_PER_INCH) / MM_PER_INCH;
+  return (mm / MM_PER_INCH) * CSS_PX_PER_INCH;
 }
 
 function pageMm({ size, orientation }: PageSetup): Box {
