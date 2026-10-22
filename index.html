@@ -2,12 +2,57 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="./markloom.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Markloom - Markdown Editor</title>
+    <title>Markloom: Markdown editor with Mermaid diagrams and Word, PDF and HTML export</title>
+    <meta
+      name="description"
+      content="Free, open-source Markdown editor with live preview, Mermaid diagrams, a rich-text mode and export to Word, PDF and HTML. Runs in your browser or as a desktop app; your documents stay on your computer."
+    />
+    <link rel="canonical" href="https://boudou.github.io/Markloom/" />
+    <meta name="theme-color" content="#F8F9FA" />
+    <link rel="icon" type="image/png" href="./markloom.png" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+
+    <!-- Link previews (social sites and chat apps): absolute URLs, since they are read off-site -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Markloom" />
+    <meta property="og:title" content="Markloom: Markdown editor with Mermaid diagrams" />
+    <meta
+      property="og:description"
+      content="Live preview, Mermaid diagrams, a rich-text mode and export to Word, PDF and HTML. Free and open source; runs in your browser or as a desktop app."
+    />
+    <meta property="og:url" content="https://boudou.github.io/Markloom/" />
+    <meta property="og:image" content="https://boudou.github.io/Markloom/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Markloom's split view: Markdown source beside a live preview with a Mermaid diagram" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body class="bg-canvas text-text-primary font-body antialiased">
-    <div id="root"></div>
+    <!-- What crawlers and link previews read without running JavaScript; React replaces it on load -->
+    <div id="root">
+      <main class="max-w-xl mx-auto px-6 py-16 text-sm leading-relaxed text-text-secondary">
+        <h1 class="font-display text-2xl font-semibold text-text-primary">Markloom</h1>
+        <p class="mt-2">
+          A free, open-source Markdown editor with live preview, Mermaid diagrams and clean export to Word, PDF and
+          HTML. It runs in your browser or as a desktop app, and your documents stay on your computer.
+        </p>
+        <ul class="mt-4 list-disc pl-5">
+          <li>Split view (source and live preview) or a rich-text editor that keeps untouched Markdown as it was</li>
+          <li>Mermaid diagrams that render as you type, with errors pointing at the line</li>
+          <li>Export to Word (.docx), PDF, standalone HTML and portable Markdown</li>
+          <li>Copy as rich text into email, Google Docs or Confluence</li>
+          <li>Tabs, folder tree, quick open, search across files, version history</li>
+        </ul>
+        <p class="mt-4">
+          <a class="underline" href="https://github.com/boudou/Markloom/releases/latest">Download the desktop app</a>
+          · <a class="underline" href="https://github.com/boudou/Markloom/wiki/User-Manual">User manual</a>
+          · <a class="underline" href="https://github.com/boudou/Markloom">Source on GitHub</a>
+        </p>
+        <noscript><p class="mt-4 text-text-primary">Markloom needs JavaScript to run.</p></noscript>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
