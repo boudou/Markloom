@@ -14,6 +14,8 @@ interface Block {
   end: number;
 }
 
+const EMPTY_HEADING = /^#{1,6}$/;
+
 const keyCache = new Map<string, string>();
 
 function blockKey(text: string): string {
@@ -75,7 +77,10 @@ export function preserveUnchangedBlocks(original: string, serialized: string): s
           : '\n\n';
     }
 
-    output += index !== undefined ? originalBlocks[index].text : block.text;
+    // remark writes an emptied heading as a bare `#`, and splitBlocks trims an original `# `
+    // to `#` too; write `# ` either way, as Markdown mode does
+    const text = index !== undefined ? originalBlocks[index].text : block.text;
+    output += text.replace(EMPTY_HEADING, '$& ');
     previousOriginal = index ?? -2;
   });
 
