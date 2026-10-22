@@ -174,7 +174,13 @@ class HtmlView implements NodeView {
       this.closeSource(true);
     });
 
-    source.addEventListener('blur', () => this.closeSource(false));
+    source.addEventListener('blur', () => {
+      // Leaving the window (Alt+Tab, a native dialog) is not closing the source: it would delete an
+      // emptied node. The browser refocuses the textarea when the window comes back.
+      if (!document.hasFocus()) return;
+
+      this.closeSource(false);
+    });
     this.source = source;
     this.wrote = false;
     this.dom.classList.add('is-editing');
