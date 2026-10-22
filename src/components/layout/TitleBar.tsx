@@ -1,9 +1,10 @@
-import { FileText, FolderOpen, Save, FileDown, LayoutTemplate, Keyboard, PanelLeft, ListTree, Search } from 'lucide-react';
+import { FileText, FolderOpen, Save, FileDown, ClipboardCopy, LayoutTemplate, Keyboard, PanelLeft, ListTree, Search } from 'lucide-react';
 import { IconButton, Kbd, Tooltip } from '@/components/ui';
 import { RecentFilesMenu } from '@/features/recent-files';
 import { HistoryPanel } from '@/features/version-history';
 import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
+import { useUiStore } from '@/stores/uiStore';
 import { appCommand, commandHint } from '@/lib/appCommands';
 import { shortcutSpokenKeys } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,8 @@ const OPEN_FOLDER = appCommand('open-folder');
 const SAVE = appCommand('save');
 
 const EXPORT = appCommand('export');
+
+const COPY_RICH = appCommand('copy-rich');
 
 const TEMPLATES = appCommand('templates');
 
@@ -50,6 +53,8 @@ export function TitleBar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const sidebarView = useAppStore((s) => s.sidebarView);
   const rootPath = useAppStore((s) => s.rootPath);
+  // A .mmd file has no editor commands, so no rich-text copy
+  const hasEditor = useUiStore((s) => !!s.editorCommands);
   const filesVisible = sidebarOpen && sidebarView === 'files' && !!rootPath;
   const outlineOpen = sidebarOpen && sidebarView === 'outline';
 
@@ -111,6 +116,11 @@ export function TitleBar() {
         <Tooltip content={commandHint(EXPORT)}>
           <IconButton variant="ghost" size="sm" onClick={() => EXPORT.run()} disabled={!hasContent}>
             <FileDown className="w-4 h-4" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip content={commandHint(COPY_RICH)}>
+          <IconButton variant="ghost" size="sm" onClick={() => COPY_RICH.run()} disabled={!hasContent || !hasEditor}>
+            <ClipboardCopy className="w-4 h-4" />
           </IconButton>
         </Tooltip>
         <Tooltip content={commandHint(TEMPLATES)}>

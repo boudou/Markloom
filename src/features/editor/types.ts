@@ -63,4 +63,6 @@ export interface EditorCommands {
   focus: () => void;
   /** Writes any edit the editor still holds into the tabs store, synchronously. Called before the store's text or dirty state is read (save, export, close). */
   flush: () => void;
+  /** The Markdown of the current selection, read from editor state; '' when nothing is selected */
+  selectionMarkdown: () => string;
 }

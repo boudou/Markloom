@@ -19,7 +19,7 @@ import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
 import { markdownKeymap, editingKeymap, runMarkdownAction, insertSnippet, revealLine, placeCursor } from '../codemirror/commands';
 import { diagramErrorLines, diagramErrorTheme, setDiagramErrorLines } from '../codemirror/diagramErrors';
 import type { EditorCommands, FormatState } from '../types';
-import { formatStateReporter, selectionReporter } from '../codemirror/formatState';
+import { formatStateReporter, selectedSource, selectionReporter } from '../codemirror/formatState';
 import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
 import { usePreservedEditorState } from '../codemirror/documentStates';
@@ -111,6 +111,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       focus: () => view.focus(),
       // CodeMirror's onChange already wrote every edit
       flush: () => {},
+      selectionMarkdown: () => selectedSource(view.state),
     });
 
     return () => onCommands(null);

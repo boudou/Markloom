@@ -1,5 +1,6 @@
-// One HTML rendering of the document for PDF and HTML exports: the preview's sanitized
-// markup, diagrams as inline SVG, images embedded, the app's fonts included.
+// One HTML rendering of the document for PDF and HTML exports and Copy as rich text: the
+// preview's sanitized markup, diagrams and images placed by an embedder (inline SVG and
+// embedded images for a file), the app's fonts included in a standalone file.
 import { parseMarkdown } from '@/lib/markdown';
 import { loadHighlighter } from '@/features/syntax-highlight';
 import { blobToDataUrl, loadDocumentImage, loadUnique, renderDiagram } from './assets';
@@ -105,8 +106,37 @@ function suffixDiagramIds(svg: SVGSVGElement, suffix: string) {
   }
 }
 
-/** The document body as self-contained HTML. */
-export async function renderExportBody(markdown: string, docPath: string | null): Promise<string> {
+/** How a diagram goes into the body: inline SVG, an image, or an error box. */
+export type DiagramPlacement =
+  | { kind: 'svg'; svg: string }
+  | { kind: 'img'; src: string; width: number; height: number }
+  | { kind: 'error'; error: string };
+
+/** How an image goes into the body: its address left as written, or replaced (and sized when given). */
+export type ImagePlacement = { kind: 'keep'; src: string } | { kind: 'img'; src: string; width?: number; height?: number };
+
+/** Turns the body's diagrams and images into final placements; `image` returns null when it can't be loaded. */
+export interface BodyEmbed {
+  diagram: (code: string) => Promise<DiagramPlacement>;
+  image: (src: string, docPath: string | null) => Promise<ImagePlacement | null>;
+}
+
+/** A standalone file: diagrams as inline SVG, every image embedded at its natural size. */
+const FILE_EMBED: BodyEmbed = {
+  async diagram(code) {
+    const diagram = await renderDiagram(code);
+
+    return diagram.ok ? { kind: 'svg', svg: diagram.svg } : { kind: 'error', error: diagram.error };
+  },
+  async image(src, docPath) {
+    const image = await loadDocumentImage(src, docPath);
+
+    return image ? { kind: 'img', src: image.dataUrl } : null;
+  },
+};
+
+/** The document body as self-contained HTML, with diagrams and images placed by `embed`. */
+export async function renderExportBody(markdown: string, docPath: string | null, embed: BodyEmbed = FILE_EMBED): Promise<string> {
   await loadHighlighter();
   const template = document.createElement('template');
   template.innerHTML = parseMarkdown(markdown);
@@ -121,8 +151,8 @@ export async function renderExportBody(markdown: string, docPath: string | null)
 
   // Every distinct diagram and image is requested at once; the markup is then built without waiting
   const [diagrams, loaded] = await Promise.all([
-    loadUnique(slots.map(({ code }) => code), renderDiagram),
-    loadUnique(images.map(({ src }) => src), (src) => loadDocumentImage(src, docPath)),
+    loadUnique(slots.map(({ code }) => code), embed.diagram),
+    loadUnique(images.map(({ src }) => src), (src) => embed.image(src, docPath)),
   ]);
 
   const diagramCopies = new Map<string, number>();
@@ -133,20 +163,39 @@ export async function renderExportBody(markdown: string, docPath: string | null)
     const figure = document.createElement('figure');
     figure.className = 'diagram';
 
-    if (diagram.ok) {
-      // Sanitized by Mermaid itself (strict security level). Parsed per slot, so each copy has its own nodes
-      figure.innerHTML = diagram.svg;
-      const svg = figure.querySelector('svg');
+    switch (diagram.kind) {
+      case 'svg': {
+        // Sanitized by Mermaid itself (strict security level). Parsed per slot, so each copy has its own nodes
+        figure.innerHTML = diagram.svg;
+        const svg = figure.querySelector('svg');
 
-      if (svg?.id) {
-        const copies = (diagramCopies.get(svg.id) ?? 0) + 1;
-        diagramCopies.set(svg.id, copies);
+        if (svg?.id) {
+          const copies = (diagramCopies.get(svg.id) ?? 0) + 1;
+          diagramCopies.set(svg.id, copies);
 
-        // The first copy keeps Mermaid's ids; later ones become `…x2`, `…x3`
-        if (copies > 1) suffixDiagramIds(svg, `x${copies}`);
+          // The first copy keeps Mermaid's ids; later ones become `…x2`, `…x3`
+          if (copies > 1) suffixDiagramIds(svg, `x${copies}`);
+        }
+
+        break;
       }
-    } else {
-      figure.append(errorBox('Diagram could not be rendered', diagram.error));
+
+      case 'img': {
+        // An image, not inline SVG, so no ids to keep apart
+        const img = document.createElement('img');
+        img.src = diagram.src;
+        img.alt = 'Diagram';
+        img.setAttribute('width', String(diagram.width));
+        img.setAttribute('height', String(diagram.height));
+        figure.append(img);
+
+        break;
+      }
+
+      case 'error':
+        figure.append(errorBox('Diagram could not be rendered', diagram.error));
+
+        break;
     }
 
     slot.replaceWith(figure);
@@ -155,8 +204,18 @@ export async function renderExportBody(markdown: string, docPath: string | null)
   for (const { img, src } of images) {
     const image = loaded.get(src);
 
-    if (image) img.setAttribute('src', image.dataUrl);
-    else img.replaceWith(errorBox('Image not found', src));
+    if (!image) {
+      img.replaceWith(errorBox('Image not found', src));
+
+      continue;
+    }
+
+    img.setAttribute('src', image.src);
+
+    if (image.kind === 'img' && image.width !== undefined && image.height !== undefined) {
+      img.setAttribute('width', String(image.width));
+      img.setAttribute('height', String(image.height));
+    }
   }
 
   const holder = document.createElement('div');

@@ -1,16 +1,58 @@
 // Single source of truth for app-level commands: the global key handler, the command palette
 // and the title bar read this table; a command with a key takes its name and group from SHORTCUTS.
 // Formatting commands live in the editors themselves.
-import { useTabsStore } from '@/features/tabs';
+import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/tabs';
 import { useFindReplaceStore } from '@/features/find-replace';
 import { toggleAutoSave } from '@/features/auto-save';
 // The store only: the panel itself is a lazy chunk, loaded by the sidebar
 import { useFolderSearchStore } from '@/features/folder-search/stores/folderSearchStore';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useUiStore } from '@/stores/uiStore';
+import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from './documentActions';
 import { SHORTCUTS, matchesCombo, shortcutHint, type ShortcutGroup, type ShortcutId } from './shortcuts';
+import { errorMessage } from './utils';
+
+/**
+ * Copies the editor's selection, or else the whole document, as HTML plus its Markdown.
+ * The write starts synchronously: Safari and Firefox allow it only during the click's (or
+ * Enter's) user activation, so the slow rendering is a promise inside the ClipboardItem.
+ */
+function copyAsRichText() {
+  const commands = useUiStore.getState().editorCommands;
+
+  if (!commands) return;
+
+  flushEditorEdits();
+  const selection = commands.selectionMarkdown();
+  const tabs = useTabsStore.getState();
+  const markdown = selection || selectActiveContent(tabs);
+  const docPath = selectActiveTab(tabs)?.path ?? null;
+
+  if (!/\S/.test(markdown)) {
+    notify({ tone: 'info', title: 'Nothing to copy' });
+
+    return;
+  }
+
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+    notify({ tone: 'error', title: 'This browser can’t copy formatted text' });
+
+    return;
+  }
+
+  // A dynamic import: the renderer pulls in the export pipeline and Mermaid
+  const html = import('@/features/export/pipeline/clipboard')
+    .then(({ clipboardHtml }) => clipboardHtml(markdown, docPath))
+    .then((body) => new Blob([body], { type: 'text/html' }));
+
+  const item = new ClipboardItem({ 'text/html': html, 'text/plain': new Blob([markdown], { type: 'text/plain' }) });
+
+  navigator.clipboard.write([item]).then(
+    () => notify({ tone: 'success', title: selection ? 'Copied the selection as rich text' : 'Copied as rich text' }),
+    (error) => notify({ tone: 'error', title: 'Could not copy', detail: errorMessage(error) })
+  );
+}
 
 interface CommandBase {
   id: string;
@@ -51,6 +93,14 @@ export const APP_COMMANDS: readonly AppCommand[] = [
     run: toggleAutoSave,
   },
   { id: 'export', shortcut: 'export', run: () => useUiStore.getState().openDialog('export') },
+  // No key: Ctrl+Shift+C opens the browser's element inspector. Not for .mmd files, which publish no editor commands.
+  {
+    id: 'copy-rich',
+    group: 'File',
+    label: () => 'Copy as rich text',
+    when: () => !!useUiStore.getState().editorCommands,
+    run: copyAsRichText,
+  },
   { id: 'templates', group: 'File', label: () => 'New from template…', run: () => useUiStore.getState().openDialog('templates') },
   {
     id: 'close-tab',
