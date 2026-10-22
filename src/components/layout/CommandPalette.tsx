@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils';
 import { Kbd, rememberFocus, restoreFocus } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
-import { useSettingsStore, type RecentFile } from '@/stores/settingsStore';
+import { useSettingsStore, type RecentFile, type RecentFolder } from '@/stores/settingsStore';
 import { mermaidTemplates } from '@/features/mermaid-toolbar';
 import { documentName } from '@/features/file-tree/api/fileSystem';
 import { MAX_FILES } from '@/features/file-tree/api/folderFiles';
-import { openFolder, openPath } from '@/lib/documentActions';
+import { openFolder, openPath, reopenFolder } from '@/lib/documentActions';
 import { dirname } from '@/lib/documentPath';
 import { APP_COMMANDS, commandGroup, commandLabel, isOffered } from '@/lib/appCommands';
 import { SHORTCUTS, type ShortcutId } from '@/lib/shortcuts';
@@ -41,7 +41,11 @@ function insertLabel(name: string): string {
 }
 
 /** Toggle labels and `when` read the stores directly, so the list reflects the moment it's built */
-function buildCommands(editorCommands: EditorCommands | null, recentFiles: RecentFile[]): Command[] {
+function buildCommands(
+  editorCommands: EditorCommands | null,
+  recentFiles: RecentFile[],
+  recentFolders: RecentFolder[]
+): Command[] {
   const commands: Command[] = APP_COMMANDS.flatMap((c) =>
     c.id === 'palette' || !isOffered(c)
       ? []
@@ -100,19 +104,29 @@ function buildCommands(editorCommands: EditorCommands | null, recentFiles: Recen
     });
   }
 
+  for (const folder of recentFolders.slice(0, 5)) {
+    commands.push({
+      id: `recent-folder-${folder.key}`,
+      label: `Open recent folder: ${folder.name}`,
+      group: 'Recent',
+      run: () => void reopenFolder(folder.key),
+    });
+  }
+
   return commands;
 }
 
 function useCommands(open: boolean): Command[] {
   const editorCommands = useUiStore((s) => s.editorCommands);
   const recentFiles = useSettingsStore((s) => s.recentFiles);
+  const recentFolders = useSettingsStore((s) => s.recentFolders);
   const [commands, setCommands] = useState<Command[]>([]);
 
   // Built on opening (before paint), so toggle labels and `when` read the state of that moment.
   // Kept while closed: the list stays on screen during the closing animation.
   useLayoutEffect(() => {
-    if (open) setCommands(buildCommands(editorCommands, recentFiles));
-  }, [open, editorCommands, recentFiles]);
+    if (open) setCommands(buildCommands(editorCommands, recentFiles, recentFolders));
+  }, [open, editorCommands, recentFiles, recentFolders]);
 
   return commands;
 }

@@ -7,11 +7,13 @@ import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import {
   openFileDialog,
   openFolderDialog,
+  openRecentFolder,
   saveFileDialog,
   readFile,
   writeFile,
   documentName,
 } from '@/features/file-tree/api/fileSystem';
+import { forgetHandle } from '@/features/file-tree/api/handleStore';
 import { errorMessage } from '@/lib/utils';
 
 function suggestedFileName(name: string): string {
@@ -49,10 +51,52 @@ function showDocument(path: string, content: string): void {
 }
 
 export async function openFolder(): Promise<void> {
-  const path = await openFolderDialog();
+  const recentKeys = useSettingsStore.getState().recentFolders.map((f) => f.key);
+  const folder = await openFolderDialog(recentKeys);
 
-  if (!path) return;
-  showFolder(path);
+  if (!folder) return;
+  showFolder(folder.name);
+  addRecentFolder(folder.key, folder.name);
+}
+
+/** Puts a folder at the top of Recent folders and forgets the handles of folders that fell off the list */
+function addRecentFolder(key: string, name: string): void {
+  const settings = useSettingsStore.getState();
+  const before = settings.recentFolders;
+
+  settings.addRecentFolder({ key, name });
+  const kept = new Set(useSettingsStore.getState().recentFolders.map((f) => f.key));
+
+  for (const folder of before) {
+    if (!kept.has(folder.key)) void forgetHandle(folder.key);
+  }
+}
+
+/**
+ * Reopens a folder from Recent folders. Call it straight from a click (no await before it):
+ * the browser may need to ask for access again.
+ */
+export async function reopenFolder(key: string): Promise<void> {
+  const result = await openRecentFolder(key);
+
+  if (result.status === 'opened') {
+    showFolder(result.name);
+    addRecentFolder(key, result.name);
+
+    return;
+  }
+
+  const name = useSettingsStore.getState().recentFolders.find((f) => f.key === key)?.name ?? 'The folder';
+
+  if (result.status === 'missing') {
+    useSettingsStore.getState().removeRecentFolder(key);
+    void forgetHandle(key);
+    notify({ tone: 'info', title: `${name} is no longer available` });
+
+    return;
+  }
+
+  notify({ tone: 'info', title: `Access to ${name} wasn't granted` });
 }
 
 /** Shows a just-opened folder in the sidebar. Used by Open Folder and by restoring the last session. */

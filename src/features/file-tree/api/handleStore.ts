@@ -11,6 +11,9 @@ const MAX_FILE_HANDLES = 50;
 
 export const ROOT_KEY = 'root';
 
+/** Recent folders keep their handles under `folder:<id>`; their list in settings has its own cap */
+export const FOLDER_KEY_PREFIX = 'folder:';
+
 type StorableHandle = FileSystemFileHandle | FileSystemDirectoryHandle;
 
 type StoredHandle = { handle: StorableHandle; savedAt: number };
@@ -37,7 +40,7 @@ export async function rememberHandle(key: string, handle: StorableHandle): Promi
     await db.put(STORE, { handle, savedAt: Date.now() } satisfies StoredHandle, key);
 
     // Keep the store bounded: drop the oldest standalone-file handles
-    const keys = (await db.getAllKeys(STORE)).filter((k) => k !== ROOT_KEY);
+    const keys = (await db.getAllKeys(STORE)).filter((k) => k !== ROOT_KEY && !k.startsWith(FOLDER_KEY_PREFIX));
 
     if (keys.length > MAX_FILE_HANDLES) {
       const entries = await Promise.all(keys.map(async (k) => [k, (await db.get(STORE, k))?.savedAt ?? 0] as const));
@@ -47,6 +50,14 @@ export async function rememberHandle(key: string, handle: StorableHandle): Promi
   } catch (error) {
     // Remembering is a convenience; never block opening or saving on it
     console.warn('Could not remember file handle', error);
+  }
+}
+
+export async function forgetHandle(key: string): Promise<void> {
+  try {
+    await (await getDb()).delete(STORE, key);
+  } catch (error) {
+    console.warn('Could not forget file handle', error);
   }
 }
 

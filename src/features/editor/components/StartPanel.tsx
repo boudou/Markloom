@@ -1,9 +1,10 @@
-import { FileText, FolderOpen, LayoutTemplate, History } from 'lucide-react';
-import { openFile, openFolder } from '@/lib/documentActions';
+import { FileText, Folder, FolderOpen, LayoutTemplate, History } from 'lucide-react';
+import { openFile, openFolder, openPath, reopenFolder } from '@/lib/documentActions';
 import type { ShortcutId } from '@/lib/shortcuts';
 import { ProjectLinks } from '@/components/layout/ProjectLinks';
 import { Kbd } from '@/components/ui';
 import { useUiStore } from '@/stores/uiStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore, restoreLastSession, dismissLastSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,40 @@ interface StartAction {
   run: () => void | Promise<void>;
 }
 
+/** How many recent folders and recent files the start screen lists */
+const RECENT_ROWS = 5;
+
+const ROW_CLASS = cn(
+  'w-full flex items-center gap-3 py-2.5 border-b border-rule text-left text-sm',
+  'text-text-primary hover:text-accent-hover outline-none',
+  'focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 rounded-sm'
+);
+
+interface RecentRow {
+  id: string;
+  name: string;
+  /** Runs straight from the click: reopening a folder may need the click to ask for access */
+  run: () => void;
+}
+
+function RecentList({ title, icon: Icon, rows }: { title: string; icon: typeof FileText; rows: RecentRow[] }) {
+  if (!rows.length) return null;
+
+  return (
+    <section className="mt-6" aria-label={title}>
+      <h3 className="text-xs font-medium text-text-muted">{title}</h3>
+      <div className="mt-1 border-t border-rule">
+        {rows.map(({ id, name, run }) => (
+          <button key={id} type="button" onClick={run} title={name} className={ROW_CLASS}>
+            <Icon className="w-4 h-4 text-text-secondary flex-shrink-0" />
+            <span className="flex-1 truncate">{name}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function countOf(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
@@ -34,6 +69,8 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
   const openDialog = useUiStore((s) => s.openDialog);
   const offer = useSessionStore((s) => s.offer);
   const restoring = useSessionStore((s) => s.restoring);
+  const recentFolders = useSettingsStore((s) => s.recentFolders);
+  const recentFiles = useSettingsStore((s) => s.recentFiles);
 
   const offerLabel = offer
     ? joinList(
@@ -50,6 +87,18 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
     { icon: FolderOpen, label: 'Open a folder', shortcut: 'openFolder', run: openFolder },
     { icon: LayoutTemplate, label: 'Start from a template', run: () => openDialog('templates') },
   ];
+
+  const folderRows: RecentRow[] = recentFolders.slice(0, RECENT_ROWS).map((folder) => ({
+    id: folder.key,
+    name: folder.name,
+    run: () => void reopenFolder(folder.key),
+  }));
+
+  const fileRows: RecentRow[] = recentFiles.slice(0, RECENT_ROWS).map((file) => ({
+    id: file.path,
+    name: file.name,
+    run: () => void openPath(file.path),
+  }));
 
   return (
     <div className={cn('max-w-sm', className)}>
@@ -93,11 +142,7 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
             key={label}
             type="button"
             onClick={() => void run()}
-            className={cn(
-              'w-full flex items-center gap-3 py-2.5 border-b border-rule text-left text-sm',
-              'text-text-primary hover:text-accent-hover outline-none',
-              'focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 rounded-sm'
-            )}
+            className={ROW_CLASS}
           >
             <Icon className="w-4 h-4 text-text-secondary" />
             <span className="flex-1">{label}</span>
@@ -105,6 +150,9 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
           </button>
         ))}
       </div>
+
+      <RecentList title="Recent folders" icon={Folder} rows={folderRows} />
+      <RecentList title="Recent files" icon={FileText} rows={fileRows} />
 
       <p className="mt-4 text-xs text-text-muted">
         Every command is a keystroke away: <Kbd id="commandPalette" />
