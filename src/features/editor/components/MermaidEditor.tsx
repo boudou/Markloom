@@ -5,7 +5,9 @@ import CodeMirror from '@uiw/react-codemirror';
 import { EditorView } from '@codemirror/view';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
 import { usePreservedEditorState } from '../codemirror/documentStates';
-import { useActiveContent, useSetActiveContent } from '@/features/tabs';
+import { useLineRequest } from '../codemirror/useLineRequest';
+import { useActiveContent, useSetActiveContent, useTabsStore } from '@/features/tabs';
+import { useUiStore } from '@/stores/uiStore';
 import { MermaidRenderer } from '@/features/mermaid/components/MermaidRenderer';
 import { forgetDiagram } from '@/features/mermaid/utils/mermaidConfig';
 import { cn } from '@/lib/utils';
@@ -42,6 +44,9 @@ function MermaidSource({ content, onChange }: MermaidSourceProps) {
   const [view, setView] = useState<EditorView | null>(null);
   const initialState = usePreservedEditorState(content, view);
 
+  // Search results and other line requests land here as they do in the Markdown source
+  useLineRequest(view);
+
   return (
     <CodeMirror
       value={content}
@@ -60,6 +65,7 @@ function MermaidSource({ content, onChange }: MermaidSourceProps) {
 export function MermaidEditor() {
   const content = useActiveContent();
   const setContent = useSetActiveContent();
+  const activeTabId = useTabsStore((s) => s.activeTabId);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [splitPosition, setSplitPosition] = useState(50);
@@ -68,6 +74,11 @@ export function MermaidEditor() {
   const [renderKey, setRenderKey] = useState(0);
   const [viewMode, setViewMode] = useState<'split' | 'preview'>('split');
   const [zoom, setZoom] = useState(100);
+
+  // A line request for this document needs the source, so "Diagram only" gives way to it
+  const lineRequested = useUiStore((s) => s.lineRequest !== null && s.lineRequest.tabId === activeTabId);
+
+  if (lineRequested && viewMode === 'preview') setViewMode('split');
 
   // Update debounced content with delay for live preview
   useEffect(() => {
