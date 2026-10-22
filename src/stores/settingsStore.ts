@@ -38,6 +38,20 @@ export const PAGE_WIDTHS: readonly { value: PageWidth; label: string }[] = [
   { value: 'full', label: 'Full' },
 ];
 
+/** Auto-save delays offered in Settings, in seconds */
+export const AUTO_SAVE_INTERVALS: readonly number[] = [10, 30, 60, 300];
+
+/** "10 seconds", "1 minute", "5 minutes": whole minutes read as minutes */
+export function formatInterval(seconds: number): string {
+  if (seconds >= 60 && seconds % 60 === 0) {
+    const minutes = seconds / 60;
+
+    return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+  }
+
+  return seconds === 1 ? '1 second' : `${seconds} seconds`;
+}
+
 interface SettingsState {
   // Editor settings
   editor: EditorSettings;
@@ -69,6 +83,9 @@ interface SettingsState {
 
   // Actions
   setAutoSave: (enabled: boolean, interval?: number) => void;
+  setAutoSaveInterval: (seconds: number) => void;
+  setWordWrap: (on: boolean) => void;
+  setLineNumbers: (on: boolean) => void;
   setSyncScroll: (enabled: boolean) => void;
   setSplitRatio: (ratio: number) => void;
   setPageWidth: (width: PageWidth) => void;
@@ -191,6 +208,22 @@ export const useSettingsStore = create<SettingsState>()(
           if (interval !== undefined) {
             state.autoSaveInterval = interval;
           }
+        }),
+
+      setAutoSaveInterval: (seconds) =>
+        set((state) => {
+          state.autoSaveInterval = seconds;
+        }),
+
+      // Markdown editor
+      setWordWrap: (on) =>
+        set((state) => {
+          state.editor.wordWrap = on;
+        }),
+
+      setLineNumbers: (on) =>
+        set((state) => {
+          state.editor.lineNumbers = on;
         }),
 
       // Sync scroll

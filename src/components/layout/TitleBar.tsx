@@ -1,4 +1,4 @@
-import { FileText, FolderOpen, Save, FileDown, ClipboardCopy, LayoutTemplate, Keyboard, PanelLeft, ListTree, Search } from 'lucide-react';
+import { FileText, FolderOpen, Save, FileDown, ClipboardCopy, LayoutTemplate, Keyboard, PanelLeft, ListTree, Search, Settings } from 'lucide-react';
 import { IconButton, Kbd, Tooltip } from '@/components/ui';
 import { RecentFilesMenu } from '@/features/recent-files';
 import { HistoryPanel } from '@/features/version-history';
@@ -35,6 +35,8 @@ const OUTLINE = appCommand('outline');
 const SHORTCUTS_WINDOW = appCommand('shortcuts');
 
 const PALETTE = appCommand('palette');
+
+const SETTINGS = appCommand('settings');
 
 function Separator() {
   return <div className="w-px h-4 bg-rule mx-1" aria-hidden />;
@@ -165,6 +167,11 @@ export function TitleBar() {
         <Tooltip content={commandHint(SHORTCUTS_WINDOW)}>
           <IconButton variant="ghost" size="sm" onClick={() => SHORTCUTS_WINDOW.run()}>
             <Keyboard className="w-4 h-4" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip content={commandHint(SETTINGS)}>
+          <IconButton variant="ghost" size="sm" onClick={() => SETTINGS.run()}>
+            <Settings className="w-4 h-4" />
           </IconButton>
         </Tooltip>
       </div>

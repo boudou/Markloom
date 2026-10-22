@@ -102,6 +102,8 @@ export const APP_COMMANDS: readonly AppCommand[] = [
     run: copyAsRichText,
   },
   { id: 'templates', group: 'File', label: () => 'New from template…', run: () => useUiStore.getState().openDialog('templates') },
+  // No `when`: the key and the palette open Settings in focus mode too
+  { id: 'settings', shortcut: 'openSettings', run: () => useUiStore.getState().openDialog('settings') },
   {
     id: 'close-tab',
     shortcut: 'closeTab',

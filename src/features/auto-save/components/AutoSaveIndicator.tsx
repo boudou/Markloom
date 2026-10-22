@@ -2,7 +2,7 @@ import { Cloud, CloudOff, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Tooltip } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { selectActiveTab, useTabsStore } from '@/features/tabs';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { formatInterval, useSettingsStore } from '@/stores/settingsStore';
 import { useAutoSave, type AutoSaveStatus } from '../hooks';
 import { toggleAutoSave } from '../autoSave';
 
@@ -48,11 +48,13 @@ export function AutoSaveIndicator() {
       : looks[status].detail;
 
   // The tooltip is also the button's accessible name, so it starts with the state
+  const delay = formatInterval(interval);
+
   const tooltip = !autoSave
-    ? `Auto-save off. Turn it on to save documents that have a file ${interval} seconds after you stop typing.`
+    ? `Auto-save off. Turn it on to save documents that have a file ${delay} after you stop typing.`
     : hasFile
-      ? `Auto-save on. ${detail}Click to turn off.`
-      : 'Auto-save on. Save this document once to start auto-saving it. Click to turn off.';
+      ? `Auto-save on, ${delay} after you stop typing. ${detail}Click to turn off.`
+      : `Auto-save on, ${delay} after you stop typing. Save this document once to start auto-saving it. Click to turn off.`;
 
   return (
     <Tooltip content={tooltip}>
