@@ -2,10 +2,7 @@ import { useEffect, type RefObject } from 'react';
 import { useActivePath, useTabsStore } from '@/features/tabs';
 import { canResolveRelative, readFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { refreshImages, showImage } from '../utils/previewImages';
-import { resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
-
-// Matches URLs with a scheme (http:, mailto:, data:, blob:, ...) or protocol-relative URLs
-const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
+import { isAbsoluteUrl, resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
 
 // Linked files that open in a window, by extension, with the type they open as. The type never
 // comes from the file: a folder's .html would otherwise run as a page of this app's origin.
@@ -135,7 +132,7 @@ export function useDocumentLinks(
       // Any image that fails to load (remote 404, bad data URL) gets a readable placeholder
       img.addEventListener('error', () => showMissingImage(img, src), { once: true });
 
-      if (!src || ABSOLUTE_URL.test(src) || src.startsWith('#')) return;
+      if (!src || isAbsoluteUrl(src) || src.startsWith('#')) return;
 
       if (!canResolveRelative(activeFilePath)) {
         showMissingImage(img, src, 'open the document from its folder to show it');
@@ -182,7 +179,7 @@ export function useDocumentLinks(
       if (requireModifier && !(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
 
-      if (ABSOLUTE_URL.test(href)) {
+      if (isAbsoluteUrl(href)) {
         window.open(href, '_blank', 'noopener');
 
         return;

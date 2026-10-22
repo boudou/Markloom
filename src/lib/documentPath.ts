@@ -46,6 +46,13 @@ export function resolveSourcePath(fromFile: string, src: string): string {
   return resolveRelativePath(fromFile, splitHash(src).path);
 }
 
+const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
+
+/** A source with a scheme (https:, data:, blob:, mailto:, ...) or a protocol-relative //host: not a path in the open folder. */
+export function isAbsoluteUrl(src: string): boolean {
+  return ABSOLUTE_URL.test(src);
+}
+
 export function safeDecode(value: string): string {
   try {
     return decodeURIComponent(value);

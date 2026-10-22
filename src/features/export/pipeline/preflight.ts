@@ -3,7 +3,7 @@ import { getMarkdownParser, mermaidFences } from '@/lib/markdown';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveSourcePath, safeDecode } from '@/lib/documentPath';
+import { isAbsoluteUrl, resolveSourcePath, safeDecode } from '@/lib/documentPath';
 import { placedInlines } from './inlineLines';
 
 export interface ExportIssue {
@@ -12,8 +12,6 @@ export interface ExportIssue {
   line: number;
   message: string;
 }
-
-const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
 
 export async function checkDocument(markdown: string, docPath: string | null): Promise<ExportIssue[]> {
   const tokens = getMarkdownParser().parse(markdown, {});
@@ -44,7 +42,7 @@ export async function checkDocument(markdown: string, docPath: string | null): P
       if (child.type !== 'image') continue;
       const src = child.attrGet('src') ?? '';
 
-      if (!src || ABSOLUTE_URL.test(src)) continue;
+      if (!src || isAbsoluteUrl(src)) continue;
 
       // markdown-it stores the source percent-encoded; show it as the user typed it
       const typed = safeDecode(src);

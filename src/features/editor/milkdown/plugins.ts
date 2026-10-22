@@ -10,7 +10,7 @@ import { Decoration, DecorationSet, type EditorProps, type EditorView, type Node
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { fillDiagram } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { resolveSourcePath } from '@/lib/documentPath';
+import { isAbsoluteUrl, resolveSourcePath } from '@/lib/documentPath';
 import { useTabsStore, selectActiveContent, selectActiveTab } from '@/features/tabs';
 import {
   fenceLanguage,
@@ -20,8 +20,6 @@ import {
   leadingBlankLines,
   mermaidFences,
 } from '@/lib/markdown';
-
-const ABSOLUTE_URL = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 
 const imageUrlCache = new Map<string, string>();
 
@@ -33,7 +31,7 @@ function activeDocumentPath(): string | null {
 async function resolveImageSrc(src: string): Promise<string> {
   const docPath = activeDocumentPath();
 
-  if (!src || ABSOLUTE_URL.test(src) || !canResolveRelative(docPath)) return src;
+  if (!src || isAbsoluteUrl(src) || !canResolveRelative(docPath)) return src;
   const path = resolveSourcePath(docPath, src);
   const cached = imageUrlCache.get(path);
 
