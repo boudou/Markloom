@@ -359,7 +359,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
       <div className="relative min-h-full px-8 py-10">
         <Milkdown />
         {isBlank && (
-          <div className="pointer-events-none absolute inset-x-8 top-10 mx-auto max-w-[72ch]">
+          <div className="pointer-events-none absolute inset-x-8 top-10 mx-auto max-w-[var(--page-width,72ch)]">
             <p className="font-editor text-lg text-text-muted">Start writing…</p>
             <StartPanel
               className="pointer-events-auto mt-16"

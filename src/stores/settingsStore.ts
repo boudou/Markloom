@@ -21,6 +21,16 @@ export interface EditorSettings {
   lineNumbers: boolean;
 }
 
+/** How wide the rich-text page and the Markdown preview may grow */
+export type PageWidth = 'readable' | 'wide' | 'full';
+
+/** Cycle order of the toolbar button and order of the palette commands */
+export const PAGE_WIDTHS: readonly { value: PageWidth; label: string }[] = [
+  { value: 'readable', label: 'Readable' },
+  { value: 'wide', label: 'Wide' },
+  { value: 'full', label: 'Full' },
+];
+
 interface SettingsState {
   // Editor settings
   editor: EditorSettings;
@@ -35,6 +45,9 @@ interface SettingsState {
   // Share of the split view given to the source pane, in percent
   splitRatio: number;
 
+  // Width of the rich-text page and the preview column
+  pageWidth: PageWidth;
+
   // What was open last time, so it can be offered again on launch
   lastSession: LastSession | null;
 
@@ -48,6 +61,7 @@ interface SettingsState {
   setAutoSave: (enabled: boolean, interval?: number) => void;
   setSyncScroll: (enabled: boolean) => void;
   setSplitRatio: (ratio: number) => void;
+  setPageWidth: (width: PageWidth) => void;
   setLastSession: (session: LastSession | null) => void;
 
   // Recent files
@@ -61,7 +75,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'lastSession' | 'recentFiles' | 'wordGoals'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'wordGoals'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -86,6 +100,7 @@ const KEPT_TOP_LEVEL_KEYS = [
   'autoSaveInterval',
   'syncScroll',
   'splitRatio',
+  'pageWidth',
   'lastSession',
   'recentFiles',
   'wordGoals',
@@ -130,6 +145,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoSaveInterval: 30, // 30 seconds
       syncScroll: true,
       splitRatio: SPLIT_RATIO.defaultValue,
+      pageWidth: 'readable',
       lastSession: null,
       recentFiles: [],
       wordGoals: {},
@@ -170,6 +186,11 @@ export const useSettingsStore = create<SettingsState>()(
       setSplitRatio: (ratio) =>
         set((state) => {
           state.splitRatio = Math.max(SPLIT_RATIO.min, Math.min(SPLIT_RATIO.max, ratio));
+        }),
+
+      setPageWidth: (width) =>
+        set((state) => {
+          state.pageWidth = width;
         }),
 
       setLastSession: (session) =>
@@ -215,6 +236,7 @@ export const useSettingsStore = create<SettingsState>()(
         autoSaveInterval: state.autoSaveInterval,
         syncScroll: state.syncScroll,
         splitRatio: state.splitRatio,
+        pageWidth: state.pageWidth,
         lastSession: state.lastSession,
         recentFiles: state.recentFiles,
         wordGoals: state.wordGoals,

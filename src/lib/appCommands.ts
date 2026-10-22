@@ -7,7 +7,7 @@ import { toggleAutoSave } from '@/features/auto-save';
 // The store only: the panel itself is a lazy chunk, loaded by the sidebar
 import { useFolderSearchStore } from '@/features/folder-search/stores/folderSearchStore';
 import { useAppStore } from '@/stores/appStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { PAGE_WIDTHS, useSettingsStore } from '@/stores/settingsStore';
 import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from './documentActions';
 import { SHORTCUTS, matchesCombo, shortcutHint, type ShortcutGroup, type ShortcutId } from './shortcuts';
@@ -120,6 +120,14 @@ export const APP_COMMANDS: readonly AppCommand[] = [
       app.setEditorMode(app.editorMode === 'split' ? 'wysiwyg' : 'split');
     },
   },
+  ...PAGE_WIDTHS.map(
+    ({ value, label }): AppCommand => ({
+      id: `page-width-${value}`,
+      group: 'View',
+      label: () => `Page width: ${label}`,
+      run: () => useSettingsStore.getState().setPageWidth(value),
+    })
+  ),
   {
     id: 'outline',
     shortcut: 'toggleOutline',
