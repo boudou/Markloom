@@ -5,8 +5,8 @@ import { flushEditorEdits } from './uiStore';
 
 export type EditorMode = 'split' | 'wysiwyg';
 
-/** What the left panel shows: the folder's files, or the document's contents (headings) */
-export type SidebarView = 'files' | 'outline';
+/** What the left panel shows: the folder's files, the document's contents (headings), or a search of the folder */
+export type SidebarView = 'files' | 'outline' | 'search';
 
 interface AppState {
   // Sidebar

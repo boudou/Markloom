@@ -4,6 +4,8 @@
 import { useTabsStore } from '@/features/tabs';
 import { useFindReplaceStore } from '@/features/find-replace';
 import { toggleAutoSave } from '@/features/auto-save';
+// The store only: the panel itself is a lazy chunk, loaded by the sidebar
+import { useFolderSearchStore } from '@/features/folder-search/stores/folderSearchStore';
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -103,6 +105,15 @@ export const APP_COMMANDS: readonly AppCommand[] = [
     },
   },
   { id: 'replace', shortcut: 'replace', run: () => useFindReplaceStore.getState().open(true) },
+  {
+    id: 'search-folder',
+    shortcut: 'searchFolder',
+    when: () => !!useAppStore.getState().rootPath,
+    run: () => {
+      useAppStore.getState().showSidebarView('search');
+      useFolderSearchStore.getState().requestFocus();
+    },
+  },
 ];
 
 export function commandLabel(command: AppCommand): string {

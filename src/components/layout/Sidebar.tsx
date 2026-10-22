@@ -1,22 +1,29 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { m } from 'framer-motion';
-import { FolderTree, ListTree } from 'lucide-react';
+import { FolderTree, ListTree, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip } from '@/components/ui';
 import { useResizeDrag } from '@/lib/useResizeDrag';
 import { SIDEBAR_WIDTH, useAppStore, type SidebarView } from '@/stores/appStore';
 import { FileTree } from '@/features/file-tree/components';
 import { OutlineDock } from '@/features/outline';
 
+const SearchPanel = lazy(() => import('@/features/folder-search/components/SearchPanel'));
+
 const VIEWS: { id: SidebarView; label: string; icon: typeof FolderTree }[] = [
   { id: 'files', label: 'Files', icon: FolderTree },
   { id: 'outline', label: 'Contents', icon: ListTree },
+  { id: 'search', label: 'Search', icon: Search },
 ];
+
+/** Below this width the view tabs show their icons only (three labelled tabs need about 250px) */
+const LABELLED_TABS_MIN_WIDTH = 260;
 
 export function Sidebar() {
   const rootPath = useAppStore((s) => s.rootPath);
   const view = useAppStore((s) => s.sidebarView);
   const showSidebarView = useAppStore((s) => s.showSidebarView);
-  // Contents is always useful; the file list only once a folder is open
+  // Contents is always useful; the file list and search only once a folder is open
   const open = useAppStore((s) => s.sidebarOpen) && (view === 'outline' || !!rootPath);
   const sidebarWidth = useAppStore((s) => s.sidebarWidth);
   const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
@@ -37,6 +44,8 @@ export function Sidebar() {
     commit: setSidebarWidth,
   });
 
+  const iconOnly = resize.value < LABELLED_TABS_MIN_WIDTH;
+
   return (
     <m.aside
       ref={asideRef}
@@ -52,7 +61,7 @@ export function Sidebar() {
           {VIEWS.map(({ id, label, icon: Icon }) => {
             const selected = view === id;
 
-            return (
+            const tab = (
               <button
                 key={id}
                 type="button"
@@ -66,14 +75,31 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="w-3.5 h-3.5" aria-hidden />
-                {label}
+                {iconOnly ? null : label}
               </button>
+            );
+
+            // The tooltip also names the icon-only tab
+            return iconOnly ? (
+              <Tooltip key={id} content={label} side="bottom">
+                {tab}
+              </Tooltip>
+            ) : (
+              tab
             );
           })}
         </div>
 
         <div role="tabpanel" className="flex-1 min-h-0">
-          {view === 'files' ? <FileTree /> : <OutlineDock />}
+          {view === 'files' ? (
+            <FileTree />
+          ) : view === 'search' ? (
+            <Suspense fallback={null}>
+              <SearchPanel />
+            </Suspense>
+          ) : (
+            <OutlineDock />
+          )}
         </div>
       </div>
 
