@@ -19,7 +19,7 @@ function suggestedFileName(name: string): string {
 }
 
 export function newDocument(): void {
-  useTabsStore.getState().createTab(null, '', 'Untitled');
+  useTabsStore.getState().createTab(null, '');
 }
 
 export async function openFile(): Promise<void> {

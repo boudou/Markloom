@@ -1,6 +1,7 @@
 # Meeting Notes
 
 **Date:** {{date}}
+
 **Attendees:**
 
 ## Agenda
@@ -26,4 +27,5 @@
 ## Next Meeting
 
 **Date:**
+
 **Topics:**

@@ -21,7 +21,10 @@ interface TabsState {
   contents: Record<string, string>;
 
   // Actions
-  /** Opens a new tab, or switches to the tab that already has this path */
+  /**
+   * Opens a new tab, or switches to the tab that already has this path.
+   * A pathless tab without a `name` gets the lowest free "Untitled", "Untitled 2", …; an explicit `name` is used as given.
+   */
   createTab: (path?: string | null, content?: string, name?: string) => void;
   /** Opens a file, reusing the active tab when it is an empty, untouched Untitled tab */
   openDocument: (path: string, content: string) => void;
@@ -50,6 +53,19 @@ const createNewTab = (path?: string | null, content?: string, name?: string): Ta
   };
 };
 
+/** "Untitled" if no open tab has that name, else "Untitled N" for the lowest N >= 2 that is free */
+function nextUntitledName(tabs: Tab[]): string {
+  const taken = new Set(tabs.map((t) => t.name));
+
+  if (!taken.has('Untitled')) return 'Untitled';
+
+  let n = 2;
+
+  while (taken.has(`Untitled ${n}`)) n++;
+
+  return `Untitled ${n}`;
+}
+
 const firstTab = createNewTab(null, '', 'Untitled');
 
 export const useTabsStore = create<TabsState>()(
@@ -59,7 +75,8 @@ export const useTabsStore = create<TabsState>()(
     contents: { [firstTab.id]: '' },
 
     createTab: (path, content, name) => {
-      const newTab = createNewTab(path, content, name);
+      const tabName = !path && name === undefined ? nextUntitledName(get().tabs) : name;
+      const newTab = createNewTab(path, content, tabName);
       set((state) => {
         // Check if file is already open
         if (path) {

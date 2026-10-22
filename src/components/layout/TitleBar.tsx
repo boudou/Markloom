@@ -6,7 +6,7 @@ import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/t
 import { useAppStore } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
 import { appCommand, commandHint } from '@/lib/appCommands';
-import { shortcutSpokenKeys } from '@/lib/shortcuts';
+import { shortcutHint, shortcutSpokenKeys } from '@/lib/shortcuts';
 import { cn } from '@/lib/utils';
 import { MarkloomMark } from './MarkloomMark';
 import { useRef } from 'react';
@@ -113,7 +113,7 @@ export function TitleBar() {
           </IconButton>
         </Tooltip>
         <Separator />
-        <Tooltip content={commandHint(EXPORT)}>
+        <Tooltip content={shortcutHint('Export to Word, PDF, Web page or Markdown', 'export')}>
           <IconButton variant="ghost" size="sm" onClick={() => EXPORT.run()} disabled={!hasContent}>
             <FileDown className="w-4 h-4" />
           </IconButton>

@@ -3,6 +3,7 @@
 ![Cover Image](url)
 
 **Published:** {{date}}
+
 **Tags:** tag1, tag2, tag3
 
 ## Introduction

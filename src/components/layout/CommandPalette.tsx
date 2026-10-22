@@ -31,6 +31,13 @@ interface Command {
 }
 
 /** Toggle labels and `when` read the stores directly, so the list reflects the moment it's built */
+/** "Mind map" -> "Insert mind map", but acronyms keep their case: "ER diagram" -> "Insert ER diagram" */
+function insertLabel(name: string): string {
+  const lead = /^[A-Z]{2}/.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1);
+
+  return `Insert ${lead}`;
+}
+
 function buildCommands(editorCommands: EditorCommands | null, recentFiles: RecentFile[]): Command[] {
   const commands: Command[] = APP_COMMANDS.flatMap((c) =>
     c.id === 'palette' || !isOffered(c)
@@ -74,7 +81,7 @@ function buildCommands(editorCommands: EditorCommands | null, recentFiles: Recen
       plain('image', 'Insert image…', 'Insert'),
       ...mermaidTemplates.map((template) => ({
         id: `diagram-${template.id}`,
-        label: `Insert ${template.name.toLowerCase()}`,
+        label: insertLabel(template.name),
         group: 'Insert',
         run: () => editorCommands.insert(template.template),
       }))
