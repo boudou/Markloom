@@ -15,7 +15,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 [![Last commit](https://img.shields.io/github/last-commit/boudou/Markloom)](https://github.com/boudou/Markloom/commits/main)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Download](#download) · [User manual](https://github.com/boudou/Markloom/wiki/User-Manual) · [Run from source](#run-from-source) · [Contributing](CONTRIBUTING.md)
+[Open in your browser](https://boudou.github.io/Markloom/) · [Download](#download) · [User manual](https://github.com/boudou/Markloom/wiki/User-Manual) · [Run from source](#run-from-source) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -27,7 +27,9 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 - **Mermaid diagrams**: rendered live, with errors reported as "Line N: …" against your document
 - **Callouts**: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and friends render as coloured boxes, in the preview and in exports
 - **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
+- **Copy as rich text**: paste a document, or just the selection, formatted into email, Google Docs or Confluence, diagrams included
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore
+- **Quick open** (`Ctrl+P`) to jump to any file in the open folder, and **search across files** (`Ctrl+Shift+F`) with results grouped by file and line
 - **Find & replace** that works in both editors, plus a command palette (`Ctrl+Shift+P`)
 - **Image drop and paste**: images are saved to `assets/` beside the document
 - **Syntax highlighting** with a copy button on every code block, templates, version history, native spell check
@@ -40,7 +42,9 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 
 ## Download
 
-Get the desktop app for your system from the [latest release](https://github.com/boudou/Markloom/releases/latest):
+**No install:** open the web version at **[boudou.github.io/Markloom](https://boudou.github.io/Markloom/)**. Your documents stay on your computer. Use Chrome or Edge to open and save files and folders.
+
+Or get the desktop app for your system from the [latest release](https://github.com/boudou/Markloom/releases/latest):
 
 | System | File |
 | --- | --- |
@@ -50,11 +54,9 @@ Get the desktop app for your system from the [latest release](https://github.com
 
 The installers are not code-signed yet ([#30](https://github.com/boudou/Markloom/issues/30)), so your system may warn you the first time:
 
-- **Windows**: on the SmartScreen prompt, choose **More info → Run anyway**. If the message says **Smart App Control** blocked Markloom, there is no Run anyway: Windows 11 only runs unsigned apps it already knows, and it can't make an exception for one app. Until the builds are signed, either turn Smart App Control off (**Windows Security → App & browser control → Smart App Control**) or [run Markloom from source](#run-from-source).
+- **Windows**: on the SmartScreen prompt, choose **More info → Run anyway**. If the message says **Smart App Control** blocked Markloom, there is no Run anyway: Windows 11 only runs unsigned apps it already knows, and it can't make an exception for one app. Until the builds are signed, use the [web version](https://boudou.github.io/Markloom/), turn Smart App Control off (**Windows Security → App & browser control → Smart App Control**), or [run Markloom from source](#run-from-source).
 - **macOS**: open Markloom once; when macOS says it can't verify the developer, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Markloom. If macOS says Markloom is *damaged* (builds up to 0.5.0), run `xattr -cr /Applications/Markloom.app` once.
 - **Linux**: make the AppImage executable (`chmod +x Markloom-*.AppImage`), then run it.
-
-Prefer not to install anything? [Run the web version from source](#run-from-source).
 
 ## Quick tour
 
@@ -70,8 +72,8 @@ Prefer not to install anything? [Run the web version from source](#run-from-sour
    ````
 
 4. **Add images** by dropping or pasting them. They are saved to an `assets/` folder next to the document.
-5. **Find your way around**: `Ctrl+F` finds, `Ctrl+H` replaces, `Ctrl+Shift+L` shows the outline, and `Ctrl+Shift+H` opens version history.
-6. **Export** (`Ctrl+E`) to Word, PDF, a standalone web page or portable Markdown.
+5. **Find your way around**: `Ctrl+P` opens any file in the folder by name, `Ctrl+Shift+F` searches every file in it, `Ctrl+F` finds and `Ctrl+H` replaces in the current document, `Ctrl+Shift+L` shows the outline, and `Ctrl+Shift+H` opens version history.
+6. **Export** (`Ctrl+E`) to Word, PDF, a standalone web page or portable Markdown, or **Copy as rich text** (title bar or command palette) to paste it formatted into an email or another editor.
 7. **Do anything from the keyboard**: `Ctrl+Shift+P` opens the command palette, and `Ctrl+/` lists every shortcut. On macOS, use `⌘` instead of `Ctrl`.
 
 In the browser, new document and close tab are `Alt+N` and `Alt+W`, because the browser keeps `Ctrl+N` and `Ctrl+W` for itself.
@@ -105,7 +107,7 @@ npm run build           # type-check and build into dist/
 npm run preview         # serve dist/ on http://localhost:4173
 ```
 
-`dist/` is a static site, so you can host it on any static web server.
+`dist/` is a static site, so you can host it on any static web server. The [hosted web version](https://boudou.github.io/Markloom/) is built this way by `.github/workflows/pages.yml` each time a release is published.
 
 ### Desktop app
 
