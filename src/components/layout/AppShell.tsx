@@ -102,7 +102,8 @@ export function AppShell() {
 
           <main className="flex-1 flex flex-col min-w-0">
             <TabBar />
-            <div className="flex-1 min-h-0">
+            {/* Skip link target: the wrapper, since both editors stay mounted and an id on each would clash */}
+            <div id="document" className="flex-1 min-h-0">
               <EditorContainer />
             </div>
           </main>
