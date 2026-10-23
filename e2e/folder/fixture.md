@@ -12,6 +12,15 @@ Every construct the parity spec checks, once each. Both editors must render all 
 
 <img src="assets/pic.png" alt="HTML image" width="16">
 
+<picture>
+<source srcset="assets/pic.png">
+<img src="assets/pic.png" alt="Picture image" width="16">
+</picture>
+
+<img src="assets/pic.png" srcset="assets/pic.png 1x" alt="Srcset image" width="16">
+
+<audio src="assets/tone.wav" controls></audio>
+
 ## Diagram
 
 ```mermaid

@@ -5,6 +5,7 @@ import { openPath } from '@/lib/documentActions';
 import { notify } from '@/stores/uiStore';
 import { errorMessage } from '@/lib/utils';
 import { refreshImages, showImage } from '../utils/previewImages';
+import { isMediaPending, showDocumentMedia } from '../utils/documentMedia';
 import { isAbsoluteUrl, resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
 
 // Linked files that open in a window, by extension, with the type they open as. The type never
@@ -104,7 +105,7 @@ async function openLinkedFile(path: string, file: File): Promise<void> {
 
 /**
  * Makes rendered markdown behave like a document on disk:
- * - relative image paths are loaded from the open folder,
+ * - relative image paths (src and srcset) and video and audio sources are loaded from the open folder,
  * - `#anchor` links scroll within the document,
  * - relative links to other documents open them in a tab; images, PDFs and plain text open in
  *   a window, and other files are downloaded,
@@ -116,7 +117,10 @@ export function useDocumentLinks(
   options: {
     /** Editable surfaces follow links only on Ctrl/Cmd+click */
     requireModifier?: boolean;
-    /** Off when the editor resolves images itself; only turns off swapping `img[src]` in rendered HTML */
+    /**
+     * Off when the editor resolves images itself; only turns off swapping `img[src]`, `srcset` and
+     * media sources in rendered HTML (the focus refresh still runs)
+     */
     resolveImages?: boolean;
   } = {}
 ): void {
@@ -129,6 +133,9 @@ export function useDocumentLinks(
 
     if (!container || !resolveImages) return;
 
+    // First, so a relative srcset candidate (which wins over src) is off before any error is handled
+    showDocumentMedia(container, activeFilePath);
+
     container.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
       const src = img.getAttribute('src') ?? '';
 
@@ -137,6 +144,8 @@ export function useDocumentLinks(
       // an object URL, or reports it missing), that failure says nothing about the image.
       img.addEventListener('error', () => {
         if (img.dataset.imagePath && !img.src.startsWith('blob:')) return;
+
+        if (isMediaPending(img)) return;
 
         showMissingImage(img, src);
       });
@@ -160,13 +169,17 @@ export function useDocumentLinks(
     const handleFocus = () => {
       const container = containerRef.current;
 
-      if (container) refreshImages(container);
+      if (!container) return;
+
+      refreshImages(container);
+      // Re-reads srcset and media files too: a changed file's old object URL has been freed
+      showDocumentMedia(container, activeFilePath);
     };
 
     window.addEventListener('focus', handleFocus);
 
     return () => window.removeEventListener('focus', handleFocus);
-  }, [containerRef]);
+  }, [containerRef, activeFilePath]);
 
   // Intercept link clicks
   useEffect(() => {
