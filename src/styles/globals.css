@@ -855,6 +855,21 @@
   cursor: text;
 }
 
+/* Callouts (milkdown/callouts.ts): the box and title use the preview's .callout rules; the
+   [!NOTE] marker is hidden while the title stands in for it, and a click on the title edits it */
+.rt-document .rt-callout-marker {
+  display: none;
+}
+
+.rt-document .rt-callout-title {
+  cursor: text;
+  user-select: none;
+}
+
+.rt-document .rt-callout-title + .rt-callout-marker + * {
+  margin-top: 0;
+}
+
 /* Task items: the checkbox is drawn in the left padding and toggled on click */
 .rt-document li[data-item-type='task'] {
   list-style: none;

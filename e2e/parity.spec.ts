@@ -88,10 +88,9 @@ test('strikethrough @parity', async ({ app }) => {
 });
 
 test('callout @parity', async ({ app }) => {
-  knownGap(app, 'wysiwyg', 211, 'rich text shows callouts as a plain quote with a literal [!NOTE]');
-
   await expect(app.rendered().locator('[data-callout="note"]')).toContainText('Callout body text.');
-  await expect(app.rendered()).not.toContainText('[!NOTE]');
+  // Rich text keeps the marker in the document, hidden while the title stands in for it
+  await expect(app.rendered()).not.toContainText('[!NOTE]', { useInnerText: true });
 });
 
 test('highlighted code @parity @code', async ({ app }) => {
