@@ -791,10 +791,25 @@
   --page-width: none;
 }
 
-/* Focus mode (EditorContainer): the last lines can scroll up to mid-screen */
+/* Focus mode (EditorContainer): the first and last lines can scroll to mid-screen, where
+   typewriter scrolling keeps the cursor (codemirror/focus.ts, milkdown/focus.ts) */
 [data-focus] .cm-editor .cm-content,
 [data-focus] .rt-document {
+  padding-top: 50vh;
   padding-bottom: 50vh;
+}
+
+/* Every block but the one with the cursor is dimmed. Opacity, not colour: the source theme and
+   highlighting set their own colours. The transition only exists in focus mode, so leaving it
+   undims at once. */
+[data-focus] .cm-line,
+[data-focus] .rt-document > * {
+  transition: opacity 150ms ease-out;
+}
+
+[data-focus] .cm-line:not(.cm-focus-block),
+[data-focus] .rt-document > :not(.is-focus-block) {
+  opacity: 0.35;
 }
 
 .rt-document {

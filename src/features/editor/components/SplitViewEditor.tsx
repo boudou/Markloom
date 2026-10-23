@@ -25,6 +25,7 @@ import type { EditorCommands, FormatState } from '../types';
 import { formatStateReporter, selectedSource, selectionReporter } from '../codemirror/formatState';
 import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
+import { focusEditing } from '../codemirror/focus';
 import { usePreservedEditorState } from '../codemirror/documentStates';
 
 interface SplitViewEditorProps {
@@ -97,6 +98,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       sourceAttributes,
       diagramErrorLines,
       codeSpellcheck,
+      focusEditing,
       findHighlights,
       diagramErrorTheme,
       formatStateReporter(onFormatState),
