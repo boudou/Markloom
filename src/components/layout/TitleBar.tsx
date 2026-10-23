@@ -4,9 +4,7 @@ import { RecentFilesMenu } from '@/features/recent-files';
 import { HistoryPanel } from '@/features/version-history';
 import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/tabs';
 import { useAppStore } from '@/stores/appStore';
-import { useUiStore } from '@/stores/uiStore';
-import { appCommand, commandHint } from '@/lib/appCommands';
-import { shortcutHint } from '@/lib/shortcuts';
+import { appCommand, commandHint, useOffered } from '@/lib/appCommands';
 import { cn } from '@/lib/utils';
 import { MarkloomMark } from './MarkloomMark';
 import { useRef } from 'react';
@@ -50,13 +48,13 @@ export function TitleBar() {
   // Primitives only: the tab object itself changes on every keystroke
   const hasContent = useTabsStore((s) => /\S/.test(selectActiveContent(s)));
   const isDirty = useTabsStore((s) => !!selectActiveTab(s)?.isDirty);
-  const docName = useTabsStore((s) => selectActiveTab(s)?.name ?? 'Untitled');
+  const docName = useTabsStore((s) => selectActiveTab(s)?.name ?? '');
   const docPath = useTabsStore((s) => selectActiveTab(s)?.path ?? null);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const sidebarView = useAppStore((s) => s.sidebarView);
   const rootPath = useAppStore((s) => s.rootPath);
-  // A .mmd file has no editor commands, so no rich-text copy
-  const hasEditor = useUiStore((s) => !!s.editorCommands);
+  // The palette's own condition: a .mmd file has no editor commands, so no rich-text copy
+  const copyOffered = useOffered(COPY_RICH);
   const filesVisible = sidebarOpen && sidebarView === 'files' && !!rootPath;
   const outlineOpen = sidebarOpen && sidebarView === 'outline';
 
@@ -115,13 +113,13 @@ export function TitleBar() {
           </IconButton>
         </Tooltip>
         <Separator />
-        <Tooltip content={shortcutHint('Export to Word, PDF, Web page, Markdown or images', 'export')}>
+        <Tooltip content={commandHint(EXPORT)}>
           <IconButton variant="ghost" size="sm" onClick={() => EXPORT.run()} disabled={!hasContent}>
             <FileDown className="w-4 h-4" />
           </IconButton>
         </Tooltip>
         <Tooltip content={commandHint(COPY_RICH)}>
-          <IconButton variant="ghost" size="sm" onClick={() => COPY_RICH.run()} disabled={!hasContent || !hasEditor}>
+          <IconButton variant="ghost" size="sm" onClick={() => COPY_RICH.run()} disabled={!hasContent || !copyOffered}>
             <ClipboardCopy className="w-4 h-4" />
           </IconButton>
         </Tooltip>

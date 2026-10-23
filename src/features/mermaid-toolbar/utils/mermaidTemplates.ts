@@ -1,6 +1,9 @@
 export interface MermaidTemplate {
   id: string;
+  /** The Diagram menu item */
   name: string;
+  /** The palette row: `name` mid-sentence; acronyms and names keep their capitals */
+  insertLabel: string;
   description: string;
   template: string;
 }
@@ -9,6 +12,7 @@ export const mermaidTemplates: MermaidTemplate[] = [
   {
     id: 'flowchart',
     name: 'Flowchart',
+    insertLabel: 'Insert flowchart',
     description: 'Basic flowchart with decision points',
     template: `\`\`\`mermaid
 flowchart TD
@@ -22,6 +26,7 @@ flowchart TD
   {
     id: 'sequence',
     name: 'Sequence diagram',
+    insertLabel: 'Insert sequence diagram',
     description: 'Interaction between participants',
     template: `\`\`\`mermaid
 sequenceDiagram
@@ -36,6 +41,7 @@ sequenceDiagram
   {
     id: 'classDiagram',
     name: 'Class diagram',
+    insertLabel: 'Insert class diagram',
     description: 'Object-oriented class structure',
     template: `\`\`\`mermaid
 classDiagram
@@ -59,6 +65,7 @@ classDiagram
   {
     id: 'stateDiagram',
     name: 'State diagram',
+    insertLabel: 'Insert state diagram',
     description: 'State machine visualization',
     template: `\`\`\`mermaid
 stateDiagram-v2
@@ -73,6 +80,7 @@ stateDiagram-v2
   {
     id: 'erDiagram',
     name: 'ER diagram',
+    insertLabel: 'Insert ER diagram',
     description: 'Entity relationship diagram',
     template: `\`\`\`mermaid
 erDiagram
@@ -94,6 +102,7 @@ erDiagram
   {
     id: 'gantt',
     name: 'Gantt chart',
+    insertLabel: 'Insert Gantt chart',
     description: 'Project timeline visualization',
     template: `\`\`\`mermaid
 gantt
@@ -112,6 +121,7 @@ gantt
   {
     id: 'pie',
     name: 'Pie chart',
+    insertLabel: 'Insert pie chart',
     description: 'Data distribution chart',
     template: `\`\`\`mermaid
 pie showData
@@ -125,6 +135,7 @@ pie showData
   {
     id: 'mindmap',
     name: 'Mind map',
+    insertLabel: 'Insert mind map',
     description: 'Hierarchical idea visualization',
     template: `\`\`\`mermaid
 mindmap

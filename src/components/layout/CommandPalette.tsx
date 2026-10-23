@@ -30,16 +30,6 @@ interface Command {
   run: () => void;
 }
 
-/**
- * "Mind map" -> "Insert mind map", but acronyms and names keep their case:
- * "ER diagram" -> "Insert ER diagram", "Gantt chart" -> "Insert Gantt chart"
- */
-function insertLabel(name: string): string {
-  const lead = /^([A-Z]{2}|Gantt\b)/.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1);
-
-  return `Insert ${lead}`;
-}
-
 /** Toggle labels and `when` read the stores directly, so the list reflects the moment it's built */
 function buildCommands(
   editorCommands: EditorCommands | null,
@@ -88,7 +78,7 @@ function buildCommands(
       plain('image', 'Insert image…', 'Insert'),
       ...mermaidTemplates.map((template) => ({
         id: `diagram-${template.id}`,
-        label: insertLabel(template.name),
+        label: template.insertLabel,
         group: 'Insert',
         run: () => editorCommands.insert(template.template),
       }))

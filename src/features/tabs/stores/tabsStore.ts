@@ -23,7 +23,7 @@ interface TabsState {
   // Actions
   /**
    * Opens a new tab, or switches to the tab that already has this path.
-   * A pathless tab without a `name` gets the lowest free "Untitled", "Untitled 2", …; an explicit `name` is used as given.
+   * A pathless tab with no name, or an empty one, gets the lowest free "Untitled", "Untitled 2", …; any other `name` is used as given.
    */
   createTab: (path?: string | null, content?: string, name?: string) => void;
   /** Opens a file, reusing the active tab when it is an empty, untouched Untitled tab */
@@ -40,18 +40,15 @@ interface TabsState {
   markTabSaved: (tabId: string, savedContent?: string) => void;
 }
 
-const createNewTab = (path?: string | null, content?: string, name?: string): Tab => {
-  const fileName = path ? documentName(path) : name || 'Untitled';
-
-  return {
-    id: nanoid(),
-    path: path || null,
-    name: fileName,
-    originalContent: content || '',
-    isDirty: false,
-    loadId: nanoid(),
-  };
-};
+/** A clean tab; `name` is already resolved (see tabName) */
+const createNewTab = (path: string | null, content: string, name: string): Tab => ({
+  id: nanoid(),
+  path,
+  name,
+  originalContent: content,
+  isDirty: false,
+  loadId: nanoid(),
+});
 
 /** "Untitled" if no open tab has that name, else "Untitled N" for the lowest N >= 2 that is free */
 function nextUntitledName(tabs: Tab[]): string {
@@ -66,7 +63,14 @@ function nextUntitledName(tabs: Tab[]): string {
   return `Untitled ${n}`;
 }
 
-const firstTab = createNewTab(null, '', 'Untitled');
+/** The one naming rule: the file's name; else `name` as given; else the lowest free "Untitled" among `openTabs` */
+function tabName(path: string | null, name: string | undefined, openTabs: Tab[]): string {
+  if (path) return documentName(path);
+
+  return name || nextUntitledName(openTabs);
+}
+
+const firstTab = createNewTab(null, '', tabName(null, undefined, []));
 
 export const useTabsStore = create<TabsState>()(
   immer((set, get) => ({
@@ -75,8 +79,8 @@ export const useTabsStore = create<TabsState>()(
     contents: { [firstTab.id]: '' },
 
     createTab: (path, content, name) => {
-      const tabName = !path && name === undefined ? nextUntitledName(get().tabs) : name;
-      const newTab = createNewTab(path, content, tabName);
+      const tabPath = path || null;
+      const newTab = createNewTab(tabPath, content ?? '', tabName(tabPath, name, get().tabs));
       set((state) => {
         // Check if file is already open
         if (path) {
@@ -118,7 +122,7 @@ export const useTabsStore = create<TabsState>()(
 
         if (state.tabs.length === 0) {
           // Always keep one tab so there is somewhere to write
-          const newTab = createNewTab();
+          const newTab = createNewTab(null, '', tabName(null, undefined, state.tabs));
           state.tabs.push(newTab);
           state.contents[newTab.id] = '';
           state.activeTabId = newTab.id;
@@ -173,7 +177,7 @@ export const useTabsStore = create<TabsState>()(
         // A freshly loaded document under the same tab id (new loadId, clean state)
         if (index === -1) return;
 
-        state.tabs[index] = { ...createNewTab(path, content), id: tabId };
+        state.tabs[index] = { ...createNewTab(path, content, documentName(path)), id: tabId };
         state.contents[tabId] = content;
       });
     },
