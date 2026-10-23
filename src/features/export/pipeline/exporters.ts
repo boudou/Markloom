@@ -15,13 +15,24 @@ export interface ExportRequest {
   author?: string;
 }
 
+/** Lets the toast and the closing dialog paint (and finish their entry animation) before print() holds the page */
+const TOAST_SETTLE_MS = 300;
+
 /**
  * Prints the pages the export preview laid out, one page box per sheet with no print
  * margins, so the PDF matches the preview page for page. `title` names the file and the
  * document. Returns 'saved' or, in a browser, 'print-dialog' when the user finishes in the
  * print dialog.
+ *
+ * In a browser, `onPrintDialog` runs just before the print dialog opens (print() holds the
+ * page until it closes). Chrome and Edge suggest the tab's title as the file name, so the app
+ * wears `title` while printing.
  */
-export async function exportPdf(paged: PagedDocument, title: string): Promise<'saved' | 'print-dialog'> {
+export async function exportPdf(
+  paged: PagedDocument,
+  title: string,
+  onPrintDialog: () => void
+): Promise<'saved' | 'print-dialog'> {
   const html = await buildPagedHtml(paged, { title });
 
   const bridge = window.markloomDesktop;
@@ -49,8 +60,21 @@ export async function exportPdf(paged: PagedDocument, title: string): Promise<'s
   frameDoc.write(html);
   frameDoc.close();
   await frameDoc.fonts?.ready;
-  frame.contentWindow!.focus();
-  frame.contentWindow!.print();
+
+  onPrintDialog();
+  await new Promise<void>((resolve) => setTimeout(resolve, TOAST_SETTLE_MS));
+
+  const appTitle = document.title;
+
+  document.title = title;
+
+  try {
+    frame.contentWindow!.focus();
+    frame.contentWindow!.print();
+  } finally {
+    document.title = appTitle;
+  }
+
   setTimeout(() => frame.remove(), 1000);
 
   return 'print-dialog';

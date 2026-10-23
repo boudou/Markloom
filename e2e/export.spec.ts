@@ -19,6 +19,8 @@ const A4_PNG: PngSize = { width: 1588, height: 2246 };
 declare global {
   interface Window {
     __e2ePrinted?: string;
+    __e2ePrintTitle?: string;
+    __e2ePrintToast?: string;
   }
 }
 
@@ -263,6 +265,33 @@ test.describe('pages.md', () => {
     const one = await downloadOf(page, () => dialog.getByRole('button', { name: 'Save this page' }).click());
 
     expect(pngSize(one.bytes)).toEqual({ width: 1632, height: 2112 });
+  });
+
+  test('Browser PDF names the print job after the File name field and says what to pick (#165) @export', async ({ page }) => {
+    // Chrome and Edge suggest the tab's title as the PDF's name: keep what the app shows when print() runs
+    await page.addInitScript(() => {
+      if (window === window.top) return;
+
+      window.print = () => {
+        // SAFETY: the print frame is same-origin with the app, so its top window is the app's
+        const top = window.top as Window;
+
+        top.__e2ePrintTitle = top.document.title;
+        top.__e2ePrintToast = Array.from(top.document.querySelectorAll('[role="status"]'), (el) => el.textContent ?? '').join('\n');
+      };
+    });
+
+    const dialog = await openExport(page, 'PDF');
+
+    await pageCount(page);
+    await dialog.getByLabel('File name').fill('Quarterly: report');
+    await dialog.getByRole('button', { name: 'Export PDF' }).click();
+    await expect(dialog).toBeHidden();
+    await expect.poll(() => page.evaluate(() => window.__e2ePrintTitle ?? null)).toBe('Quarterly- report');
+    expect(await page.evaluate(() => window.__e2ePrintToast)).toContain('Save as PDF');
+    await expect(page.getByRole('status').filter({ hasText: 'Save as PDF' })).toBeVisible();
+    await expect(page).toHaveTitle(/^Markloom/);
+    await expect(page.getByRole('status').filter({ hasText: 'Exported' })).toHaveCount(0);
   });
 });
 
