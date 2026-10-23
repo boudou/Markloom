@@ -99,7 +99,7 @@ test.describe('browser build', () => {
 
     await expect(dialog.getByRole('tab', { name: 'History' })).toBeVisible();
     await expect(dialog.getByRole('tab', { name: 'Updates' })).toHaveCount(0);
-    expect(requests.filter((url) => url.includes('api.github.com'))).toEqual([]);
+    expect(requests.filter((url) => new URL(url).hostname === 'api.github.com')).toEqual([]);
   });
 });
 
