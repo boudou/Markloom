@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import JSZip from 'jszip';
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, downloadOf, expectNoPreviewInRichText, knownGap, type MarkloomApp, type SavedFile } from './fixtures';
+import { test, expect, downloadOf, expectNoPreviewInRichText, type MarkloomApp, type SavedFile } from './fixtures';
 
 const EDIT = 'Edited right before export';
 
@@ -317,13 +317,13 @@ test.describe('fixture.md', () => {
     expect(imageAlts(await zipText(file, 'word/document.xml'))).toContain('a^2 + b^2 = c^2');
   });
 
-  test('Word writes footnotes as footnotes (#204) @export', async ({ app, page }) => {
-    knownGap(app, 'both', 204, 'Word export has no footnotes');
-
+  test('Word writes footnotes as footnotes (#204) @export', async ({ page }) => {
     const file = await exportWord(page);
 
     expect(await zipText(file, 'word/footnotes.xml')).toContain('The footnote text.');
+    expect(await zipText(file, 'word/document.xml')).toContain('<w:footnoteReference w:id="1"/>');
     expect(await docxText(file)).not.toContain('[^1]');
+    expect(await docxText(file)).not.toContain('The footnote text.');
   });
 
   test('Web page has its fonts, images and diagram built in @export @diagrams @images', async ({ page }) => {

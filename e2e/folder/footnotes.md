@@ -140,4 +140,4 @@ Paragraph 60 of the footnotes fixture, long enough to fill a line of the preview
 
 [^1]: First.
 [^c]: From the callout.
-[^t]: From the table.
+[^t]: From the table. **Bold**, `code` and a [link](https://example.com/note).
