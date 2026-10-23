@@ -12,6 +12,7 @@ import {
   commonmark,
   headingIdGenerator,
   inlineCodeKeymap,
+  remarkInlineLinkPlugin,
   remarkPreserveEmptyLinePlugin,
   syncHeadingIdPlugin,
 } from '@milkdown/kit/preset/commonmark';
@@ -34,6 +35,7 @@ import { useImageDrop } from '@/features/image-drop';
 import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, headingIds, imageSchemaFix, imageView, inlineCodeSpellcheck, linkSchemaFix, taskToggle } from '../milkdown/plugins';
 import { htmlLayout, htmlView } from '../milkdown/html';
 import { math } from '../milkdown/math';
+import { references } from '../milkdown/references';
 import { escapeMathOpeners } from '../milkdown/mathMarkdown';
 import { prosemirrorSearchEngine, searchPlugin } from '../milkdown/search';
 import { preserveUnchangedBlocks } from '../milkdown/preserve';
@@ -154,13 +156,19 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         })
         // Our headingIds numbers repeated headings like the preview; Milkdown's own sync would not.
         // Without the empty-line plugin an empty paragraph writes as a blank line, as in Markdown
-        // mode, instead of `<br />`.
-        .use(commonmark.filter((plugin) => plugin !== syncHeadingIdPlugin && !remarkPreserveEmptyLinePlugin.includes(plugin)))
+        // mode, instead of `<br />`. Without the inline-links plugin reference links and their
+        // definitions stay as written (references.ts reads and writes them).
+        .use(
+          commonmark.filter(
+            (plugin) => plugin !== syncHeadingIdPlugin && !remarkPreserveEmptyLinePlugin.includes(plugin) && !remarkInlineLinkPlugin.includes(plugin)
+          )
+        )
         .use(headingIds)
         .use(gfm)
         .use(math)
         .use(imageSchemaFix)
         .use(linkSchemaFix)
+        .use(references)
         .use(codeBlockMetaSchema)
         .use(history)
         .use(listener)

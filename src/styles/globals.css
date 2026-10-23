@@ -1138,6 +1138,17 @@
   width: 100%;
 }
 
+/* Link reference definitions in rich text: a muted, read-only line, edited in Markdown mode */
+.rt-definition {
+  display: block;
+  margin: 0 0 0.25em;
+  font: 0.85em/1.5 'IBM Plex Mono', monospace;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: default;
+}
+
 /* Math in rich text: typeset as in the preview; a click opens the TeX source */
 .rt-math {
   border-radius: 4px;

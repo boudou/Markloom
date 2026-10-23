@@ -8,6 +8,7 @@ const MARKS: Record<string, FormatFlag> = {
   strike_through: 'strikethrough',
   inlineCode: 'code',
   link: 'link',
+  linkReference: 'link',
 };
 
 export function richFormatState(state: EditorState): FormatState {

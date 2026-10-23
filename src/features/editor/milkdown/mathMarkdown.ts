@@ -390,24 +390,27 @@ function flatten(node: Nodes, flat: Flattened) {
   else if (node.type === 'inlineCode') flat.text += `\`${node.value}\``;
   else if (node.type === 'break') flat.text += '\n';
   else if (node.type === 'image') flat.text += `![${node.alt ?? ''}](${node.url})`;
+  else if (node.type === 'imageReference') flat.text += `![${node.alt ?? ''}][${node.label ?? node.identifier}]`;
   else if (node.type === 'link') flattenChildren(node.children, flat, '[', `](${node.url})`);
+  else if (node.type === 'linkReference') flattenChildren(node.children, flat, '[', `][${node.label ?? node.identifier}]`);
   else if ('children' in node) {
     const marker = ATTENTION_MARKERS[node.type] ?? '';
     flattenChildren(node.children, flat, marker, marker);
   } else if ('value' in node) flat.text += node.value;
 }
 
-function flattenChildren(children: Nodes[], flat: Flattened, open: string, close: string) {
+// Milkdown writes an empty paragraph or heading with no children array at all
+function flattenChildren(children: Nodes[] | undefined, flat: Flattened, open: string, close: string) {
   flat.text += open;
 
-  for (const child of children) flatten(child, flat);
+  for (const child of children ?? []) flatten(child, flat);
 
   flat.text += close;
 }
 
 function markOpeners(node: Nodes) {
   if (node.type !== 'paragraph' && node.type !== 'heading' && node.type !== 'tableCell') {
-    if ('children' in node) for (const child of node.children) markOpeners(child);
+    if ('children' in node) for (const child of node.children ?? []) markOpeners(child);
 
     return;
   }
