@@ -9,6 +9,7 @@ import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { CloseGuardDialog } from './CloseGuardDialog';
 import { CommandPalette } from './CommandPalette';
+import { ConsentBar } from './ConsentBar';
 import { Toaster } from '@/components/ui';
 import { EditorContainer } from '@/features/editor/components';
 import { ExportModal } from '@/features/export/components';
@@ -19,6 +20,8 @@ import { WhatsNewModal, showWhatsNewAfterUpdate } from '@/features/whats-new';
 import { TabBar } from '@/features/tabs';
 import { useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
+import { selectAnalyticsConsent, useSettingsStore } from '@/stores/settingsStore';
+import { startAnalytics, stopAnalytics } from '@/lib/analytics';
 import { hasUnsavedTabs } from '@/lib/documentActions';
 import { commandForKey } from '@/lib/appCommands';
 import { isDesktop } from '@/lib/shortcuts';
@@ -35,6 +38,7 @@ export function AppShell() {
   const dialog = useUiStore((s) => s.dialog);
   const closeDialog = useUiStore((s) => s.closeDialog);
   const focusMode = useAppStore((s) => s.focusMode);
+  const analyticsConsent = useSettingsStore(selectAnalyticsConsent);
 
   useEffect(() => {
     if (sessionStarted) return;
@@ -72,6 +76,12 @@ export function AppShell() {
 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Web version only (both are no-ops elsewhere); nothing from Google loads before 'granted'
+  useEffect(() => {
+    if (analyticsConsent === 'granted') startAnalytics();
+    else if (analyticsConsent === 'denied') stopAnalytics();
+  }, [analyticsConsent]);
 
   // Never lose work to a closed window. The desktop shell turns this into a native prompt.
   useEffect(() => {
@@ -125,6 +135,8 @@ export function AppShell() {
           </main>
         </div>
 
+        {/* Stays in focus mode, at the bottom edge on its own */}
+        <ConsentBar />
         {!focusMode && <StatusBar />}
 
         <ExportModal {...dialogProps('export')} />

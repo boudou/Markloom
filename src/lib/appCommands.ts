@@ -7,9 +7,10 @@ import { toggleAutoSave } from '@/features/auto-save';
 // The store only: the panel itself is a lazy chunk, loaded by the sidebar
 import { useFolderSearchStore } from '@/features/folder-search/stores/folderSearchStore';
 import { useAppStore } from '@/stores/appStore';
-import { PAGE_WIDTHS, selectSmartTypography, useSettingsStore } from '@/stores/settingsStore';
+import { PAGE_WIDTHS, selectAnalyticsConsent, selectSmartTypography, useSettingsStore } from '@/stores/settingsStore';
 import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from './documentActions';
+import { analyticsAvailable } from './analytics';
 import { SHORTCUTS, matchesCombo, shortcutHint, type ShortcutGroup, type ShortcutId } from './shortcuts';
 import { errorMessage } from './utils';
 
@@ -104,6 +105,27 @@ export const APP_COMMANDS: readonly AppCommand[] = [
   { id: 'templates', group: 'File', label: () => 'New from template…', run: () => useUiStore.getState().openDialog('templates') },
   // No `when`: the key and the palette open Settings in focus mode too
   { id: 'settings', shortcut: 'openSettings', run: () => useUiStore.getState().openDialog('settings') },
+  // Web version only (#210); AppShell starts or stops Google Analytics when the answer changes
+  {
+    id: 'analytics-allow',
+    group: 'File',
+    label: () => 'Usage statistics: allow',
+    when: () => analyticsAvailable && selectAnalyticsConsent(useSettingsStore.getState()) !== 'granted',
+    run: () => {
+      useSettingsStore.getState().setAnalyticsConsent('granted');
+      notify({ tone: 'success', title: 'Usage statistics allowed', detail: 'Page views are counted with Google Analytics.' });
+    },
+  },
+  {
+    id: 'analytics-stop',
+    group: 'File',
+    label: () => 'Usage statistics: stop',
+    when: () => analyticsAvailable && selectAnalyticsConsent(useSettingsStore.getState()) === 'granted',
+    run: () => {
+      useSettingsStore.getState().setAnalyticsConsent('denied');
+      notify({ tone: 'info', title: 'Usage statistics stopped', detail: 'Nothing more is sent, and the Google Analytics cookies are removed.' });
+    },
+  },
   {
     id: 'close-tab',
     shortcut: 'closeTab',

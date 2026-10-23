@@ -3,7 +3,17 @@
 /** The version in package.json, set at build time */
 declare const __APP_VERSION__: string;
 
+interface ImportMetaEnv {
+  /** Google Analytics measurement ID; set only by the GitHub Pages build (#210) */
+  readonly VITE_GA_ID?: string;
+}
+
 interface Window {
+  /** gtag.js's command queue, once usage statistics are allowed (web version only) */
+  dataLayer?: IArguments[];
+  /** gtag.js sends nothing for a measurement ID while its flag is true */
+  [gaDisable: `ga-disable-${string}`]: boolean;
+
   /** Present only when running inside the Electron desktop shell. */
   markloomDesktop?: {
     isDesktop: true;
