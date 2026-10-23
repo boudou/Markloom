@@ -1,9 +1,11 @@
-import type { KatexOptions } from 'katex';
+import type { KatexOptions, ParseError as KatexParseError } from 'katex';
 import DOMPurify from 'dompurify';
 
 // KaTeX (~260 KB plus its stylesheet) isn't needed to show the window, so it loads in its own
 // chunk the first time a document has math. Until then the placeholders show the TeX source.
 let renderToString: ((tex: string, options: KatexOptions) => string) | null = null;
+
+let ParseError: typeof KatexParseError | null = null;
 
 let loading: Promise<void> | null = null;
 
@@ -17,6 +19,7 @@ const ready = new Promise<void>((resolve) => {
 export function loadMath(): Promise<void> {
   loading ??= Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(([katex]) => {
     renderToString = katex.default.renderToString;
+    ParseError = katex.default.ParseError;
     markReady();
   });
 
@@ -84,6 +87,29 @@ function typeset(tex: string, displayMode: boolean, render: (tex: string, option
   }
 
   return html;
+}
+
+/**
+ * KaTeX's message for a formula it can't parse ("Expected '}', got 'EOF'"),
+ * or null when it typesets. Loads KaTeX first, so null always means checked.
+ */
+export async function checkMath(tex: string, displayMode: boolean): Promise<string | null> {
+  await loadMath();
+
+  const render = renderToString;
+  const parseError = ParseError;
+
+  if (!render || !parseError) throw new Error('KaTeX loaded without renderToString or ParseError');
+
+  try {
+    render(tex, { ...KATEX_OPTIONS, displayMode, throwOnError: true });
+
+    return null;
+  } catch (error) {
+    if (error instanceof parseError) return error.rawMessage;
+
+    throw error;
+  }
 }
 
 function decodedTex(value: string): string | null {

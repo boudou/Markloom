@@ -4,10 +4,11 @@ import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { describeDiagramError } from '@/features/mermaid/utils/errors';
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { isAbsoluteUrl, resolveSourcePath, safeDecode } from '@/lib/documentPath';
-import { placedInlines } from './inlineLines';
+import { checkMath } from '@/features/math';
+import { placedChildren } from './inlineLines';
 
 export interface ExportIssue {
-  kind: 'diagram' | 'image';
+  kind: 'diagram' | 'image' | 'math';
   /** 1-based document line to jump to */
   line: number;
   message: string;
@@ -35,39 +36,49 @@ export async function checkDocument(markdown: string, docPath: string | null): P
     );
   }
 
-  for (const { token, lines } of placedInlines(tokens)) {
-    const line = lines[0] + 1;
-
-    for (const child of token.children ?? []) {
-      if (child.type !== 'image') continue;
-      const src = child.attrGet('src') ?? '';
-
-      if (!src || isAbsoluteUrl(src)) continue;
-
-      // markdown-it stores the source percent-encoded; show it as the user typed it
-      const typed = safeDecode(src);
-
-      if (!canResolveRelative(docPath)) {
-        checks.push(
-          Promise.resolve({
-            kind: 'image',
-            line,
-            message: `“${typed}” can’t be included: open the document from its folder so Markloom can read it.`,
-          })
-        );
-        continue;
-      }
-
-      checks.push(
-        readFileBlob(resolveSourcePath(docPath, src)).then(
-          () => null,
-          () => ({ kind: 'image', line, message: `Image not found: ${typed}` })
-        )
-      );
+  for (const { child, line } of placedChildren(tokens)) {
+    if (child.type === 'math_inline') {
+      checks.push(mathIssue(child.content, false, line));
+      continue;
     }
+
+    if (child.type !== 'image') continue;
+    const src = child.attrGet('src') ?? '';
+
+    if (!src || isAbsoluteUrl(src)) continue;
+
+    // markdown-it stores the source percent-encoded; show it as the user typed it
+    const typed = safeDecode(src);
+
+    if (!canResolveRelative(docPath)) {
+      checks.push(
+        Promise.resolve({
+          kind: 'image',
+          line,
+          message: `“${typed}” can’t be included: open the document from its folder so Markloom can read it.`,
+        })
+      );
+      continue;
+    }
+
+    checks.push(
+      readFileBlob(resolveSourcePath(docPath, src)).then(
+        () => null,
+        () => ({ kind: 'image', line, message: `Image not found: ${typed}` })
+      )
+    );
+  }
+
+  for (const token of tokens) {
+    if (token.type === 'math_block' && token.map) checks.push(mathIssue(token.content, true, token.map[0] + 1));
   }
 
   const issues = (await Promise.all(checks)).filter((issue): issue is ExportIssue => issue !== null);
 
   return issues.sort((a, b) => a.line - b.line);
+}
+
+/** The formula's TeX error on its line, or null when it typesets */
+function mathIssue(tex: string, display: boolean, line: number): Promise<ExportIssue | null> {
+  return checkMath(tex, display).then((message) => (message === null ? null : { kind: 'math', line, message }));
 }
