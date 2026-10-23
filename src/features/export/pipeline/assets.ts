@@ -1,6 +1,6 @@
 // Images and diagrams for exports, resolved to self-contained data.
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
-import { isAbsoluteUrl, resolveSourcePath } from '@/lib/documentPath';
+import { isAbsoluteUrl, resolveSourcePath, webAddress } from '@/lib/documentPath';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 
 export interface ExportImage {
@@ -51,11 +51,10 @@ export async function loadDocumentImage(src: string, docPath: string | null): Pr
   try {
     if (src.startsWith('data:')) return await fromBlob(await (await fetch(src)).blob());
 
-    // An export is a standalone file with no page scheme to inherit, so //host is fetched over https
-    const webAddress = src.startsWith('//') ? `https:${src}` : src;
+    const web = webAddress(src);
 
-    if (/^https?:/i.test(webAddress)) {
-      const response = await fetch(webAddress, { mode: 'cors' });
+    if (web) {
+      const response = await fetch(web, { mode: 'cors' });
 
       if (!response.ok) return null;
 
@@ -103,8 +102,8 @@ export function svgDataUrl(svg: string): string {
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
-/** Rasterizes an image (e.g. SVG or WebP) to PNG bytes, on white, at 2x for sharpness. */
-export async function toPngBytes(dataUrl: string, width: number, height: number, scale = 2): Promise<Uint8Array> {
+/** Rasterizes an image (e.g. SVG or WebP) to a PNG, on white, at 2x for sharpness. */
+export async function toPngBlob(dataUrl: string, width: number, height: number, scale = 2): Promise<Blob> {
   const img = new Image();
   img.src = dataUrl;
   await img.decode();
@@ -116,9 +115,14 @@ export async function toPngBytes(dataUrl: string, width: number, height: number,
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  const blob = await new Promise<Blob>((resolve, reject) =>
+  return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png')
   );
+}
+
+/** {@link toPngBlob}'s PNG as bytes. */
+export async function toPngBytes(dataUrl: string, width: number, height: number, scale = 2): Promise<Uint8Array<ArrayBuffer>> {
+  const blob = await toPngBlob(dataUrl, width, height, scale);
 
   return new Uint8Array(await blob.arrayBuffer());
 }
@@ -133,7 +137,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
  * fonts and images must already be data URLs. It is drawn from a `data:` URL, which leaves
  * the canvas readable (a `blob:` URL would taint it).
  */
-export function htmlToPng(content: Element, css: string, width: number, height: number): Promise<Uint8Array> {
+export function htmlToPng(content: Element, css: string, width: number, height: number): Promise<Uint8Array<ArrayBuffer>> {
   // An XHTML <html><body> so the stylesheet's `html` and `body` rules apply as on a page
   const doc = document.implementation.createDocument(XHTML_NS, 'html', null);
   const body = doc.createElementNS(XHTML_NS, 'body');

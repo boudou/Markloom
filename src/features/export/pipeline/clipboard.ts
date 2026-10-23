@@ -1,27 +1,23 @@
 // Copy as rich text: the export body made safe to paste into email, Confluence or Google Docs.
 // Styles are inline attributes because Gmail and Outlook drop <style> blocks; keep them
 // visually close to EXPORT_STYLES. Body text gets no font, so a paste takes the target's own.
+import { webAddress } from '@/lib/documentPath';
 import { errorMessage } from '@/lib/utils';
-import { blobToDataUrl, loadDocumentImage, renderDiagram, svgDataUrl, toPngBytes } from './assets';
+import { blobToDataUrl, loadDocumentImage, renderDiagram, svgDataUrl, toPngBlob } from './assets';
 import { renderExportBody, type BodyEmbed } from './html';
 import { renderMathImage } from './mathImage';
 
 /** Outlook ignores max-width, so pasted images are capped by their width attribute */
 const MAX_WIDTH = 640;
 
-const WEB_ADDRESS = /^(https?:)?\/\//i;
-
 /** Formats a paste target may not show */
 const RASTERIZE = ['image/svg+xml', 'image/webp'];
 
-// The copy is backed by a plain ArrayBuffer, which BlobPart requires
-const pngBytesDataUrl = (png: Uint8Array) => blobToDataUrl(new Blob([new Uint8Array(png)], { type: 'image/png' }));
-
 async function pngDataUrl(dataUrl: string, width: number, height: number): Promise<string> {
-  return pngBytesDataUrl(await toPngBytes(dataUrl, width, height));
+  return blobToDataUrl(await toPngBlob(dataUrl, width, height));
 }
 
-/** The 1x size (toPngBytes renders at 2x), capped at MAX_WIDTH with the aspect ratio kept */
+/** The 1x size (toPngBlob renders at 2x), capped at MAX_WIDTH with the aspect ratio kept */
 function pasteSize(width: number, height: number) {
   const scale = Math.min(1, MAX_WIDTH / width);
 
@@ -42,7 +38,7 @@ const CLIPBOARD_EMBED: BodyEmbed = {
     // A wide display formula shrinks like a diagram; inline ones keep their size, so their depth holds
     const size = display ? pasteSize(image.width, image.height) : { width: image.width, height: image.height };
 
-    return { kind: 'img', src: await pngBytesDataUrl(image.png), ...size, depth: image.depth };
+    return { kind: 'img', src: await blobToDataUrl(new Blob([image.png], { type: 'image/png' })), ...size, depth: image.depth };
   },
   async diagram(code) {
     const diagram = await renderDiagram(code);
@@ -58,8 +54,9 @@ const CLIPBOARD_EMBED: BodyEmbed = {
     }
   },
   async image(src, docPath) {
-    // A pasted fragment has no page scheme to inherit, so //host goes over https
-    if (WEB_ADDRESS.test(src)) return { kind: 'keep', src: src.startsWith('//') ? `https:${src}` : src };
+    const web = webAddress(src);
+
+    if (web) return { kind: 'keep', src: web };
 
     const image = await loadDocumentImage(src, docPath);
 
@@ -70,7 +67,7 @@ const CLIPBOARD_EMBED: BodyEmbed = {
 
       return { kind: 'img', src: dataUrl, ...pasteSize(image.width, image.height) };
     } catch {
-      return null;
+      return { kind: 'error', title: 'Image could not be converted' };
     }
   },
 };

@@ -363,6 +363,49 @@ test.describe('fixture.md', () => {
   });
 });
 
+test.describe('copy.md', () => {
+  test.beforeEach(async ({ app }) => {
+    await app.openFile('copy.md');
+  });
+
+  /** The `<img …>` tag with this alt text, or '' */
+  const imageTag = (html: string, alt: string) => new RegExp(`<img\\b[^>]*\\balt="${alt}"[^>]*>`).exec(html)?.[0] ?? '';
+
+  test('Copy as rich text links a //host image over https, as Web page export fetches it @export @images', async ({ page }) => {
+    const clipboard = await copyRichText(page);
+
+    expect(imageTag(clipboard.html, 'Protocol-relative image')).toContain('src="https://images.e2e.test/web.png"');
+
+    const dialog = await openExport(page, 'Web page');
+    const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Web page' }).click());
+    const html = file.bytes.toString('utf8');
+
+    expect(imageTag(html, 'Protocol-relative image')).toContain('src="data:image/png;base64,');
+    expect(html).not.toContain('Image not found');
+  });
+
+  test('Copy as rich text pastes an SVG image as a PNG @export @images', async ({ page }) => {
+    const image = imageTag((await copyRichText(page)).html, 'SVG image');
+
+    expect(image).toContain('src="data:image/png;base64,');
+    expect(image).toContain('width="40"');
+  });
+
+  test('a PNG conversion failure says so, not Image not found @export @images', async ({ page }) => {
+    await page.evaluate(() => {
+      HTMLCanvasElement.prototype.toBlob = function (callback: BlobCallback) {
+        callback(null);
+      };
+    });
+
+    const { html } = await copyRichText(page);
+
+    expect(html).toContain('Image could not be converted');
+    expect(html).toContain('data:image/svg+xml');
+    expect(html).not.toContain('Image not found');
+  });
+});
+
 test.describe('math.md', () => {
   /** Every formula in math.md, in order: three inline (one in a heading), then six display */
   const FORMULAS = ['x^2', 'a+b', 'E=mc^2', '\\int_0^1 x\\,dx', 'F=ma', 'E=mc^2', 'G=mc^3', 'q^2', 'l^2'];

@@ -59,8 +59,14 @@ export type DiagramPlacement =
   | { kind: 'img'; src: string; width: number; height: number }
   | { kind: 'error'; error: string };
 
-/** How an image goes into the body: its address left as written, or replaced (and sized when given). */
-export type ImagePlacement = { kind: 'keep'; src: string } | { kind: 'img'; src: string; width?: number; height?: number };
+/**
+ * How an image goes into the body: its address left as written, replaced (and sized when
+ * given), or an error box with `title` and the address when it loaded but can't be placed.
+ */
+export type ImagePlacement =
+  | { kind: 'keep'; src: string }
+  | { kind: 'img'; src: string; width?: number; height?: number }
+  | { kind: 'error'; title: string };
 
 /**
  * How a formula goes into the body: KaTeX's HTML (which needs its stylesheet), an image with
@@ -71,7 +77,10 @@ export type MathPlacement =
   | { kind: 'img'; src: string; width: number; height: number; depth: number }
   | { kind: 'error'; error: string };
 
-/** Turns the body's diagrams, images and formulas into final placements; `image` returns null when it can't be loaded. */
+/**
+ * Turns the body's diagrams, images and formulas into final placements; `image` returns null
+ * when the image can't be loaded (shown as "Image not found").
+ */
 export interface BodyEmbed {
   diagram: (code: string) => Promise<DiagramPlacement>;
   image: (src: string, docPath: string | null) => Promise<ImagePlacement | null>;
@@ -210,6 +219,12 @@ export async function renderExportBody(markdown: string, docPath: string | null,
 
     if (!image) {
       img.replaceWith(errorBox('Image not found', src));
+
+      continue;
+    }
+
+    if (image.kind === 'error') {
+      img.replaceWith(errorBox(image.title, src));
 
       continue;
     }

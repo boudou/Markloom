@@ -53,6 +53,19 @@ export function isAbsoluteUrl(src: string): boolean {
   return ABSOLUTE_URL.test(src);
 }
 
+const WEB_ADDRESS = /^(https?:)?\/\//i;
+
+/**
+ * The address to fetch an http(s) or protocol-relative //host source from, or null when `src`
+ * is not a web address. A pasted fragment or a standalone file has no page scheme to inherit,
+ * so //host goes over https.
+ */
+export function webAddress(src: string): string | null {
+  if (!WEB_ADDRESS.test(src)) return null;
+
+  return src.startsWith('//') ? `https:${src}` : src;
+}
+
 export function safeDecode(value: string): string {
   try {
     return decodeURIComponent(value);
