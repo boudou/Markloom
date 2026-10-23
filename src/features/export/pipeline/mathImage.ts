@@ -7,7 +7,7 @@ import { mathExportCss } from './fonts';
 
 /** A formula as a 2x PNG; width, height and depth (below the baseline) are 1x CSS px. */
 export type MathImage =
-  | { ok: true; png: Uint8Array; width: number; height: number; depth: number }
+  | { ok: true; png: Uint8Array<ArrayBuffer>; width: number; height: number; depth: number }
   | { ok: false; error: string };
 
 /** Word export's body size, so an inline formula placed at 1x matches the text around it */
