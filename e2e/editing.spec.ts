@@ -46,8 +46,6 @@ test('Bold formats the selection and shows as pressed @editing', async ({ app, p
 });
 
 test('Strikethrough shows as pressed inside struck text (#207) @editing', async ({ app, page }) => {
-  knownGap(app, 'split', 207, 'the Markdown source parses no GFM, so Strikethrough never shows as pressed');
-
   if (app.editorMode === 'split') {
     await app.placeCursorAfter('Some');
     await page.keyboard.press('Home');
@@ -60,6 +58,68 @@ test('Strikethrough shows as pressed inside struck text (#207) @editing', async 
   }
 
   await expect(formatting(page).getByRole('button', { name: /^Strikethrough/ })).toHaveAttribute('aria-pressed', 'true');
+});
+
+interface TextStyle {
+  color: string;
+  fontWeight: string;
+  textDecorationLine: string;
+}
+
+/** The computed style of the element that directly holds the first text containing `text` */
+function styleOf(scope: Locator, text: string): Promise<TextStyle> {
+  return scope.evaluate((element, wanted) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const holder = node.parentElement;
+
+      if (holder && node.textContent?.includes(wanted)) {
+        const style = getComputedStyle(holder);
+
+        return { color: style.color, fontWeight: style.fontWeight, textDecorationLine: style.textDecorationLine };
+      }
+    }
+
+    throw new Error(`No text "${wanted}" in ${element.outerHTML}`);
+  }, text);
+}
+
+test('GFM tables, task lists and strikethrough are styled (#207) @editing', async ({ app, page }) => {
+  await app.openFile('fixture.md');
+
+  if (app.editorMode === 'wysiwyg') {
+    await expect(app.rendered().locator('th', { hasText: 'Fruit' })).toBeVisible();
+    expect(Number((await styleOf(app.rendered().locator('th', { hasText: 'Fruit' }), 'Fruit')).fontWeight)).toBeGreaterThanOrEqual(600);
+    expect((await styleOf(app.rendered().locator(':is(del, s)'), 'struck out')).textDecorationLine).toContain('line-through');
+
+    return;
+  }
+
+  const source = app.editingSurface();
+  const line = (text: string): Locator => source.locator('.cm-line', { hasText: text }).first();
+
+  await app.placeCursorAfter('| Fruit');
+  const header = await styleOf(line('| Fruit'), 'Fruit');
+  const pipe = await styleOf(line('| Fruit'), '|');
+
+  expect(Number(header.fontWeight)).toBeGreaterThanOrEqual(700);
+  expect(pipe.color).not.toBe(header.color);
+  expect((await styleOf(line('| -----'), '-----')).color).toBe(pipe.color);
+
+  await app.placeCursorAfter('Open task');
+  expect((await styleOf(line('Done task'), '[x]')).color).not.toBe((await styleOf(line('Done task'), 'Done task')).color);
+  expect((await styleOf(line('Open task'), '[ ]')).color).not.toBe((await styleOf(line('Open task'), 'Open task')).color);
+
+  await app.placeCursorAfter('This is ~~struck');
+  expect((await styleOf(line('This is ~~struck'), 'struck out')).textDecorationLine).toContain('line-through');
+
+  // Extensions the preview doesn't render stay plain text
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Plain ~sub~ ^sup^ :smile: text');
+  await expect(line('Plain ~sub~')).toHaveText('Plain ~sub~ ^sup^ :smile: text');
+  await expect(line('Plain ~sub~').locator('span')).toHaveCount(0);
 });
 
 test('find and replace @editing', async ({ app, page }) => {
