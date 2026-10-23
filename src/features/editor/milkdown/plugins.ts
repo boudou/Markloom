@@ -21,6 +21,7 @@ import {
   mermaidFences,
 } from '@/lib/markdown';
 import { showImage } from '../utils/previewImages';
+import type { ResolvedReference } from './references';
 
 function activeDocumentPath(): string | null {
   return selectActiveTab(useTabsStore.getState())?.path ?? null;
@@ -392,20 +393,61 @@ export const codeBlockView = $view(codeBlockSchema.node, () => (node, view, getP
 // ---------------------------------------------------------------------------
 // Images: Milkdown passes `title: null` for images without a title (the common case),
 // which current ProseMirror rejects, silently dropping the image. Coerce to strings.
+// An image reference (`![logo][img]`) is an image that keeps its label, written back as a
+// reference while its definition exists (references.ts resolves it and forgets deleted ones).
 
 export const imageSchemaFix = imageSchema.extendSchema((prev) => (ctx) => {
   const base = prev(ctx);
 
   return {
     ...base,
+    attrs: {
+      ...base.attrs,
+      identifier: { default: '', validate: 'string' },
+      label: { default: '', validate: 'string' },
+      referenceType: { default: '', validate: 'string' },
+    },
     parseMarkdown: {
-      ...base.parseMarkdown,
+      match: (node) => node.type === 'image' || node.type === 'imageReference',
       runner: (state, node, type) => {
+        if (node.type === 'imageReference') {
+          // SAFETY: references.ts's remark step wrote the resolved url and title into every imageReference's data.
+          const data = node.data as ResolvedReference | undefined;
+          const identifier = String(node.identifier ?? '');
+          state.addNode(type, {
+            src: data?.url ?? '',
+            alt: String(node.alt ?? ''),
+            title: data?.title ?? '',
+            identifier,
+            label: String(node.label ?? identifier),
+            referenceType: String(node.referenceType ?? 'full'),
+          });
+
+          return;
+        }
+
         // SAFETY: a remark image node has a string url; alt and title are strings or null (the ?? covers null).
         state.addNode(type, {
           src: (node.url as string) ?? '',
           alt: (node.alt as string) ?? '',
           title: (node.title as string) ?? '',
+        });
+      },
+    },
+    toMarkdown: {
+      ...base.toMarkdown,
+      runner: (state, node) => {
+        if (!node.attrs.identifier) {
+          base.toMarkdown.runner(state, node);
+
+          return;
+        }
+
+        state.addNode('imageReference', undefined, undefined, {
+          identifier: node.attrs.identifier,
+          label: node.attrs.label,
+          referenceType: node.attrs.referenceType,
+          alt: node.attrs.alt,
         });
       },
     },
@@ -415,8 +457,9 @@ export const imageSchemaFix = imageSchema.extendSchema((prev) => (ctx) => {
 // ---------------------------------------------------------------------------
 // Links: text typed right after a link is plain, as it is in Markdown mode.
 // ProseMirror marks are inclusive by default, which would grow the link instead.
+// Linking reference text replaces the reference (references.ts) rather than nesting in it.
 
-export const linkSchemaFix = linkSchema.extendSchema((prev) => (ctx) => ({ ...prev(ctx), inclusive: false }));
+export const linkSchemaFix = linkSchema.extendSchema((prev) => (ctx) => ({ ...prev(ctx), inclusive: false, excludes: 'link linkReference' }));
 
 // Images: keep the markdown src untouched, display a resolved one.
 
