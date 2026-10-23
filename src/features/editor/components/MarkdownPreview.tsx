@@ -4,6 +4,7 @@ import { parseMarkdown } from '@/lib/markdown';
 import { isHighlighterReady, onHighlighterReady } from '@/features/syntax-highlight';
 import { fillMath, isMathReady, loadMath, onMathReady } from '@/features/math';
 import { cn } from '@/lib/utils';
+import { selectSmartTypography, useSettingsStore } from '@/stores/settingsStore';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
@@ -35,7 +36,13 @@ export function MarkdownPreview({
   const debouncedContent = useDebouncedValue(content, 120);
   // Code renders plain until the highlighter chunk arrives, then once more with colour
   const highlighterReady = useSyncExternalStore(onHighlighterReady, isHighlighterReady);
-  const html = useMemo(() => parseMarkdown(debouncedContent), [debouncedContent, highlighterReady]);
+  // The parser follows the setting (see main.tsx); depending on it re-renders at once when it changes
+  const smartTypography = useSettingsStore(selectSmartTypography);
+
+  const html = useMemo(
+    () => parseMarkdown(debouncedContent),
+    [debouncedContent, highlighterReady, smartTypography]
+  );
 
   // Typeset math placeholders before paint, so the TeX source never flashes between React
   // setting the HTML and the fill. Until KaTeX has loaded they show the source.

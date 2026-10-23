@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { selectActiveTab, useActiveContent, useTabsStore } from '@/features/tabs';
 import { useAppStore, type EditorMode } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
+import { selectSmartTypography, useSettingsStore } from '@/stores/settingsStore';
 
 interface Heading {
   level: number;
@@ -67,7 +68,9 @@ export function OutlineDock() {
 
     return () => window.clearTimeout(timer);
   }, [content]);
-  const headings = useMemo(() => parseHeadings(settled), [settled]);
+  // Labels show the headings as the preview does, with or without smart typography
+  const smartTypography = useSettingsStore(selectSmartTypography);
+  const headings = useMemo(() => parseHeadings(settled), [settled, smartTypography]);
   // The scroll tracker reads the latest headings without re-attaching on every parse
   const headingsRef = useRef(headings);
   headingsRef.current = headings;

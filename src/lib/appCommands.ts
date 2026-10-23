@@ -7,7 +7,7 @@ import { toggleAutoSave } from '@/features/auto-save';
 // The store only: the panel itself is a lazy chunk, loaded by the sidebar
 import { useFolderSearchStore } from '@/features/folder-search/stores/folderSearchStore';
 import { useAppStore } from '@/stores/appStore';
-import { PAGE_WIDTHS, useSettingsStore } from '@/stores/settingsStore';
+import { PAGE_WIDTHS, selectSmartTypography, useSettingsStore } from '@/stores/settingsStore';
 import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from './documentActions';
 import { SHORTCUTS, matchesCombo, shortcutHint, type ShortcutGroup, type ShortcutId } from './shortcuts';
@@ -130,6 +130,16 @@ export const APP_COMMANDS: readonly AppCommand[] = [
       run: () => useSettingsStore.getState().setPageWidth(value),
     })
   ),
+  {
+    id: 'smart-typography',
+    group: 'View',
+    // What running it chooses, like the page-width commands
+    label: () => (selectSmartTypography(useSettingsStore.getState()) ? 'Smart typography: off' : 'Smart typography: on'),
+    run: () => {
+      const settings = useSettingsStore.getState();
+      settings.setSmartTypography(!selectSmartTypography(settings));
+    },
+  },
   {
     id: 'outline',
     shortcut: 'toggleOutline',
