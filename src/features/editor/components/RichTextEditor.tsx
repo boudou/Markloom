@@ -46,6 +46,8 @@ import { sameFormatState, type EditorCommands, type FormatState } from '../types
 import { applyOutsideEdit } from '../milkdown/outsideEdit';
 import { richFormatState } from '../milkdown/formatState';
 import { focusPlugin } from '../milkdown/focus';
+import { callouts } from '../milkdown/callouts';
+import { keepCalloutMarkers } from '../milkdown/calloutMarkdown';
 import { setSelectedText } from '@/features/word-count';
 
 interface RichTextEditorProps {
@@ -145,13 +147,13 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
             },
           }));
           // Match the source editor's conventions where remark lets us
-          // A `$` in text gets a backslash only where it would start math
+          // A `$` in text gets a backslash only where it would start math, a callout marker none
           ctx.update(remarkStringifyOptionsCtx, (prev) => ({
             ...prev,
             bullet: '-' as const,
             emphasis: '_' as const,
             rule: '-' as const,
-            handlers: { ...prev.handlers, text: escapeMathOpeners(prev.handlers?.text) },
+            handlers: { ...prev.handlers, text: keepCalloutMarkers(escapeMathOpeners(prev.handlers?.text)) },
           }));
           // Debounced by 200 ms; `flush` writes sooner when something reads the store
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => commit(markdown));
@@ -178,6 +180,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         .use(trailing)
         .use(codeBlockView)
         .use(diagramErrorMarks)
+        .use(callouts)
         .use(inlineCodeSpellcheck)
         .use(imageView)
         .use(htmlView)

@@ -70,6 +70,9 @@ export class MarkloomApp {
   async selectLine(text: string): Promise<void> {
     await this.placeCursorAfter(text);
     await this.page.keyboard.press('Shift+Home');
+    // The editor takes the selection from the browser a moment later; the status bar counts it
+    // then. A toolbar click before that formats an empty selection.
+    await expect(this.page.getByRole('contentinfo').getByText(/ selected$/)).toBeVisible();
   }
 
   /** Saves the active document (Ctrl+S) and waits until the title bar says it is saved */
