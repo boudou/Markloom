@@ -571,7 +571,17 @@
   height: 100%;
 }
 
-.cm-editor.cm-focused {
+/* Keyboard focus on the writing surface (#164): the toolbar's ring (2px, --accent-primary) drawn
+   as an inset outline. Inset, because the source pane clips overflow; an outline, because it paints
+   over the active-line wash where a box-shadow ring would not. Focus mode shows the page alone. */
+.cm-editor.cm-focused,
+[data-doc-surface]:has(.rt-document:focus-within) {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+[data-focus] .cm-editor.cm-focused,
+[data-focus] [data-doc-surface]:has(.rt-document:focus-within) {
   outline: none;
 }
 
