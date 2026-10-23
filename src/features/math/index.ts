@@ -1,1 +1,1 @@
-export { fillMath, isMathReady, loadMath, onMathReady } from './utils/katex';
+export { checkMath, fillMath, isMathReady, loadMath, onMathReady } from './utils/katex';

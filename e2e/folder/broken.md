@@ -11,4 +11,13 @@ flowchart TD
 
 Text after the diagram.
 
-A broken formula $\frac{1}{$ here.
+A paragraph that wraps
+onto a broken formula $\frac{1}{$ here.
+
+$$
+\sqrt{
+$$
+
+| Formula |
+| --- |
+| $x^{$ |

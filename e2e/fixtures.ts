@@ -123,7 +123,9 @@ export class MarkloomApp {
   /** Puts the caret at the end of the first source line (Markdown) or block (rich text) that contains `text` */
   async placeCursorAfter(text: string): Promise<void> {
     if (this.editorMode === 'wysiwyg') {
-      await this.rendered().locator(':is(p, h1, h2, h3, li, th, td)', { hasText: text }).first().click();
+      // A list item that holds a paragraph is skipped for that paragraph: clicking the item's middle
+      // can land on a block after the paragraph (a nested definition or list), and End stays there
+      await this.rendered().locator(':is(p, h1, h2, h3, li:not(:has(> p)), th, td)', { hasText: text }).first().click();
       await this.page.keyboard.press('End');
 
       return;

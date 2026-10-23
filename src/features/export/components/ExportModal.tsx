@@ -314,10 +314,12 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   };
 
   const diagramCount = issues.filter((i) => i.kind === 'diagram').length;
-  const imageCount = issues.length - diagramCount;
+  const imageCount = issues.filter((i) => i.kind === 'image').length;
+  const mathCount = issues.filter((i) => i.kind === 'math').length;
 
   const issueSummary = [
     diagramCount && `${diagramCount} ${diagramCount === 1 ? 'diagram has an error' : 'diagrams have errors'}`,
+    mathCount && `${mathCount} ${mathCount === 1 ? 'formula has an error' : 'formulas have errors'}`,
     imageCount && `${imageCount} ${imageCount === 1 ? 'image is missing' : 'images are missing'}`,
   ]
     .filter(Boolean)

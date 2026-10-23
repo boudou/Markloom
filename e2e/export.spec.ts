@@ -344,13 +344,30 @@ test.describe('broken.md', () => {
     await expect(page.locator('.cm-activeLine')).toHaveText('  C --> D');
   });
 
-  test('preflight warns about a broken formula (#202) @export @math', async ({ app, page }) => {
-    knownGap(app, 'both', 202, 'the preflight does not check formulas');
-
+  test('preflight warns about broken formulas and shows their lines (#202) @export @math', async ({ app, page }) => {
     const dialog = await openExport(page, 'Web page');
 
-    await expect(dialog).toContainText('1 formula has an error');
-    await expect(dialog.getByRole('listitem').filter({ hasText: 'Line 14' })).toBeVisible();
+    // Counted by kind: the formulas aren't missing images
+    await expect(dialog).toContainText('1 diagram has an error · 3 formulas have errors');
+    await expect(dialog).not.toContainText('missing');
+
+    const issues = dialog.getByRole('listitem');
+
+    // Inline on a paragraph's second line, display (its opening $$) and in a table cell (its row)
+    await expect(issues).toHaveText([/^Line 9 · /, /^Line 15 · Unexpected end of input/, /^Line 17 · Expected '}'/, /^Line 23 · Expected '}'/]);
+
+    const issue = issues.filter({ hasText: 'Line 15' });
+
+    if (app.editorMode === 'wysiwyg') {
+      // Showing the line switches to Markdown, which this project keeps out of rich text
+      await expect(issue.getByRole('button', { name: 'Show in Markdown' })).toBeVisible();
+
+      return;
+    }
+
+    await issue.getByRole('button', { name: 'Show', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('.cm-activeLine')).toHaveText('onto a broken formula $\\frac{1}{$ here.');
   });
 });
 

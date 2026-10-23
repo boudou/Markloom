@@ -30,6 +30,33 @@ export function placedInlines(tokens: Token[]): PlacedInline[] {
   return placed;
 }
 
+export interface PlacedChild {
+  child: Token;
+  /** 1-based source line the child starts on */
+  line: number;
+}
+
+/**
+ * Every child of the document's inline tokens with the line it starts on, in document order.
+ * A paragraph spans several lines: each line break moves the children after it one line down,
+ * and so does a newline inside a child's own source (a formula or image alt text that wraps).
+ * Table cells sit on their row's line.
+ */
+export function placedChildren(tokens: Token[]): PlacedChild[] {
+  return placedInlines(tokens).flatMap(({ token, lines }) => {
+    let line = lines[0] + 1;
+
+    return (token.children ?? []).map((child) => {
+      if (child.type === 'softbreak' || child.type === 'hardbreak') line++;
+
+      const placed = { child, line };
+      line += child.content.split('\n').length - 1;
+
+      return placed;
+    });
+  });
+}
+
 /** The sources of the images in an inline token; block tokens have no children, so none. */
 export function imageSources(token: Token): string[] {
   return (token.children ?? []).flatMap((child) => (child.type === 'image' ? [child.attrGet('src') ?? ''] : []));
