@@ -25,7 +25,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('references show as superscripts and notes as a styled block', async ({ app }) => {
+test('references show as superscripts and notes as a styled block @parity', async ({ app }) => {
   const rendered = app.rendered();
 
   await expect(rendered).not.toContainText('[^');
@@ -54,7 +54,7 @@ test('references show as superscripts and notes as a styled block', async ({ app
   }
 });
 
-test('a callout marker with text after it on its line stays a plain quote', async ({ app }) => {
+test('a callout marker with text after it on its line stays a plain quote @parity', async ({ app }) => {
   // GitHub only makes a callout of a marker alone on its line; the text after it keeps its markup
   const quote = app.rendered().locator('blockquote', { hasText: 'Inline marker' });
 
@@ -68,7 +68,7 @@ test.describe('preview links', () => {
     test.skip(app.editorMode !== 'split', 'Rich text shows labels, not links');
   });
 
-  test('a reference jumps to its note and the back-link returns', async ({ app }) => {
+  test('a reference jumps to its note and the back-link returns @parity', async ({ app }) => {
     const rendered = app.rendered();
     const first = rendered.locator('sup.footnote-ref a').first();
 
@@ -80,7 +80,7 @@ test.describe('preview links', () => {
     await expect(first).toBeInViewport();
   });
 
-  test('ids are unique: a "fn1" heading and a callout reference keep their own', async ({ app }) => {
+  test('ids are unique: a "fn1" heading and a callout reference keep their own @parity', async ({ app }) => {
     const rendered = app.rendered();
     const ids = await rendered.locator('[id]').evaluateAll((elements) => elements.map((element) => element.id));
 
@@ -99,7 +99,7 @@ test.describe('preview links', () => {
     await expect(rendered.locator('[id="fnref-1:1"]')).toHaveText('1');
   });
 
-  test('scroll sync keeps working past a mid-document definition', async ({ app }) => {
+  test('scroll sync keeps working past a mid-document definition @parity', async ({ app }) => {
     await app.placeCursorAfter('Paragraph 40 of');
     await expect(app.rendered().getByText('Paragraph 40 of', { exact: false })).toBeInViewport();
   });

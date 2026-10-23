@@ -128,7 +128,7 @@ export const diagramErrorMarks = $prose(
 );
 
 /** Character range of a 1-based line within text */
-function lineRange(text: string, line: number): { from: number; to: number; textStart: number } | null {
+export function lineRange(text: string, line: number): { from: number; to: number; textStart: number } | null {
   const lines = text.split('\n');
 
   if (line < 1 || line > lines.length) return null;
@@ -157,7 +157,7 @@ function documentLineOfDiagram(source: string, occurrence: number): number | und
 
 // Parsed Markdown gives a one-word language, but pasted <pre data-language="mermaid x"> keeps
 // the whole string, so the first-word rule still applies here.
-function isMermaidBlock(node: ProseNode): boolean {
+export function isMermaidBlock(node: ProseNode): boolean {
   return isMermaidLanguage(fenceLanguage(node.attrs.language));
 }
 

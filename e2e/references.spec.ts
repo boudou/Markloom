@@ -47,7 +47,7 @@ test.afterEach(async ({ app }) => {
   if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
 });
 
-test('resolves reference links in both editors', async ({ app }) => {
+test('resolves reference links in both editors @rich-text', async ({ app }) => {
   const rendered = app.rendered();
 
   const docs = rendered.getByRole('link', { name: 'docs', exact: true });
@@ -69,7 +69,7 @@ test('resolves reference links in both editors', async ({ app }) => {
   }
 });
 
-test('editing a paragraph keeps its reference links', async ({ app, page }) => {
+test('editing a paragraph keeps its reference links @rich-text', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.placeCursorAfter('See the docs and the Guide for details.');
@@ -78,7 +78,7 @@ test('editing a paragraph keeps its reference links', async ({ app, page }) => {
   await expectSaved(app, ORIGINAL.replace('for details.', 'for details. More.'));
 });
 
-test('editing a paragraph with an image reference keeps it', async ({ app, page }) => {
+test('editing a paragraph with an image reference keeps it @rich-text', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.placeCursorAfter('A collapsed guide link and a picture.');
@@ -87,7 +87,7 @@ test('editing a paragraph with an image reference keeps it', async ({ app, page 
   await expectSaved(app, ORIGINAL.replace('[img] picture.', '[img] picture. Nice.'));
 });
 
-test('a nested definition stays in its list item', async ({ app, page }) => {
+test('a nested definition stays in its list item @rich-text', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.placeCursorAfter('Item with a nested link');
@@ -96,7 +96,7 @@ test('a nested definition stays in its list item', async ({ app, page }) => {
   await expectSaved(app, ORIGINAL.replace('[nested][n] link', '[nested][n] link here'));
 });
 
-test('deleting a definition turns its references into inline links', async ({ app, page }) => {
+test('deleting a definition turns its references into inline links @rich-text', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
@@ -115,7 +115,7 @@ test('deleting a definition turns its references into inline links', async ({ ap
   await expectSaved(app, ORIGINAL);
 });
 
-test('an emptied heading saves as "# " (#169)', async ({ app, page }) => {
+test('an emptied heading saves as "# " (#169) @rich-text', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.placeCursorAfter('References');
@@ -125,7 +125,7 @@ test('an emptied heading saves as "# " (#169)', async ({ app, page }) => {
   await expectSaved(app, ORIGINAL.replace('# References', '# '));
 });
 
-test('empty paragraphs add no <br /> (#152)', async ({ app, page }) => {
+test('empty paragraphs add no <br /> (#152) @rich-text', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.placeCursorAfter('Last paragraph.');
