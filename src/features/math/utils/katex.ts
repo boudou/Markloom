@@ -112,12 +112,47 @@ export async function checkMath(tex: string, displayMode: boolean): Promise<stri
   }
 }
 
+/** One formula as KaTeX HTML (sanitized), loading KaTeX first. An invalid formula gives KaTeX's red error span. */
+export async function typesetMath(tex: string, displayMode: boolean): Promise<string> {
+  await loadMath();
+
+  const render = renderToString;
+
+  if (!render) throw new Error('KaTeX did not load');
+
+  return typeset(tex, displayMode, render);
+}
+
+/** The TeX of a placeholder's `data-math`, or null when it is malformed. */
 function decodedTex(value: string): string | null {
   try {
     return decodeURIComponent(value);
   } catch {
     return null; // raw HTML with a malformed data-math
   }
+}
+
+export interface MathSlot {
+  slot: HTMLElement;
+  tex: string;
+  display: boolean;
+}
+
+/**
+ * Takes every unfilled math placeholder under `root`: its TeX is decoded and its data-math removed.
+ * A malformed data-math (raw HTML) is dropped, so the placeholder keeps its text.
+ */
+export function takeMathSlots(root: ParentNode): MathSlot[] {
+  const slots: MathSlot[] = [];
+
+  for (const slot of Array.from(root.querySelectorAll<HTMLElement>('[data-math]'))) {
+    const tex = decodedTex(slot.getAttribute('data-math') ?? '');
+    slot.removeAttribute('data-math');
+
+    if (tex !== null) slots.push({ slot, tex, display: slot.classList.contains('math-display') });
+  }
+
+  return slots;
 }
 
 /**
@@ -129,13 +164,8 @@ export function fillMath(root: ParentNode): void {
 
   if (!render) return;
 
-  for (const slot of Array.from(root.querySelectorAll<HTMLElement>('[data-math]'))) {
-    const tex = decodedTex(slot.getAttribute('data-math') ?? '');
-    slot.removeAttribute('data-math');
-
-    if (tex === null) continue;
-
-    slot.innerHTML = typeset(tex, slot.classList.contains('math-display'), render);
+  for (const { slot, tex, display } of takeMathSlots(root)) {
+    slot.innerHTML = typeset(tex, display, render);
     slot.setAttribute('data-math-done', '');
   }
 }

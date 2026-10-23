@@ -25,6 +25,7 @@ import { getMarkdownParser, mermaidFence, mermaidFences, type Token } from '@/li
 import { CALLOUT_COLORS, CALLOUT_LABELS, type CalloutKind } from '@/lib/callouts';
 import { loadDocumentImage, loadUnique, renderDiagram, svgDataUrl, toPngBytes, type ExportImage } from './assets';
 import { imageSources } from './inlineLines';
+import { renderMathImage, type MathImage } from './mathImage';
 import type { ExportRequest } from './exporters';
 
 const MAX_IMAGE_WIDTH = 600; // px, fits A4/Letter text width
@@ -57,6 +58,10 @@ interface WalkState {
   images: Map<string, ImageMaker | null>;
   /** Every diagram's source */
   diagrams: Map<string, DiagramMaker>;
+  /** Every inline formula's TeX, drawn */
+  inlineMath: Map<string, MathImage>;
+  /** Every display formula's TeX, drawn */
+  displayMath: Map<string, MathImage>;
   lists: ListFrame[];
   items: ItemFrame[];
   quoteDepth: number;
@@ -154,6 +159,35 @@ async function prepareDiagram(code: string): Promise<DiagramMaker> {
 }
 
 // ---------------------------------------------------------------------------
+// Math: images, since there is no TeX-to-Word-equation converter
+
+const MATH_ERROR_COLOR = '991B1B';
+
+/** A formula's image; its alt text is the TeX. */
+function mathRun(tex: string, png: Uint8Array, transformation: { width: number; height: number }): ImageRun {
+  return new ImageRun({ type: 'png', data: png, transformation, altText: { name: 'Formula', title: tex, description: tex } });
+}
+
+/** A display formula centred on its own line, or its `$$…$$` source in red when it can't be drawn. */
+function mathParagraph(tex: string, image: MathImage | undefined, state: WalkState): Paragraph {
+  if (!image?.ok) {
+    const lines = tex.includes('\n') ? ['$$', ...tex.split('\n'), '$$'] : [`$$${tex}$$`];
+
+    return new Paragraph({
+      ...blockOptions(state),
+      children: lines.map((line, index) => new TextRun({ text: line, color: MATH_ERROR_COLOR, break: index > 0 ? 1 : undefined })),
+    });
+  }
+
+  return new Paragraph({
+    ...blockOptions(state),
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 120, after: 200 },
+    children: [mathRun(tex, image.png, fitted(image.width, image.height))],
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Inline content
 
 function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunStyle = {}): ParagraphChild[] {
@@ -181,10 +215,15 @@ function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunStyle = {
       case 'code_inline':
         push(text(token.content, { font: CODE_FONT, color: '9F1239', shading: { type: ShadingType.CLEAR, fill: 'F1F3F5', color: 'auto' } }));
         break;
-      case 'math_inline':
-        // Typeset math comes later; until then the formula stays readable as its source
-        push(text(`$${token.content}$`));
+      case 'math_inline': {
+        const image = state.inlineMath.get(token.content);
+
+        // At 1x it matches the 11pt text; Word sets it on the baseline, so a descent sits slightly high
+        if (image?.ok) out.push(mathRun(token.content, image.png, { width: image.width, height: image.height }));
+        else push(text(`$${token.content}$`, { color: MATH_ERROR_COLOR }));
         break;
+      }
+
       case 'strong_open': style.bold = true; break;
       case 'strong_close': style.bold = base.bold ?? false; break;
       case 'em_open': style.italics = true; break;
@@ -401,8 +440,7 @@ function walk(tokens: Token[], state: WalkState): (Paragraph | Table)[] {
       }
 
       case 'math_block':
-        // Written as source, in the code style, until typeset math comes to Word
-        blocks.push(codeParagraph(token.content.includes('\n') ? `$$\n${token.content}\n$$` : `$$${token.content}$$`));
+        blocks.push(mathParagraph(token.content, state.displayMath.get(token.content), state));
         break;
 
       case 'hr':
@@ -455,17 +493,23 @@ const ORDERED_FORMATS = [LevelFormat.DECIMAL, LevelFormat.LOWER_LETTER, LevelFor
 export async function exportDocx(request: ExportRequest): Promise<void> {
   const tokens = getMarkdownParser().parse(request.markdown, {});
 
-  // Every distinct image and diagram is prepared at once; the document is then built without waiting
-  const [images, diagrams] = await Promise.all([
+  const inlineFormulas = tokens.flatMap((token) => (token.children ?? []).flatMap((child) => (child.type === 'math_inline' ? [child.content] : [])));
+  const displayFormulas = tokens.flatMap((token) => (token.type === 'math_block' ? [token.content] : []));
+
+  // Every distinct image, diagram and formula is prepared at once (formulas are drawn one at a
+  // time); the document is then built without waiting
+  const [images, diagrams, inlineMath, displayMath] = await Promise.all([
     loadUnique(tokens.flatMap(imageSources), async (src) => {
       const image = await loadDocumentImage(src, request.docPath);
 
       return image ? prepareImage(image) : null;
     }),
     loadUnique(mermaidFences(tokens).map(({ code }) => code), prepareDiagram),
+    loadUnique(inlineFormulas, (tex) => renderMathImage(tex, false)),
+    loadUnique(displayFormulas, (tex) => renderMathImage(tex, true)),
   ]);
 
-  const state: WalkState = { images, diagrams, lists: [], items: [], quoteDepth: 0, callouts: [], nextListInstance: 0 };
+  const state: WalkState = { images, diagrams, inlineMath, displayMath, lists: [], items: [], quoteDepth: 0, callouts: [], nextListInstance: 0 };
   const children = walk(tokens, state);
 
   const levels = (ordered: boolean) =>
