@@ -276,13 +276,14 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
           // The buttons are enabled only once the preview has laid the pages out; print those
           if (!pagedDoc) return;
 
-          const outcome = await exporters.exportPdf(pagedDoc, request.title);
-
-          if (outcome === 'print-dialog') {
+          // The print dialog holds the page while it is open: close this dialog and say what to
+          // pick before it appears
+          const outcome = await exporters.exportPdf(pagedDoc, request.title, () => {
             onOpenChange(false);
+            notify({ tone: 'info', title: 'Choose “Save as PDF” in the print dialog' });
+          });
 
-            return;
-          }
+          if (outcome === 'print-dialog') return;
         } else if (format === 'html') {
           await exporters.exportHtml(request);
         } else {
