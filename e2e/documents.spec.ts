@@ -1,7 +1,8 @@
 // Documents: new, open, edit, save, close with the unsaved-changes prompt, tabs, Quick open,
-// folder search, the file tree, recent files and folders, and session restore, in both editors.
+// folder search and where its results land, Contents clicks, the file tree, recent files and
+// folders, and session restore, in both editors.
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, expectNoPreviewInRichText, knownGap, seedText, FOLDER_NAME } from './fixtures';
+import { test, expect, expectNoPreviewInRichText, seedText, FOLDER_NAME } from './fixtures';
 
 function tabs(page: Page): Locator {
   return page.getByRole('tablist', { name: 'Open documents' }).getByRole('tab');
@@ -116,9 +117,34 @@ test('Quick open (Ctrl+P) opens a file by name @documents @palette', async ({ ap
   await expect(app.rendered()).toContainText('Paragraph 1.1.');
 });
 
-test('folder search (Ctrl+Shift+F) finds a line and opens its file @documents', async ({ app, page }) => {
-  knownGap(app, 'wysiwyg', 189, 'a search result switches rich text to the Markdown view instead of showing the block');
+/** Where the rich-text caret is: the text of its paragraph, list item or table row, or its line of code */
+function caretText(page: Page, holder: 'p' | 'li' | 'tr' | 'code'): Promise<string | null> {
+  return page.evaluate((selector) => {
+    const selection = window.getSelection();
+    const node = selection?.anchorNode;
+    const element = node instanceof Element ? node : node?.parentElement;
+    const container = element?.closest(selector);
 
+    if (!selection || !node || !container) return null;
+
+    if (selector !== 'code') return container.textContent;
+
+    // The code block's text, cut at the caret's line
+    const text = container.textContent ?? '';
+    const range = document.createRange();
+
+    range.setStart(container, 0);
+    range.setEnd(node, selection.anchorOffset);
+
+    const offset = range.toString().length;
+    const start = text.lastIndexOf('\n', offset - 1) + 1;
+    const end = text.indexOf('\n', offset);
+
+    return text.slice(start, end === -1 ? undefined : end);
+  }, holder);
+}
+
+test('folder search (Ctrl+Shift+F) finds a line and opens its file @documents', async ({ app, page }) => {
   await page.keyboard.press('ControlOrMeta+Shift+f');
 
   const search = page.getByRole('search', { name: 'Search in folder' });
@@ -133,6 +159,77 @@ test('folder search (Ctrl+Shift+F) finds a line and opens its file @documents', 
   await results.getByRole('button', { name: /charlie delta/ }).click();
   await expect(app.tab('notes.md')).toHaveAttribute('aria-selected', 'true');
   await expect(app.rendered()).toContainText('Bravo charlie delta.');
+
+  // The result lands on its line in Markdown, and on its block in rich text (#189)
+  if (app.editorMode === 'split') {
+    await expect(page.locator('.cm-activeLine')).toHaveText('Bravo charlie delta.');
+
+    return;
+  }
+
+  await expect(app.rendered()).toBeFocused();
+  await expect.poll(() => caretText(page, 'p')).toBe('Bravo charlie delta.');
+});
+
+// Each search lands below something rich text keeps as its own block (definitions, a raw HTML
+// block, a diagram) or inside a list, a table or a code block
+const LANDINGS = [
+  { query: 'Last paragraph', file: 'references.md', holder: 'p', caret: /^Last paragraph\.$/ },
+  { query: 'Paragraph 12 of', file: 'footnotes.md', holder: 'p', caret: /^Paragraph 12 of the footnotes fixture/ },
+  { query: 'After the HTML', file: 'html.md', holder: 'p', caret: /^After the HTML\.$/ },
+  { query: 'Open task', file: 'fixture.md', holder: 'li', caret: /^(?!.*Done task).*Open task/ },
+  { query: 'Loom 5', file: 'pages.md', holder: 'tr', caret: /Loom 5/ },
+  { query: 'warp 7', file: 'pages.md', holder: 'code', caret: /^ {2}threads\.push\('warp 7'\);$/ },
+] as const;
+
+test('a search result lands on its line, in rich text on its block (#189) @documents @rich-text', async ({ app, page }) => {
+  const input = page.getByRole('textbox', { name: 'Search in folder' });
+  const results = page.getByRole('region', { name: 'Search results' });
+
+  for (const { query, file, holder, caret } of LANDINGS) {
+    await page.keyboard.press('ControlOrMeta+Shift+f');
+    await expect(input).toBeFocused();
+    await input.fill(query);
+    await results.getByRole('button', { name: new RegExp(query) }).first().click();
+    await expect(app.tab(file)).toHaveAttribute('aria-selected', 'true');
+
+    if (app.editorMode === 'split') {
+      await expect(page.locator('.cm-activeLine')).toContainText(query);
+      continue;
+    }
+
+    await expect(app.rendered()).toBeFocused();
+    await expect.poll(() => caretText(page, holder), { message: query }).toMatch(caret);
+  }
+});
+
+test('a search result in rich text shows its block, and Markdown mode does not jump there afterwards (#189) @documents', async ({ app, page }) => {
+  test.skip(app.editorMode !== 'split', 'switching to Markdown mounts the preview, which rich text alone must never do');
+
+  await page.keyboard.press('ControlOrMeta+Shift+M');
+  await expect(page.locator('[data-doc-surface] .rt-document')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+Shift+f');
+  await expect(page.getByRole('textbox', { name: 'Search in folder' })).toBeFocused();
+  await page.keyboard.type('Paragraph 4.4');
+  await page.getByRole('region', { name: 'Search results' }).getByRole('button', { name: /Paragraph 4\.4/ }).click();
+
+  await expect(app.tab('pages.md')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('[data-doc-surface] .rt-document p', { hasText: 'Paragraph 4.4.' })).toBeInViewport();
+
+  await page.getByRole('group', { name: 'Editing mode' }).getByRole('button', { name: 'Markdown' }).click();
+  await expect(page.locator('.cm-activeLine')).toHaveText('# Pages fixture');
+  expect(await page.locator('.cm-scroller').evaluate((scroller) => scroller.scrollTop)).toBe(0);
+});
+
+test('a Contents click puts the cursor on the heading (#189) @documents', async ({ app, page }) => {
+  await app.openFile('pages.md');
+  await page.keyboard.press('ControlOrMeta+Shift+L');
+
+  const section = page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Section 4' });
+
+  await section.click();
+  await expect(page.getByRole('toolbar', { name: 'Formatting' })).toContainText('H2');
+  await expect(section).toBeFocused();
 });
 
 test('a relative image shows when reading it is slow @documents @images', async ({ app, page }) => {

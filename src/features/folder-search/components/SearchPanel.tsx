@@ -7,7 +7,7 @@ import { buildSearchRegExp } from '@/features/find-replace/engine';
 import { selectTabContent, useTabsStore } from '@/features/tabs';
 import { openPath } from '@/lib/documentActions';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
-import { errorMessage, isMermaidFile } from '@/lib/utils';
+import { errorMessage } from '@/lib/utils';
 import { useAppStore } from '@/stores/appStore';
 import { flushEditorEdits, useUiStore } from '@/stores/uiStore';
 import { searchFolder, type FolderSearchResult, type LineMatch } from '../api/searchFolder';
@@ -25,7 +25,7 @@ function openDocumentTexts(): Map<string, string> {
   return new Map(state.tabs.flatMap((tab) => (tab.path ? [[tab.path, selectTabContent(state, tab.id)] as const] : [])));
 }
 
-/** Opens the file (or switches to its tab) and reveals the line in its source (Markdown or Mermaid) */
+/** Opens the file (or switches to its tab) and reveals the line in whichever editor shows it */
 async function openResult(path: string, line: number): Promise<void> {
   const tabs = useTabsStore.getState();
   let tab = tabs.tabs.find((t) => t.path === path);
@@ -40,10 +40,6 @@ async function openResult(path: string, line: number): Promise<void> {
 
   if (!tab) return;
 
-  const app = useAppStore.getState();
-
-  // Markdown source lines live in the Markdown view; a .mmd file has one editor in either mode
-  if (app.editorMode === 'wysiwyg' && !isMermaidFile(path)) app.setEditorMode('split');
   useUiStore.getState().navigateToLine(tab.id, line);
 }
 

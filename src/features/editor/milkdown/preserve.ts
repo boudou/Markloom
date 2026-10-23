@@ -111,6 +111,20 @@ function splitBlocks(lines: string[], markdown: string): Block[] {
 }
 
 /**
+ * The source lines [start, end) of each top-level block, 0-based. Rich text has one top-level
+ * node for each: a markdown-it block, or a link or footnote definition. The comparer knows no
+ * footnotes, so it reads adjacent footnote definitions as one paragraph when the first one isn't
+ * also a valid link definition; those are split here, one block per definition.
+ */
+export function sourceBlocks(markdown: string): Array<{ start: number; end: number }> {
+  const lines = markdown.split('\n');
+
+  return splitBlocks(lines, markdown).flatMap((block) =>
+    (FOOTNOTE_DEFINITION.test(block.text) ? definitionBlocks(lines, block.start, block.end) : [block]).map(({ start, end }) => ({ start, end }))
+  );
+}
+
+/**
  * Returns `serialized`, except that blocks rendering identically to a block of `original`
  * keep their original text, and runs of original blocks keep their original spacing.
  * Order and content follow `serialized`.

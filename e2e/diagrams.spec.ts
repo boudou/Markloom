@@ -82,9 +82,9 @@ test('an error names its document line and Show line goes there @diagrams', asyn
   await expect.poll(() => caretLine(app)).toBe(BROKEN_LINE);
 });
 
-test('Show line in a .mmd diagram moves the source cursor (#189) @diagrams', async ({ app }) => {
+test('Show line in a .mmd diagram moves the source cursor (#218) @diagrams', async ({ app }) => {
   test.skip(app.editorMode !== 'split', 'A .mmd file opens in its own diagram editor, whatever the mode');
-  knownGap(app, 'split', 189, 'the .mmd preview offers no Show line');
+  knownGap(app, 'split', 218,'the .mmd preview offers no Show line');
   await app.treeItem('flow.mmd').click();
 
   const card = app.page.getByRole('status').filter({ hasText: 'Diagram error' });

@@ -33,11 +33,12 @@ interface UiState {
   editorCommands: EditorCommands | null;
   setEditorCommands: (commands: EditorCommands | null) => void;
 
-  // A 1-based source line for the Markdown view. 'reveal' scrolls the source to it and
-  // focuses it ("Show line N", Export's "Show"); 'cursor' only moves the cursor there
-  // (a Contents click, where the preview scrolls and scroll sync brings the source along).
-  // Stamped with its tab: the view acts on it once its editor shows that tab, and drops it
-  // if another tab is showing, so it never lands in a different document.
+  // A 1-based source line for the editor showing a tab. 'reveal' scrolls there and focuses the
+  // editor (search results, "Show line N", Export's "Show"); 'cursor' only moves the cursor
+  // (a Contents click, where the rendered document scrolls itself). Every editor acts on it: the
+  // Markdown and .mmd sources at the line (codemirror/useLineRequest.ts), rich text at the line's
+  // block (milkdown/lineRequest.ts). Stamped with its tab: the editor showing another tab drops
+  // it, so it never lands in a different document.
   lineRequest: LineRequest | null;
   navigateToLine: (tabId: string, line: number) => void;
   placeCursorAtLine: (tabId: string, line: number) => void;

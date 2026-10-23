@@ -29,6 +29,7 @@ import { Modal, ModalFooter, Button, Input } from '@/components/ui';
 import { SHORTCUTS, matchesCombo } from '@/lib/shortcuts';
 import { appCommand } from '@/lib/appCommands';
 import { useAppStore } from '@/stores/appStore';
+import { useUiStore } from '@/stores/uiStore';
 import { slugify } from '@/lib/markdown';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { useEditorFocusRequest } from '../hooks/useEditorFocusRequest';
@@ -44,6 +45,7 @@ import { applyRichLink, insertRichSnippet, runRichAction, type LinkRequest } fro
 import { StartPanel } from './StartPanel';
 import { sameFormatState, type EditorCommands, type FormatState } from '../types';
 import { applyOutsideEdit } from '../milkdown/outsideEdit';
+import { applyLineRequest } from '../milkdown/lineRequest';
 import { richFormatState } from '../milkdown/formatState';
 import { focusPlugin } from '../milkdown/focus';
 import { caretSync } from '../milkdown/caretSync';
@@ -277,6 +279,27 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
 
     if (current?.status === EditorStatus.Created) commit(current.action(getMarkdown()));
   };
+
+  // Search results and Contents clicks for this document land here while it is shown. After the
+  // content sync above, so the editor already holds the store's text. Hidden in Markdown mode, it
+  // leaves the request to the source view. `liveView` and `flush` only read `get` and refs, hence
+  // not in the deps (see below).
+  const lineRequest = useUiStore((s) => s.lineRequest);
+
+  useEffect(() => {
+    if (!active || !editor || lineRequest === null) return;
+
+    const view = liveView();
+
+    if (!view) return;
+
+    if (lineRequest.tabId === tabId) {
+      flush();
+      applyLineRequest(view, selectTabContent(useTabsStore.getState(), tabId), lineRequest);
+    }
+
+    useUiStore.getState().clearLineRequest();
+  }, [lineRequest, editor, active]);
 
   // Read from editor state, not window.getSelection(): the palette's input holds the DOM selection
   const selectionMarkdown = () => {

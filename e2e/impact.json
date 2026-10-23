@@ -65,6 +65,7 @@
     "src/features/auto-save/**": ["@settings", "@documents"],
     "src/features/editor/codemirror/**": ["@editing", "@insert", "@diagrams", "@math"],
     "src/features/editor/milkdown/**": ["@rich-text", "@editing", "@insert", "@math", "@parity", "@code", "@diagrams", "@images"],
+    "src/features/editor/focusToggle.ts": ["@editing"],
     "src/features/editor/components/**": ["@editing", "@insert", "@rich-text", "@documents", "@parity"],
     "src/features/editor/components/MarkdownPreview.tsx": ["@diagrams", "@math", "@images", "@code"],
     "src/features/editor/components/MermaidEditor.tsx": ["@diagrams"],
