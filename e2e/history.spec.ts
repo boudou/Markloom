@@ -75,7 +75,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('keeps the chosen number of versions', async ({ page }) => {
+test('keeps the chosen number of versions @history', async ({ page }) => {
   const dialog = await openSettingsHistory(page);
   await dialog.getByRole('combobox', { name: 'Versions to keep per file' }).selectOption('10');
   await closeSettings(page);
@@ -92,7 +92,7 @@ test('keeps the chosen number of versions', async ({ page }) => {
   expect(await storedCounts(page)).toEqual({ versions: 10, meta: 10 });
 });
 
-test('lowering the limit trims every file at once', async ({ page }) => {
+test('lowering the limit trims every file at once @history', async ({ page }) => {
   const panel = await openHistory(page);
   await panel.getByRole('button', { name: 'Save this version' }).click();
   await expect(versionRows(panel)).toHaveCount(1);
@@ -141,7 +141,7 @@ test('lowering the limit trims every file at once', async ({ page }) => {
   await expect(versionRows(await openHistory(page))).toHaveCount(10);
 });
 
-test('Clear all history asks first', async ({ page }) => {
+test('Clear all history asks first @history', async ({ page }) => {
   const panel = await openHistory(page);
   await panel.getByRole('button', { name: 'Save this version' }).click();
   await expect(versionRows(panel)).toHaveCount(1);
@@ -174,7 +174,7 @@ test('Clear all history asks first', async ({ page }) => {
   await expect(await openHistory(page)).toContainText('No versions yet');
 });
 
-test('an older settings save keeps 50 versions', async ({ page }) => {
+test('an older settings save keeps 50 versions @history', async ({ page }) => {
   // Once per tab, so the choice made below survives the second reload
   await page.addInitScript(() => {
     if (sessionStorage.getItem('e2e-old-settings')) return;

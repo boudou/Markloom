@@ -106,7 +106,7 @@ test.afterEach(async ({ app }) => {
   if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
 });
 
-test('the browser build has no Window section', async ({ app, page }) => {
+test('the browser build has no Window section @window @settings @desktop', async ({ app, page }) => {
   await setUp(app);
   const dialog = await openSettings(page);
 
@@ -115,7 +115,7 @@ test('the browser build has no Window section', async ({ app, page }) => {
   await expect(dialog.getByRole('tab', { name: 'Window' })).toHaveCount(0);
 });
 
-test('Windows: the tray toggles and the Explorer menu', async ({ app, page }) => {
+test('Windows: the tray toggles and the Explorer menu @window @settings @desktop', async ({ app, page }) => {
   await setUp(app, { platform: 'win32', portable: false, explorerFails: false });
   const dialog = await openWindowSection(page);
 
@@ -140,7 +140,7 @@ test('Windows: the tray toggles and the Explorer menu', async ({ app, page }) =>
   await expectDocumentKept(app);
 });
 
-test('Windows portable: the Explorer menu says to turn it off first', async ({ app, page }) => {
+test('Windows portable: the Explorer menu says to turn it off first @window @settings @desktop', async ({ app, page }) => {
   await setUp(app, { platform: 'win32', portable: true, explorerFails: false });
   const dialog = await openWindowSection(page);
 
@@ -148,7 +148,7 @@ test('Windows portable: the Explorer menu says to turn it off first', async ({ a
   await expectDocumentKept(app);
 });
 
-test('Windows: a failed Explorer change shows an error and the real state', async ({ app, page }) => {
+test('Windows: a failed Explorer change shows an error and the real state @window @settings @desktop', async ({ app, page }) => {
   await setUp(app, { platform: 'win32', portable: false, explorerFails: true });
   const dialog = await openWindowSection(page);
   const explorer = dialog.getByRole('checkbox', { name: EXPLORER });
@@ -161,7 +161,7 @@ test('Windows: a failed Explorer change shows an error and the real state', asyn
   await expectDocumentKept(app);
 });
 
-test('macOS: the tray toggles only', async ({ app, page }) => {
+test('macOS: the tray toggles only @window @settings @desktop', async ({ app, page }) => {
   await setUp(app, { platform: 'darwin', portable: false, explorerFails: false });
   const dialog = await openWindowSection(page);
 

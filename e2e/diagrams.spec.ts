@@ -42,7 +42,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('a diagram renders and follows an edit', async ({ app, page }) => {
+test('a diagram renders and follows an edit @diagrams', async ({ app, page }) => {
   await app.openFile('fixture.md');
 
   const diagram = app.rendered().getByRole('img', { name: 'Diagram: graph TD' }).locator('svg');
@@ -71,7 +71,7 @@ test('a diagram renders and follows an edit', async ({ app, page }) => {
   await expect(diagram).toContainText('Encore');
 });
 
-test('an error names its document line and Show line goes there', async ({ app }) => {
+test('an error names its document line and Show line goes there @diagrams', async ({ app }) => {
   await app.openFile('broken.md');
 
   const card = app.rendered().getByRole('status').filter({ hasText: 'Diagram error' });
@@ -82,7 +82,7 @@ test('an error names its document line and Show line goes there', async ({ app }
   await expect.poll(() => caretLine(app)).toBe(BROKEN_LINE);
 });
 
-test('Show line in a .mmd diagram moves the source cursor (#189)', async ({ app }) => {
+test('Show line in a .mmd diagram moves the source cursor (#189) @diagrams', async ({ app }) => {
   test.skip(app.editorMode !== 'split', 'A .mmd file opens in its own diagram editor, whatever the mode');
   knownGap(app, 'split', 189, 'the .mmd preview offers no Show line');
   await app.treeItem('flow.mmd').click();

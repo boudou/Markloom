@@ -31,7 +31,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('Bold formats the selection and shows as pressed', async ({ app, page }) => {
+test('Bold formats the selection and shows as pressed @editing', async ({ app, page }) => {
   const bold = formatting(page).getByRole('button', { name: /^Bold/ });
 
   await app.selectLine('Alpha');
@@ -45,7 +45,7 @@ test('Bold formats the selection and shows as pressed', async ({ app, page }) =>
   await expect(bold).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('Strikethrough shows as pressed inside struck text (#207)', async ({ app, page }) => {
+test('Strikethrough shows as pressed inside struck text (#207) @editing', async ({ app, page }) => {
   knownGap(app, 'split', 207, 'the Markdown source parses no GFM, so Strikethrough never shows as pressed');
 
   if (app.editorMode === 'split') {
@@ -62,7 +62,7 @@ test('Strikethrough shows as pressed inside struck text (#207)', async ({ app, p
   await expect(formatting(page).getByRole('button', { name: /^Strikethrough/ })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('find and replace', async ({ app, page }) => {
+test('find and replace @editing', async ({ app, page }) => {
   await app.editingSurface().click();
   await page.keyboard.press('ControlOrMeta+h');
 
@@ -81,7 +81,7 @@ test('find and replace', async ({ app, page }) => {
   await expect(bar).toBeHidden();
 });
 
-test('the command palette runs a command', async ({ page }) => {
+test('the command palette runs a command @editing @palette', async ({ page }) => {
   await runCommand(page, 'Show contents');
 
   const sections = page.getByRole('navigation', { name: 'Sections' });
@@ -90,13 +90,13 @@ test('the command palette runs a command', async ({ page }) => {
   await expect(sections.getByRole('button', { name: 'Notes' })).toBeVisible();
 });
 
-test('page width from the palette', async ({ page }) => {
+test('page width from the palette @editing @palette @settings', async ({ page }) => {
   await runCommand(page, 'Page width: Wide');
   await expect(page.locator('[data-page-width="wide"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Page width: Wide/ })).toBeVisible();
 });
 
-test('focus mode hides the chrome and Escape brings it back (#205)', async ({ app, page }) => {
+test('focus mode hides the chrome and Escape brings it back (#205) @editing', async ({ app, page }) => {
   const chrome = [
     page.getByRole('toolbar', { name: 'Document actions' }),
     page.getByRole('tablist', { name: 'Open documents' }),
@@ -118,7 +118,7 @@ test('focus mode hides the chrome and Escape brings it back (#205)', async ({ ap
   for (const part of chrome) await expect(part).toBeVisible();
 });
 
-test('focus mode dims every block but the current one (#206)', async ({ app, page }) => {
+test('focus mode dims every block but the current one (#206) @editing', async ({ app, page }) => {
   knownGap(app, 'both', 206, 'focus mode has no paragraph dimming yet');
 
   await app.placeCursorAfter('Alpha');
@@ -130,7 +130,7 @@ test('focus mode dims every block but the current one (#206)', async ({ app, pag
   expect(await opacity(block(app, 'Alpha'))).toBe(1);
 });
 
-test('smart typography can be turned off (#208)', async ({ app, page }) => {
+test('smart typography can be turned off (#208) @editing', async ({ app, page }) => {
   knownGap(app, 'both', 208, 'there is no Smart typography setting yet');
 
   await runCommand(page, 'Smart typography');

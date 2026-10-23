@@ -39,7 +39,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('new document opens an empty Untitled tab', async ({ app, page }) => {
+test('new document opens an empty Untitled tab @documents', async ({ app, page }) => {
   await app.openFile('notes.md');
   const before = await tabs(page).count();
 
@@ -49,7 +49,7 @@ test('new document opens an empty Untitled tab', async ({ app, page }) => {
   await expect(page.getByRole('heading', { name: 'A blank page' })).toBeVisible();
 });
 
-test('edit and save writes the file', async ({ app, page }) => {
+test('edit and save writes the file @documents', async ({ app, page }) => {
   await app.openFile('notes.md');
   await app.placeCursorAfter('The last paragraph of notes.');
   await page.keyboard.type(' Saved words.');
@@ -59,7 +59,7 @@ test('edit and save writes the file', async ({ app, page }) => {
   expect(await app.readFile('notes.md')).toBe(seedText('notes.md').replace('notes.', 'notes. Saved words.'));
 });
 
-test('closing an edited tab asks first; Cancel keeps it and focus stays off the close button (#187)', async ({ app, page }) => {
+test('closing an edited tab asks first; Cancel keeps it and focus stays off the close button (#187) @documents', async ({ app, page }) => {
   await app.openFile('notes.md');
   await app.placeCursorAfter('Alpha');
   await page.keyboard.type(' unsaved');
@@ -85,7 +85,7 @@ test('closing an edited tab asks first; Cancel keeps it and focus stays off the 
   expect(await app.readFile('notes.md')).toBe(seedText('notes.md'));
 });
 
-test('tabs switch by click and arrow keys; Delete closes a clean tab', async ({ app, page }) => {
+test('tabs switch by click and arrow keys; Delete closes a clean tab @documents', async ({ app, page }) => {
   await app.openFile('notes.md');
   await app.openFile('pages.md');
   await expect(app.tab('pages.md')).toHaveAttribute('aria-selected', 'true');
@@ -103,7 +103,7 @@ test('tabs switch by click and arrow keys; Delete closes a clean tab', async ({ 
   await expect(app.tab('notes.md')).toHaveAttribute('aria-selected', 'true');
 });
 
-test('Quick open (Ctrl+P) opens a file by name', async ({ app, page }) => {
+test('Quick open (Ctrl+P) opens a file by name @documents @palette', async ({ app, page }) => {
   await page.keyboard.press('ControlOrMeta+p');
 
   const input = page.getByRole('combobox', { name: 'File name' });
@@ -116,7 +116,7 @@ test('Quick open (Ctrl+P) opens a file by name', async ({ app, page }) => {
   await expect(app.rendered()).toContainText('Paragraph 1.1.');
 });
 
-test('folder search (Ctrl+Shift+F) finds a line and opens its file', async ({ app, page }) => {
+test('folder search (Ctrl+Shift+F) finds a line and opens its file @documents', async ({ app, page }) => {
   knownGap(app, 'wysiwyg', 189, 'a search result switches rich text to the Markdown view instead of showing the block');
 
   await page.keyboard.press('ControlOrMeta+Shift+f');
@@ -135,7 +135,7 @@ test('folder search (Ctrl+Shift+F) finds a line and opens its file', async ({ ap
   await expect(app.rendered()).toContainText('Bravo charlie delta.');
 });
 
-test('a relative image shows when reading it is slow', async ({ app, page }) => {
+test('a relative image shows when reading it is slow @documents @images', async ({ app, page }) => {
   // A busy disk: the image file takes a while, so the browser's own failed load of the
   // relative address comes first
   await page.evaluate(() => {
@@ -157,7 +157,7 @@ test('a relative image shows when reading it is slow', async ({ app, page }) => 
   }
 });
 
-test('the file tree shows only documents (#198)', async ({ app }) => {
+test('the file tree shows only documents (#198) @documents', async ({ app }) => {
   for (const name of ['fixture.md', 'notes.md', 'flow.mmd', 'assets']) await expect(app.treeItem(name)).toBeVisible();
 
   await expect(app.treeItem('ignored.txt')).toHaveCount(0);
@@ -166,7 +166,7 @@ test('the file tree shows only documents (#198)', async ({ app }) => {
   await expect(app.treeItem('pic.png')).toHaveCount(0);
 });
 
-test('the start screen lists recent folders and files (#17), and they reopen', async ({ app, page }) => {
+test('the start screen lists recent folders and files (#17), and they reopen @documents', async ({ app, page }) => {
   await app.openFile('notes.md');
   await page.keyboard.press('Alt+w');
   await expect(app.tab('notes.md')).toBeHidden();
@@ -184,7 +184,7 @@ test('the start screen lists recent folders and files (#17), and they reopen', a
   await expect(app.rendered()).toContainText('Bravo charlie delta.');
 });
 
-test('a reload brings back the folder and documents', async ({ app, page }) => {
+test('a reload brings back the folder and documents @documents', async ({ app, page }) => {
   await app.openFile('notes.md');
   await app.openFile('pages.md');
   await sessionSaved(page, (session) => session.paths.length === 2);

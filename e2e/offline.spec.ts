@@ -63,7 +63,7 @@ test.afterEach(async ({ app }) => {
 test.describe('when cache writes fail', () => {
   test.use({ failCacheWrites: true });
 
-  test('the page loads and reloads from the network', async ({ app, page }) => {
+  test('the page loads and reloads from the network @offline', async ({ app, page }) => {
     await reloadUnderWorker(page);
     await expectAppShell(page);
 
@@ -75,7 +75,7 @@ test.describe('when cache writes fail', () => {
   });
 });
 
-test('opens offline after a visit', async ({ app, context, page }) => {
+test('opens offline after a visit @offline', async ({ app, context, page }) => {
   await reloadUnderWorker(page);
   // Opening a document online caches the editor's lazy chunks too
   await openFixture(app);

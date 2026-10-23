@@ -24,7 +24,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('the plain build loads nothing from Google', async ({ app, page }) => {
+test('the plain build loads nothing from Google @web', async ({ app, page }) => {
   const google = await interceptGoogle(page);
 
   await page.reload();
@@ -37,7 +37,7 @@ test('the plain build loads nothing from Google', async ({ app, page }) => {
 test.describe('analytics build', () => {
   test.use({ baseURL: appURL(ANALYTICS_PORT) });
 
-  test('asks first, and loads Google Analytics only after Allow (#210)', async ({ app, page }) => {
+  test('asks first, and loads Google Analytics only after Allow (#210) @web', async ({ app, page }) => {
     knownGap(app, 'both', 210, 'the web version has no usage statistics yet');
 
     const google = await interceptGoogle(page);

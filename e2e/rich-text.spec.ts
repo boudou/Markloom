@@ -16,7 +16,7 @@ test.describe('raw HTML', () => {
     await app.openFile('html.md');
   });
 
-  test('controls inside rendered HTML are no Tab stops (#183)', async ({ app, page }) => {
+  test('controls inside rendered HTML are no Tab stops (#183) @rich-text', async ({ app, page }) => {
     const rendered = app.rendered().locator('.rt-html-render');
 
     // Inside a closed <details>, so attached but not shown
@@ -39,7 +39,7 @@ test.describe('raw HTML', () => {
     await expect(app.tab('html.md')).toHaveAccessibleName('html.md');
   });
 
-  test('an emptied HTML source survives the window losing focus (#184)', async ({ app, page }) => {
+  test('an emptied HTML source survives the window losing focus (#184) @rich-text', async ({ app, page }) => {
     await app.rendered().locator('.rt-html').filter({ hasText: 'More' }).click();
 
     const source = app.rendered().locator('textarea.rt-html-source');
@@ -70,7 +70,7 @@ test.describe('saving keeps untouched Markdown', () => {
     await app.openFile('fixture.md');
   });
 
-  test('saving without edits leaves the file byte-identical', async ({ app, page }) => {
+  test('saving without edits leaves the file byte-identical @rich-text', async ({ app, page }) => {
     const before = await app.fileModified('fixture.md');
 
     await app.editingSurface().click();
@@ -80,7 +80,7 @@ test.describe('saving keeps untouched Markdown', () => {
     expect(await app.readFile('fixture.md')).toBe(seedText('fixture.md'));
   });
 
-  test('an edit changes only its own line', async ({ app, page }) => {
+  test('an edit changes only its own line @rich-text', async ({ app, page }) => {
     await app.placeCursorAfter('A claim with a footnote.');
     await page.keyboard.type(' Edited');
     await app.save();
