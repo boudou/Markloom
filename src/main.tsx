@@ -5,9 +5,17 @@ import App from './App';
 import { TooltipProvider } from './components/ui/Tooltip';
 import './styles/fonts';
 import './styles/globals.css';
+import { setSmartTypography } from './lib/markdown';
+import { selectSmartTypography, useSettingsStore } from './stores/settingsStore';
 
 // Enable Immer plugin for Map and Set support
 enableMapSet();
+
+// Before the first render, so a stored "off" never renders with typography; the subscription
+// runs before React re-renders, so the preview's next parse already has the new setting
+setSmartTypography(selectSmartTypography(useSettingsStore.getState()));
+
+useSettingsStore.subscribe((state) => setSmartTypography(selectSmartTypography(state)));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

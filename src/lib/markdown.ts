@@ -456,6 +456,14 @@ export function getMarkdownParser(): MarkdownIt {
   return mdInstance;
 }
 
+/**
+ * Applies the Smart typography setting (curly quotes, dashes, ellipses, ©) to everything rendered
+ * from now on: markdown-it's replacement rules read the option on every parse.
+ */
+export function setSmartTypography(on: boolean): void {
+  getMarkdownParser().set({ typographer: on });
+}
+
 // DOMPurify drops any id that names a document property (its SANITIZE_DOM clobbering guard),
 // so "## Title" or "## Images" would lose the ids that #title links point at. Headings aren't
 // exposed as named properties on document, and a lowercase slug can't shadow the app's

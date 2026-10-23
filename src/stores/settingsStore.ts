@@ -101,6 +101,9 @@ interface SettingsState {
 
   exportOrientation: Orientation;
 
+  /** Curly quotes, dashes and © in the preview and exports; off renders text as typed */
+  smartTypography: boolean;
+
   // Actions
   setAutoSave: (enabled: boolean, interval?: number) => void;
   setAutoSaveInterval: (seconds: number) => void;
@@ -116,6 +119,7 @@ interface SettingsState {
   setLastUpdateCheckAt: (at: number) => void;
   setExportPageSize: (size: PageSize) => void;
   setExportOrientation: (orientation: Orientation) => void;
+  setSmartTypography: (on: boolean) => void;
 
   // Recent files
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
@@ -130,7 +134,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt' | 'exportPageSize' | 'exportOrientation'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt' | 'exportPageSize' | 'exportOrientation' | 'smartTypography'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -167,6 +171,7 @@ const KEPT_TOP_LEVEL_KEYS = [
   'lastUpdateCheckAt',
   'exportPageSize',
   'exportOrientation',
+  'smartTypography',
 ] as const;
 
 function copyIfPresent<K extends (typeof KEPT_TOP_LEVEL_KEYS)[number]>(
@@ -218,6 +223,7 @@ export const useSettingsStore = create<SettingsState>()(
       lastUpdateCheckAt: null,
       exportPageSize: 'A4',
       exportOrientation: 'portrait',
+      smartTypography: true,
 
       // Word-count goals; null or 0 removes the goal
       setWordGoal: (key, goal) =>
@@ -309,6 +315,11 @@ export const useSettingsStore = create<SettingsState>()(
           state.exportOrientation = orientation;
         }),
 
+      setSmartTypography: (on) =>
+        set((state) => {
+          state.smartTypography = on;
+        }),
+
       // Recent files
       addRecentFile: (file) =>
         set((state) => {
@@ -373,6 +384,7 @@ export const useSettingsStore = create<SettingsState>()(
         lastUpdateCheckAt: state.lastUpdateCheckAt,
         exportPageSize: state.exportPageSize,
         exportOrientation: state.exportOrientation,
+        smartTypography: state.smartTypography,
       }),
       // Only saves from an older version reach here.
       // SAFETY: this app wrote the save with JSON.stringify, so a present key has the type it was written with.
@@ -387,3 +399,6 @@ export const selectExportPageSize = (s: SettingsState): PageSize => (s.exportPag
 
 export const selectExportOrientation = (s: SettingsState): Orientation =>
   s.exportOrientation === 'landscape' ? 'landscape' : 'portrait';
+
+// Only an explicit false turns it off
+export const selectSmartTypography = (s: SettingsState): boolean => s.smartTypography !== false;

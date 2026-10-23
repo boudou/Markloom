@@ -1,7 +1,7 @@
 // Editing: toolbar formatting and its pressed state, find and replace, the command palette,
-// focus mode, page width and smart typography, in both editors.
+// focus mode and page width, in both editors. Smart typography is in typography.spec.ts.
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, downloadOf, expectNoPreviewInRichText, knownGap, type MarkloomApp } from './fixtures';
+import { test, expect, expectNoPreviewInRichText, knownGap, type MarkloomApp } from './fixtures';
 
 function formatting(page: Page): Locator {
   return page.getByRole('toolbar', { name: 'Formatting' });
@@ -188,21 +188,4 @@ test('focus mode dims every block but the current one (#206) @editing', async ({
 
   await expect.poll(() => opacity(block(app, 'Bravo charlie')), { timeout: 3_000 }).toBeLessThan(1);
   expect(await opacity(block(app, 'Alpha'))).toBe(1);
-});
-
-test('smart typography can be turned off (#208) @editing', async ({ app, page }) => {
-  knownGap(app, 'both', 208, 'there is no Smart typography setting yet');
-
-  await runCommand(page, 'Smart typography');
-  await page.keyboard.press('ControlOrMeta+e');
-
-  const dialog = page.getByRole('dialog', { name: 'Export' });
-
-  await dialog.getByRole('radio', { name: 'Web page' }).click();
-
-  const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Web page' }).click());
-  const html = file.bytes.toString('utf8');
-
-  expect(html).toContain('-- dash (c)');
-  expect(html).not.toContain('“quoted”');
 });
