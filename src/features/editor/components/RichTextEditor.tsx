@@ -44,6 +44,7 @@ import { StartPanel } from './StartPanel';
 import { sameFormatState, type EditorCommands, type FormatState } from '../types';
 import { applyOutsideEdit } from '../milkdown/outsideEdit';
 import { richFormatState } from '../milkdown/formatState';
+import { focusPlugin } from '../milkdown/focus';
 import { setSelectedText } from '@/features/word-count';
 
 interface RichTextEditorProps {
@@ -182,6 +183,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         .use(htmlLayout)
         .use(taskToggle)
         .use(searchPlugin)
+        .use(focusPlugin)
         .use(
           // Tell the toolbar what applies at the cursor, and the status bar what is selected
           $prose(
