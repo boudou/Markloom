@@ -1,9 +1,11 @@
 // Footnotes (#203): the preview numbers [^1] references and lists the notes at the end with links
 // back, exports and Copy as rich text carry them styled, and rich text styles its own footnote
 // nodes. folder/footnotes.md has a definition mid-document, references in a paragraph, a callout's
-// first line, a list and a table, and a "## fn1" heading that must keep its id.
+// first line, a list and a table, and a "## fn1" heading that must keep its id. Word export
+// (#204) writes them as Word footnotes.
+import JSZip from 'jszip';
 import type { Page } from '@playwright/test';
-import { test, expect, downloadOf, expectNoPreviewInRichText } from './fixtures';
+import { test, expect, downloadOf, expectNoPreviewInRichText, type SavedFile } from './fixtures';
 
 declare global {
   interface Window {
@@ -115,7 +117,7 @@ async function exportedWebPage(page: Page): Promise<string> {
   return file.bytes.toString('utf8');
 }
 
-test('Web page and PDF exports carry the footnotes, styled', async ({ page }) => {
+test('Web page and PDF exports carry the footnotes, styled @export', async ({ page }) => {
   const html = await exportedWebPage(page);
 
   expect(html).toContain('<section class="footnotes">');
@@ -151,7 +153,7 @@ test('Web page and PDF exports carry the footnotes, styled', async ({ page }) =>
   expect(printed).toContain('.footnote-item { break-inside: avoid; }');
 });
 
-test('Copy as rich text pastes the notes without dead links', async ({ page, context }) => {
+test('Copy as rich text pastes the notes without dead links @export', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.getByRole('toolbar', { name: 'Document actions' }).getByRole('button', { name: 'Copy as rich text' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Copied as rich text' })).toBeVisible({ timeout: 15_000 });
@@ -167,4 +169,62 @@ test('Copy as rich text pastes the notes without dead links', async ({ page, con
   expect(html).toMatch(/<sup class="footnote-ref"[^>]*>1<\/sup>/);
   expect(html).not.toContain('footnote-backref');
   expect(html).not.toContain('href="#fn');
+});
+
+async function exportedWord(page: Page): Promise<SavedFile> {
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const dialog = page.getByRole('dialog', { name: 'Export' });
+
+  await dialog.getByRole('radio', { name: 'Word' }).click();
+
+  return downloadOf(page, () => dialog.getByRole('button', { name: 'Export Word' }).click());
+}
+
+/** The text of some Word XML's runs */
+function wordText(xml: string): string {
+  return Array.from(xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g), (match) => match[1]).join('');
+}
+
+test('Word writes real footnotes, with an edit made just before export @export', async ({ app, page }) => {
+  const EDIT = ' Edited before export.';
+
+  // Edit a note in the active editor, as a user would, right before exporting
+  await app.placeCursorAfter('Second, defined mid-document.');
+  await page.keyboard.type(EDIT);
+  await expect(app.rendered()).toContainText(`Second, defined mid-document.${EDIT}`);
+
+  const zip = await JSZip.loadAsync((await exportedWord(page)).bytes);
+  const read = async (path: string) => (await zip.file(path)?.async('string')) ?? '';
+  const body = await read('word/document.xml');
+  const notesXml = await read('word/footnotes.xml');
+
+  // Each reference is a footnote mark; the repeated [^1] points at the same footnote
+  const marks = Array.from(body.matchAll(/<w:footnoteReference w:id="(\d+)"\/>/g), (match) => match[1]);
+
+  expect(marks).toEqual(['1', '2', '3', '1', '4']);
+
+  // The notes are in Word's footnote area, not left as paragraphs at the end of the body
+  const notes = new Map(
+    Array.from(notesXml.matchAll(/<w:footnote w:id="(\d+)">([\s\S]*?)<\/w:footnote>/g), (match): [string, string] => [match[1], match[2]])
+  );
+
+  expect([...notes.keys()]).toEqual(['1', '2', '3', '4']);
+  expect(wordText(notes.get('1') ?? '')).toBe('First.');
+  expect(wordText(notes.get('2') ?? '')).toBe(`Second, defined mid-document.${EDIT}`);
+  expect(wordText(notes.get('3') ?? '')).toBe('From the callout.');
+  expect(notes.get('1')).toContain('<w:pStyle w:val="FootnoteText"/>');
+
+  for (const note of NOTES) expect(wordText(body)).not.toContain(note);
+
+  expect(wordText(body)).not.toContain('[^');
+
+  // Formatting inside a note survives: bold, code and a working link
+  const table = notes.get('4') ?? '';
+
+  expect(wordText(table)).toBe('From the table. Bold, code and a link.');
+  expect(table).toMatch(/<w:b\/>[\s\S]*?<w:t[^>]*>Bold<\/w:t>/);
+  expect(table).toMatch(/w:ascii="Consolas"[\s\S]*?<w:t[^>]*>code<\/w:t>/);
+  expect(table).toMatch(/<w:hyperlink [^>]*r:id="[^"]+"[^>]*>[\s\S]*?<w:t[^>]*>link<\/w:t>/);
+  expect(await read('word/_rels/footnotes.xml.rels')).toContain('Target="https://example.com/note"');
 });

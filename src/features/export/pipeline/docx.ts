@@ -5,12 +5,14 @@ import {
   BorderStyle,
   Document,
   ExternalHyperlink,
+  FootnoteReferenceRun,
   HeadingLevel,
   ImageRun,
   LevelFormat,
   Packer,
   Paragraph,
   ShadingType,
+  Tab,
   Table,
   TableCell,
   TableRow,
@@ -68,6 +70,10 @@ interface WalkState {
   /** Callout kind of each open quote, innermost last ('' for a plain quote) */
   callouts: string[];
   nextListInstance: number;
+  /** Word footnotes by id, filled when the walk reaches the notes at the end of the tokens */
+  footnotes: Record<string, { children: Paragraph[] }>;
+  /** True while walking a footnote's content */
+  inFootnote: boolean;
 }
 
 interface RunStyle {
@@ -188,6 +194,17 @@ function mathParagraph(tex: string, image: MathImage | undefined, state: WalkSta
 }
 
 // ---------------------------------------------------------------------------
+// Footnotes
+
+/**
+ * A note's Word footnote id: the plugin's 0-based meta.id plus one, the number the preview shows.
+ * Word keeps ids -1 and 0 for the separator lines.
+ */
+function noteId(token: Token): number {
+  return Number(token.meta?.id) + 1;
+}
+
+// ---------------------------------------------------------------------------
 // Inline content
 
 function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunStyle = {}): ParagraphChild[] {
@@ -258,6 +275,12 @@ function inlineRuns(tokens: Token[] | null, state: WalkState, base: RunStyle = {
         break;
       }
 
+      case 'footnote_ref':
+        // Word has no footnotes inside a footnote, so a reference there keeps its number as text
+        if (state.inFootnote) push(text(String(noteId(token)), { superScript: true }));
+        else out.push(new FootnoteReferenceRun(noteId(token)));
+        break;
+
       case 'html_inline':
         if (/^<br\s*\/?>$/i.test(token.content)) push(new TextRun({ break: 1 }));
         // Other inline HTML (including our task checkboxes) carries no text
@@ -302,7 +325,7 @@ function blockOptions(state: WalkState): Partial<IParagraphOptions> {
   }
 
   // docx skips undefined paragraph properties, as it did the keys this function used to leave out
-  return { numbering, indent: indentLeft > 0 ? { left: indentLeft } : undefined, spacing, border };
+  return { style: state.inFootnote ? 'FootnoteText' : undefined, numbering, indent: indentLeft > 0 ? { left: indentLeft } : undefined, spacing, border };
 }
 
 function codeParagraph(code: string): Paragraph {
@@ -322,21 +345,53 @@ function codeParagraph(code: string): Paragraph {
   });
 }
 
-function buildTable(tokens: Token[], start: number, state: WalkState) {
-  const rows: { cells: { inline: Token; header: boolean; align: string | null }[] }[] = [];
+interface TableCellTokens {
+  inline: Token;
+  header: boolean;
+  align: string | null;
+}
+
+interface TableTokens {
+  /** Cells, row by row */
+  rows: TableCellTokens[][];
+  /** Index of the table's table_close */
+  end: number;
+}
+
+/** The cells of the table opened at `start` */
+function tableCells(tokens: Token[], start: number): TableTokens {
+  const rows: TableCellTokens[][] = [];
   let i = start + 1;
 
   for (; i < tokens.length && tokens[i].type !== 'table_close'; i++) {
     const t = tokens[i];
 
-    if (t.type === 'tr_open') rows.push({ cells: [] });
+    if (t.type === 'tr_open') rows.push([]);
 
     if (t.type === 'th_open' || t.type === 'td_open') {
       const align = (t.attrGet('style') ?? '').match(/text-align:\s*(\w+)/)?.[1] ?? null;
-      rows[rows.length - 1].cells.push({ inline: tokens[i + 1], header: t.type === 'th_open', align });
+      rows[rows.length - 1].push({ inline: tokens[i + 1], header: t.type === 'th_open', align });
     }
   }
 
+  return { rows, end: i };
+}
+
+/** A table as one paragraph per row, cells apart by a tab: Word footnotes hold only paragraphs */
+function tableParagraphs(rows: TableCellTokens[][], state: WalkState): Paragraph[] {
+  return rows.map(
+    (row) =>
+      new Paragraph({
+        ...blockOptions(state),
+        children: row.flatMap((cell, index) => [
+          ...(index > 0 ? [new TextRun({ children: [new Tab()] })] : []),
+          ...inlineRuns(cell.inline.children, state, { bold: cell.header }),
+        ]),
+      })
+  );
+}
+
+function buildTable(rows: TableCellTokens[][], state: WalkState): Table {
   const alignments: Record<string, (typeof AlignmentType)[keyof typeof AlignmentType]> = {
     center: AlignmentType.CENTER,
     right: AlignmentType.RIGHT,
@@ -348,7 +403,7 @@ function buildTable(tokens: Token[], start: number, state: WalkState) {
     (row, rowIndex) =>
       new TableRow({
         tableHeader: rowIndex === 0,
-        children: row.cells.map(
+        children: row.map(
           (cell) =>
             new TableCell({
               shading: cell.header ? { type: ShadingType.CLEAR, fill: 'F1F3F5', color: 'auto' } : undefined,
@@ -365,7 +420,36 @@ function buildTable(tokens: Token[], start: number, state: WalkState) {
       })
   );
 
-  return { table: new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }), end: i };
+  return new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } });
+}
+
+/**
+ * Turns the notes block at the end of the tokens (footnote_block_open at `start`) into Word
+ * footnotes, each note's blocks walked like the body's. Returns the index of footnote_block_close.
+ */
+function collectFootnotes(tokens: Token[], start: number, state: WalkState): number {
+  let i = start + 1;
+
+  for (; i < tokens.length && tokens[i].type !== 'footnote_block_close'; i++) {
+    if (tokens[i].type !== 'footnote_open') continue;
+
+    const id = noteId(tokens[i]);
+    let end = i + 1;
+
+    // Notes don't nest, so the next footnote_close is this note's
+    while (end < tokens.length && tokens[end].type !== 'footnote_close') end++;
+
+    state.inFootnote = true;
+    // Tables come out as paragraphs while inFootnote is set, so every block is a paragraph
+    const children = walk(tokens.slice(i + 1, end), state).flatMap((block) => (block instanceof Paragraph ? [block] : []));
+    state.inFootnote = false;
+
+    // An empty note still needs a paragraph, which carries Word's footnote mark
+    state.footnotes[id] = { children: children.length > 0 ? children : [new Paragraph({ style: 'FootnoteText', children: [] })] };
+    i = end;
+  }
+
+  return i;
 }
 
 function walk(tokens: Token[], state: WalkState): (Paragraph | Table)[] {
@@ -453,11 +537,20 @@ function walk(tokens: Token[], state: WalkState): (Paragraph | Table)[] {
         );
         break;
       case 'table_open': {
-        const { table, end } = buildTable(tokens, i, state);
-        blocks.push(table, new Paragraph({ children: [], spacing: { after: 120 } }));
+        const { rows, end } = tableCells(tokens, i);
+
+        if (state.inFootnote) blocks.push(...tableParagraphs(rows, state));
+        else blocks.push(buildTable(rows, state), new Paragraph({ children: [], spacing: { after: 120 } }));
         i = end;
         break;
       }
+
+      case 'footnote_block_open':
+        i = collectFootnotes(tokens, i, state);
+        break;
+      case 'footnote_anchor':
+        // The preview's link back to the reference; Word links a footnote to its mark itself
+        break;
 
       case 'html_block': {
         // SAFETY: calloutTitle meta is set by the callouts rule in lib/markdown.ts, from a CalloutKind.
@@ -509,7 +602,7 @@ export async function exportDocx(request: ExportRequest): Promise<void> {
     loadUnique(displayFormulas, (tex) => renderMathImage(tex, true)),
   ]);
 
-  const state: WalkState = { images, diagrams, inlineMath, displayMath, lists: [], items: [], quoteDepth: 0, callouts: [], nextListInstance: 0 };
+  const state: WalkState = { images, diagrams, inlineMath, displayMath, lists: [], items: [], quoteDepth: 0, callouts: [], nextListInstance: 0, footnotes: {}, inFootnote: false };
   const children = walk(tokens, state);
 
   const levels = (ordered: boolean) =>
@@ -525,6 +618,7 @@ export async function exportDocx(request: ExportRequest): Promise<void> {
     creator: request.author || 'Markloom',
     title: request.title,
     description: 'Exported from Markloom',
+    footnotes: state.footnotes,
     styles: {
       default: {
         document: { run: { font: BODY_FONT, size: 22, color: '1A1A1A' }, paragraph: { spacing: { after: 160, line: 288 } } },
