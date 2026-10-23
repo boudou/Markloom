@@ -46,6 +46,7 @@ import { sameFormatState, type EditorCommands, type FormatState } from '../types
 import { applyOutsideEdit } from '../milkdown/outsideEdit';
 import { richFormatState } from '../milkdown/formatState';
 import { focusPlugin } from '../milkdown/focus';
+import { caretSync } from '../milkdown/caretSync';
 import { callouts } from '../milkdown/callouts';
 import { keepCalloutMarkers } from '../milkdown/calloutMarkdown';
 import { setSelectedText } from '@/features/word-count';
@@ -158,6 +159,9 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
           // Debounced by 200 ms; `flush` writes sooner when something reads the store
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => commit(markdown));
         })
+        // First: ProseMirror runs DOM event handlers in plugin order, and every plugin with its own
+        // keydown or mousedown handler (math, callouts, HTML) must see the selection caretSync updates
+        .use(caretSync)
         // Our headingIds numbers repeated headings like the preview; Milkdown's own sync would not.
         // Without the empty-line plugin an empty paragraph writes as a blank line, as in Markdown
         // mode, instead of `<br />`. Without the inline-links plugin reference links and their
