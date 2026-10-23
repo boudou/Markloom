@@ -39,6 +39,7 @@
     "src/components/layout/CommandPalette.tsx": ["@palette"],
     "src/components/layout/quickOpen.ts": ["@palette", "@documents"],
     "src/components/layout/CloseGuardDialog.tsx": ["@documents"],
+    "src/components/layout/ConsentBar.tsx": ["@web"],
     "src/components/layout/MarkloomMark.tsx": ["@documents"],
     "src/components/layout/ProjectLinks.tsx": ["@documents", "@whats-new", "@updates"],
     "src/components/layout/Sidebar.tsx": ["@documents", "@desktop"],
@@ -46,7 +47,8 @@
     "src/components/layout/TitleBar.tsx": ["@documents", "@editing", "@export", "@settings", "@history"],
     "src/components/layout/index.ts": ["@documents"],
 
-    "src/lib/appCommands.ts": ["@palette", "@editing", "@settings"],
+    "src/lib/analytics.ts": ["@web"],
+    "src/lib/appCommands.ts": ["@palette", "@editing", "@settings", "@web"],
     "src/lib/callouts.ts": ["@parity", "@export"],
     "src/lib/desktopFiles.ts": ["@desktop"],
     "src/lib/launchedFiles.ts": ["@desktop"],
