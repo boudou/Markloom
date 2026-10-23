@@ -147,6 +147,20 @@ What the tests cover, one file per area:
 | `offline.spec.ts` | The service worker: the web version opens offline, and loads when its cache can't be written |
 | `web.spec.ts` | Nothing loads from Google before the visitor allows usage statistics |
 
+#### The pull request gate
+
+Every pull request to `main` runs the tests its changed files can affect (`.github/workflows/e2e.yml`); pushes to `main` and release tags run them all. When a test fails, the Playwright report is attached to the run.
+
+```bash
+npm run test:e2e:affected                            # the tests your branch affects, against origin/main
+npm run test:e2e:affected -- --base main --dry-run   # print the selection without running it
+npm run test:e2e:affected -- --check                 # every file under src/ is in the impact map
+```
+
+`e2e/impact.json` maps source globs to test tags, such as `src/features/export/**` to `@export`. The script lists the changed files (`git diff <base>...HEAD`, plus uncommitted and untracked ones), collects their tags and runs the tests whose titles carry one, in both projects. A changed spec runs its own tests. Every test runs instead when a changed file matches nothing in the map, or is a shared foundation listed under `fullSuite` (`src/lib/markdown.ts`, `AppShell.tsx`, the stores, the styles, the build and test configuration).
+
+To add a test, end its title with the tags of the areas it covers: `test('Word keeps footnotes @export', …)`. To add a source file, make sure a glob in `e2e/impact.json` matches it, or `--check` fails the gate and names the file.
+
 ### Command reference
 
 | Command | What it does |
@@ -156,6 +170,7 @@ What the tests cover, one file per area:
 | `npm run preview` | Serve the production build |
 | `npm run lint` | Lint `src/` and `e2e/` with Oxlint and the anti-slop rules; type-check `e2e/` |
 | `npm run test:e2e` | End-to-end tests against the production build, in both editors |
+| `npm run test:e2e:affected` | Only the end-to-end tests the branch's changes affect (`--base <ref>`, `--dry-run`, `--check`) |
 | `npm run electron:dev` | Desktop app with live reload |
 | `npm run electron:start` | Build, then run the desktop app |
 | `npm run electron:build` | Desktop installers in `release/` |

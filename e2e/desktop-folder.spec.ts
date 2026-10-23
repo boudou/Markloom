@@ -101,13 +101,13 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('the folder is listed with its subfolders and documents only', async ({ page }) => {
+test('the folder is listed with its subfolders and documents only @desktop @documents', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'sub', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'a.md', exact: true })).toBeVisible();
   await expect(page.getByText('pic.png')).toHaveCount(0);
 });
 
-test('a document opens from the tree and saves back through the bridge', async ({ app, page }) => {
+test('a document opens from the tree and saves back through the bridge @desktop @documents', async ({ app, page }) => {
   await app.openFile('a.md');
   await expect(app.rendered().getByRole('heading', { name: 'Alpha heading' })).toBeVisible();
 
@@ -120,7 +120,7 @@ test('a document opens from the tree and saves back through the bridge', async (
     .toContainEqual({ path: `${ROOT}/a.md`, text: expect.stringContaining('First line zqx') });
 });
 
-test('Quick open finds a document in a subfolder', async ({ app, page }) => {
+test('Quick open finds a document in a subfolder @desktop @documents', async ({ app, page }) => {
   await page.keyboard.press('ControlOrMeta+P');
   await expect(page.getByPlaceholder('Search files in e2e-desktop')).toBeVisible();
   await page.keyboard.type('b.md');
@@ -131,21 +131,21 @@ test('Quick open finds a document in a subfolder', async ({ app, page }) => {
   await expect(app.rendered().getByRole('heading', { name: 'Beta heading' })).toBeVisible();
 });
 
-test('Search across files finds a word in a subfolder', async ({ page }) => {
+test('Search across files finds a word in a subfolder @desktop @documents', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+Shift+F');
   await page.getByRole('textbox', { name: 'Search in folder' }).fill('zebrafinch');
 
   await expect(page.getByRole('region', { name: 'Search results' })).toContainText('sub/b.md');
 });
 
-test('a folder handed over while running replaces the open one', async ({ page }) => {
+test('a folder handed over while running replaces the open one @desktop @documents', async ({ page }) => {
   await page.evaluate((folder) => window.dispatchEvent(new CustomEvent('e2e-open-folder', { detail: folder })), OTHER);
 
   await expect(page.getByRole('heading', { name: 'e2e-other', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'c.md', exact: true })).toBeVisible();
 });
 
-test('the session keeps its documents but not the desktop folder', async ({ app, page }) => {
+test('the session keeps its documents but not the desktop folder @desktop @documents', async ({ app, page }) => {
   await app.openFile('a.md');
 
   await expect

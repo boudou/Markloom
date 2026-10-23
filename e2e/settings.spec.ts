@@ -29,7 +29,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('opens by key, title bar and palette; Escape returns focus', async ({ app, page }) => {
+test('opens by key, title bar and palette; Escape returns focus @settings @palette', async ({ app, page }) => {
   await app.editingSurface().click();
   await openSettings(page);
   await closeSettings(page);
@@ -46,14 +46,14 @@ test('opens by key, title bar and palette; Escape returns focus', async ({ app, 
   await expect(settingsDialog(page)).toBeVisible();
 });
 
-test('the Shortcuts window lists Settings', async ({ page }) => {
+test('the Shortcuts window lists Settings @settings', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+Slash');
   const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
 
   await expect(shortcuts).toContainText('Settings');
 });
 
-test('line numbers and wrap turn off at once and stay off', async ({ app, page }) => {
+test('line numbers and wrap turn off at once and stay off @settings', async ({ app, page }) => {
   // An edit made before the editor is reconfigured can still be undone after it
   await app.editingSurface().click();
   await page.keyboard.press('ControlOrMeta+End');
@@ -88,7 +88,7 @@ test('line numbers and wrap turn off at once and stay off', async ({ app, page }
   await expectOff();
 });
 
-test('scroll panes together follows the toolbar', async ({ app, page }) => {
+test('scroll panes together follows the toolbar @settings @editing', async ({ app, page }) => {
   const dialog = await openSettings(page);
   const checkbox = dialog.getByRole('checkbox', { name: 'Scroll panes together' });
 
@@ -112,7 +112,7 @@ test('scroll panes together follows the toolbar', async ({ app, page }) => {
   await expect((await openSettings(page)).getByRole('checkbox', { name: 'Scroll panes together' })).not.toBeChecked();
 });
 
-test('page width', async ({ page }) => {
+test('page width @settings', async ({ page }) => {
   const dialog = await openSettings(page);
 
   await dialog.getByRole('combobox', { name: 'Page width' }).selectOption({ label: 'Wide' });
@@ -121,7 +121,7 @@ test('page width', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Page width: Wide/ })).toBeVisible();
 });
 
-test('auto-save interval', async ({ app, page }) => {
+test('auto-save interval @settings', async ({ app, page }) => {
   const dialog = await openSettings(page);
 
   await dialog.getByRole('checkbox', { name: 'Auto-save' }).check();

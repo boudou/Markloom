@@ -112,7 +112,7 @@ test.describe('pages.md', () => {
     await app.openFile('pages.md');
   });
 
-  test('PDF prints the previewed pages, page for page', async ({ app, page, context }) => {
+  test('PDF prints the previewed pages, page for page @export', async ({ app, page, context }) => {
     // The print iframe is a child frame: keep what it prints instead of opening the dialog
     await page.addInitScript(() => {
       if (window === window.top) return;
@@ -173,7 +173,7 @@ test.describe('pages.md', () => {
     await printer.close();
   });
 
-  test('Web page export stays one flowing page', async ({ page }) => {
+  test('Web page export stays one flowing page @export', async ({ page }) => {
     await page.keyboard.press('ControlOrMeta+e');
 
     const dialog = page.getByRole('dialog');
@@ -193,7 +193,7 @@ test.describe('pages.md', () => {
     expect(html).toContain('Paragraph 6.5.');
   });
 
-  test('Image saves one page or every page as PNG (#194)', async ({ page }) => {
+  test('Image saves one page or every page as PNG (#194) @export', async ({ page }) => {
     // Draws every page as a 2x PNG, which takes a while next to other busy workers
     test.slow();
 
@@ -224,13 +224,14 @@ test.describe('pages.md', () => {
     expect(pngSize(Buffer.from((await second?.async('uint8array')) ?? []))).toEqual(A4_PNG);
   });
 
-  test('Image pages follow the chosen page size (#197)', async ({ app, page }) => {
-    knownGap(app, 'both', 197, 'Image and PDF export are A4 portrait only');
+  test('Image pages follow the chosen page size (#197) @export', async ({ page }) => {
+    // Lays the document out twice and draws a 2x PNG
+    test.slow();
 
     const dialog = await openExport(page, 'Image');
 
     await pageCount(page);
-    await dialog.getByRole('radio', { name: 'Letter' }).click({ timeout: 3_000 });
+    await dialog.getByRole('radio', { name: 'Letter' }).click();
     await pageCount(page);
 
     const one = await downloadOf(page, () => dialog.getByRole('button', { name: 'Save this page' }).click());
@@ -244,7 +245,7 @@ test.describe('fixture.md', () => {
     await app.openFile('fixture.md');
   });
 
-  test('Word', async ({ page }) => {
+  test('Word @export', async ({ page }) => {
     const file = await exportWord(page);
     const media = Object.keys((await JSZip.loadAsync(file.bytes)).files).filter((name) => name.startsWith('word/media/'));
 
@@ -254,13 +255,13 @@ test.describe('fixture.md', () => {
     expect(media.length).toBeGreaterThanOrEqual(2);
   });
 
-  test('Word typesets math (#201)', async ({ app, page }) => {
+  test('Word typesets math (#201) @export @math', async ({ app, page }) => {
     knownGap(app, 'both', 201, 'Word export writes math as its TeX source');
 
     expect(await docxText(await exportWord(page))).not.toContain('a^2');
   });
 
-  test('Word writes footnotes as footnotes (#204)', async ({ app, page }) => {
+  test('Word writes footnotes as footnotes (#204) @export', async ({ app, page }) => {
     knownGap(app, 'both', 204, 'Word export has no footnotes');
 
     const file = await exportWord(page);
@@ -269,7 +270,7 @@ test.describe('fixture.md', () => {
     expect(await docxText(file)).not.toContain('[^1]');
   });
 
-  test('Web page has its fonts, images and diagram built in', async ({ page }) => {
+  test('Web page has its fonts, images and diagram built in @export @diagrams @images', async ({ page }) => {
     const dialog = await openExport(page, 'Web page');
     const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Web page' }).click());
     const html = file.bytes.toString('utf8');
@@ -281,7 +282,7 @@ test.describe('fixture.md', () => {
     expect(html).toMatch(/<svg[\s\S]*Finish/);
   });
 
-  test('portable Markdown embeds images and diagrams', async ({ page }) => {
+  test('portable Markdown embeds images and diagrams @export @diagrams @images', async ({ page }) => {
     const dialog = await openExport(page, 'Markdown');
     const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Markdown' }).click());
     const text = file.bytes.toString('utf8');
@@ -294,7 +295,7 @@ test.describe('fixture.md', () => {
     expect(text).toContain('![Web image](https://images.e2e.test/web.png)');
   });
 
-  test('Copy as rich text puts formatted HTML on the clipboard', async ({ page, context }) => {
+  test('Copy as rich text puts formatted HTML on the clipboard @export', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.getByRole('toolbar', { name: 'Document actions' }).getByRole('button', { name: 'Copy as rich text' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Copied as rich text' })).toBeVisible({ timeout: 15_000 });
@@ -322,7 +323,7 @@ test.describe('broken.md', () => {
     await app.openFile('broken.md');
   });
 
-  test('preflight warns about a broken diagram and shows its line', async ({ app, page }) => {
+  test('preflight warns about a broken diagram and shows its line @export @diagrams', async ({ app, page }) => {
     const dialog = await openExport(page, 'Web page');
 
     await expect(dialog).toContainText('1 diagram has an error');
@@ -343,7 +344,7 @@ test.describe('broken.md', () => {
     await expect(page.locator('.cm-activeLine')).toHaveText('  C --> D');
   });
 
-  test('preflight warns about a broken formula (#202)', async ({ app, page }) => {
+  test('preflight warns about a broken formula (#202) @export @math', async ({ app, page }) => {
     knownGap(app, 'both', 202, 'the preflight does not check formulas');
 
     const dialog = await openExport(page, 'Web page');
@@ -353,13 +354,6 @@ test.describe('broken.md', () => {
   });
 });
 
-/** Width and height of a downloaded PNG, read from its IHDR chunk */
-function pngSize(path: string): { width: number; height: number } {
-  const bytes = readFileSync(path);
-
-  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
-}
-
 /** Width over height of the page the preview shows */
 async function previewAspect(page: Page): Promise<number> {
   const box = await page.getByRole('dialog').locator('iframe[title^="Page "]').boundingBox();
@@ -368,13 +362,13 @@ async function previewAspect(page: Page): Promise<number> {
 }
 
 /** Saves the shown page (which closes the dialog) and reopens Export > Image */
-async function saveThisPage(page: Page): Promise<{ width: number; height: number }> {
+async function saveThisPage(page: Page): Promise<PngSize> {
   const dialog = page.getByRole('dialog');
   const download = page.waitForEvent('download');
 
   await dialog.getByRole('button', { name: 'Save this page' }).click();
 
-  const size = pngSize(await (await download).path());
+  const size = pngSize(readFileSync(await (await download).path()));
 
   await expect(dialog).toBeHidden();
   await page.keyboard.press('ControlOrMeta+e');
@@ -383,7 +377,7 @@ async function saveThisPage(page: Page): Promise<{ width: number; height: number
   return size;
 }
 
-test('Image and PDF use the chosen page size and orientation, and remember it', async ({ app, page }) => {
+test('Image and PDF use the chosen page size and orientation, and remember it @export', async ({ app, page }) => {
   // Lays the document out about ten times and saves two pages
   test.setTimeout(180_000);
 
@@ -396,6 +390,7 @@ test('Image and PDF use the chosen page size and orientation, and remember it', 
     };
   });
 
+  await app.openFile('pages.md');
   await page.keyboard.press('ControlOrMeta+e');
 
   const dialog = page.getByRole('dialog');

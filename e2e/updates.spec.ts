@@ -88,7 +88,7 @@ test.afterEach(async ({ app }) => {
 });
 
 test.describe('browser build', () => {
-  test('has no Updates section and never contacts GitHub', async ({ app, page }) => {
+  test('has no Updates section and never contacts GitHub @updates @settings', async ({ app, page }) => {
     const requests: string[] = [];
 
     page.on('request', (request) => requests.push(request.url()));
@@ -109,7 +109,7 @@ test.describe('desktop', () => {
     await startDocument(app);
   });
 
-  test('Check now shows the newer version with its download link', async ({ page }) => {
+  test('Check now shows the newer version with its download link @updates @settings', async ({ page }) => {
     const dialog = await openUpdates(page);
 
     await expect(dialog.getByText('Installed version')).toBeVisible();
@@ -120,7 +120,7 @@ test.describe('desktop', () => {
     await expect(lastChecked(dialog)).not.toHaveText('Never');
   });
 
-  test('says when the installed version is the latest', async ({ page }) => {
+  test('says when the installed version is the latest @updates @settings', async ({ page }) => {
     await answerNext(page, { ...NEWER, latest: '0.7.0', newer: false });
     const dialog = await openUpdates(page);
 
@@ -129,7 +129,7 @@ test.describe('desktop', () => {
     await expect(dialog.getByRole('link', { name: 'Download' })).toHaveCount(0);
   });
 
-  test('a failed check explains itself and keeps the last good time', async ({ page }) => {
+  test('a failed check explains itself and keeps the last good time @updates @settings', async ({ page }) => {
     const dialog = await openUpdates(page);
 
     await dialog.getByRole('button', { name: 'Check now' }).click();
@@ -143,7 +143,7 @@ test.describe('desktop', () => {
     await expect(lastChecked(dialog)).not.toHaveText('Never');
   });
 
-  test('the last check time survives a reload', async ({ app, page }) => {
+  test('the last check time survives a reload @updates @settings', async ({ app, page }) => {
     const dialog = await openUpdates(page);
 
     await dialog.getByRole('button', { name: 'Check now' }).click();
@@ -156,7 +156,7 @@ test.describe('desktop', () => {
     await expect(lastChecked(reopened)).not.toHaveText('Never');
   });
 
-  test('closing Settings leaves the document as it was', async ({ app, page }) => {
+  test('closing Settings leaves the document as it was @updates @settings', async ({ app, page }) => {
     const dialog = await openUpdates(page);
 
     await dialog.getByRole('button', { name: 'Check now' }).click();

@@ -34,7 +34,7 @@ async function lastSeenVersion(page: Page): Promise<string | null> {
   });
 }
 
-test('shows the release notes once after an update', async ({ app, page }) => {
+test('shows the release notes once after an update @whats-new', async ({ app, page }) => {
   await seedSettings(page, { lastSeenVersion: '0.0.1' });
 
   const dialog = whatsNewDialog(page);
@@ -60,13 +60,13 @@ test('shows the release notes once after an update', async ({ app, page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('a first launch only records the version', async ({ app, page }) => {
+test('a first launch only records the version @whats-new', async ({ app, page }) => {
   await app.openFolder();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await lastSeenVersion(page)).toMatch(VERSION);
 });
 
-test('a newer stored version is replaced without the dialog', async ({ app, page }) => {
+test('a newer stored version is replaced without the dialog @whats-new', async ({ app, page }) => {
   await seedSettings(page, { lastSeenVersion: '999.0.0' });
   await app.openFolder();
   await expect(page.getByRole('dialog')).toHaveCount(0);

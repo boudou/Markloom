@@ -46,7 +46,7 @@ test.afterEach(async ({ app }) => {
   if (app.editorMode === 'wysiwyg') expect(await app.previewEverMounted(), 'the Markdown preview mounted in rich text').toBe(false);
 });
 
-test('typesets inline and display math; prices and escapes stay text', async ({ app }) => {
+test('typesets inline and display math; prices and escapes stay text @math', async ({ app }) => {
   const rendered = app.rendered();
 
   // x^2, a+b, the heading's and six display blocks (one alone on a line, two next to a text line
@@ -77,7 +77,7 @@ test('typesets inline and display math; prices and escapes stay text', async ({ 
   await expect.poll(() => rendered.locator('.katex').first().evaluate((node) => getComputedStyle(node).fontFamily)).toContain('KaTeX_Main');
 });
 
-test('editing a formula re-renders it, undoes in one step and saves the new TeX', async ({ app, page }) => {
+test('editing a formula re-renders it, undoes in one step and saves the new TeX @math', async ({ app, page }) => {
   richTextOnly(app);
 
   const formula = app.rendered().locator('.rt-math').first();
@@ -105,7 +105,7 @@ test('editing a formula re-renders it, undoes in one step and saves the new TeX'
   await expectSaved(app, ORIGINAL.replace('Inline $x^2$ math', 'Inline $x^3$ math'));
 });
 
-test('typing in a paragraph with prices adds no backslashes, and keeps the one math needs', async ({ app, page }) => {
+test('typing in a paragraph with prices adds no backslashes, and keeps the one math needs @math', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.rendered().getByText('costs $5 and $10 today.').click();
@@ -137,7 +137,7 @@ test('typing in a paragraph with prices adds no backslashes, and keeps the one m
   );
 });
 
-test('typing $…$ and a space, or $$ and Enter, makes math', async ({ app, page }) => {
+test('typing $…$ and a space, or $$ and Enter, makes math @math', async ({ app, page }) => {
   richTextOnly(app);
 
   await app.rendered().getByText('formula.').click();
@@ -168,7 +168,7 @@ test('typing $…$ and a space, or $$ and Enter, makes math', async ({ app, page
   await expectSaved(app, `${ORIGINAL}\nSum $c+d$ done\n\nPair \\$a\\$b$ done\n\n$$\nz^2\n$$\n`);
 });
 
-test('switching to rich text and back without edits leaves the file as it was', async ({ app, page }) => {
+test('switching to rich text and back without edits leaves the file as it was @math @rich-text', async ({ app, page }) => {
   // Markdown mode only: switching shows the preview, which rich text alone must never mount
   test.skip(app.editorMode !== 'split', 'starts in Markdown mode');
 

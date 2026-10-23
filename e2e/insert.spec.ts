@@ -46,7 +46,7 @@ test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
 
-test('Insert > Table twice gives two separate tables, then a paragraph', async ({ app, page }) => {
+test('Insert > Table twice gives two separate tables, then a paragraph @insert', async ({ app, page }) => {
   await app.placeCursorAfter('Intro paragraph.');
   await app.insert('Table');
   await app.insert('Table');
@@ -72,7 +72,7 @@ test('Insert > Table twice gives two separate tables, then a paragraph', async (
   expect(lines[first + 3]).toBe('');
 });
 
-test('Insert > Code block from a table header row lands after the table', async ({ app, page }) => {
+test('Insert > Code block from a table header row lands after the table @insert @code', async ({ app, page }) => {
   markdownOnly('rich-text code block placement is not part of #162');
 
   await app.placeCursorAfter('Fruit');
@@ -87,7 +87,7 @@ test('Insert > Code block from a table header row lands after the table', async 
   await expect.poll(() => follows(paragraph(app, 'Closing paragraph.'), code)).toBe(true);
 });
 
-test('Insert > Table from a table header row lands after the table', async ({ app, page }) => {
+test('Insert > Table from a table header row lands after the table @insert', async ({ app, page }) => {
   await app.placeCursorAfter('Fruit');
   await app.insert('Table');
   await page.keyboard.type('Below');
@@ -103,7 +103,7 @@ test('Insert > Table from a table header row lands after the table', async ({ ap
   await expect.poll(() => follows(below, tables.nth(1))).toBe(true);
 });
 
-test('Insert > Table at the end of the document leaves the cursor below it', async ({ app, page }) => {
+test('Insert > Table at the end of the document leaves the cursor below it @insert', async ({ app, page }) => {
   await app.placeCursorAfter('Closing paragraph.');
   await app.insert('Table');
   await page.keyboard.type('End text');
@@ -115,7 +115,7 @@ test('Insert > Table at the end of the document leaves the cursor below it', asy
   await expect.poll(() => follows(end, app.rendered().locator('table').last())).toBe(true);
 });
 
-test('One undo takes back one inserted table', async ({ app, page }) => {
+test('One undo takes back one inserted table @insert', async ({ app, page }) => {
   await app.placeCursorAfter('Intro paragraph.');
   await app.insert('Table');
   await app.insert('Table');
@@ -124,7 +124,7 @@ test('One undo takes back one inserted table', async ({ app, page }) => {
   await expect(app.rendered().locator('table')).toHaveCount(2);
 });
 
-test('Insert from inside a code block lands after the fence', async ({ app, page }) => {
+test('Insert from inside a code block lands after the fence @insert @code', async ({ app, page }) => {
   markdownOnly('rich-text code block placement is not part of #162');
 
   await app.placeCursorAfter('Intro paragraph.');
@@ -140,7 +140,7 @@ test('Insert from inside a code block lands after the fence', async ({ app, page
   await expect.poll(() => follows(divider, code)).toBe(true);
 });
 
-test('Insert > Divider adds exactly one empty line on each side', async ({ app }) => {
+test('Insert > Divider adds exactly one empty line on each side @insert', async ({ app }) => {
   markdownOnly('source lines exist only in Markdown mode');
 
   await app.placeCursorAfter('Intro paragraph.');
@@ -164,7 +164,7 @@ test('Insert > Divider adds exactly one empty line on each side', async ({ app }
     ]);
 });
 
-test('Link button fills in the text first, then the address', async ({ app, page }) => {
+test('Link button fills in the text first, then the address @insert @editing', async ({ app, page }) => {
   await app.placeCursorAfter('Closing paragraph.');
   await page.keyboard.type(' ');
   await page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: /^Link/ }).click();
@@ -184,7 +184,7 @@ test('Link button fills in the text first, then the address', async ({ app, page
   await expect(app.rendered()).not.toContainText('https://https');
 });
 
-test('Ctrl+K takes the same two steps, and Tab indents again afterwards', async ({ app, page }) => {
+test('Ctrl+K takes the same two steps, and Tab indents again afterwards @insert @editing', async ({ app, page }) => {
   markdownOnly('rich text asks for a link in a dialog');
 
   await app.placeCursorAfter('Intro paragraph.');
