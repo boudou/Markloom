@@ -3,7 +3,7 @@
 // embedded images for a file), the app's fonts included in a standalone file.
 import { parseMarkdown } from '@/lib/markdown';
 import { loadHighlighter } from '@/features/syntax-highlight';
-import { fillMath, loadMath } from '@/features/math';
+import { takeMathSlots, typesetMath } from '@/features/math';
 import { loadDocumentImage, loadUnique, renderDiagram } from './assets';
 import { embeddedFontFaces, mathExportCss } from './fonts';
 import { EXPORT_STYLES, PAGED_STYLES } from './styles';
@@ -63,18 +63,26 @@ export type DiagramPlacement =
 export type ImagePlacement = { kind: 'keep'; src: string } | { kind: 'img'; src: string; width?: number; height?: number };
 
 /**
- * Turns the body's diagrams and images into final placements; `image` returns null when it can't be loaded.
- * `math` typesets formulas with KaTeX, or keeps them as `$…$` source (KaTeX's markup needs its stylesheet).
+ * How a formula goes into the body: KaTeX's HTML (which needs its stylesheet), an image with
+ * its depth below the baseline (CSS px), or its `$…$` source in red when it can't be drawn.
  */
+export type MathPlacement =
+  | { kind: 'html'; html: string }
+  | { kind: 'img'; src: string; width: number; height: number; depth: number }
+  | { kind: 'error'; error: string };
+
+/** Turns the body's diagrams, images and formulas into final placements; `image` returns null when it can't be loaded. */
 export interface BodyEmbed {
   diagram: (code: string) => Promise<DiagramPlacement>;
   image: (src: string, docPath: string | null) => Promise<ImagePlacement | null>;
-  math: 'katex' | 'source';
+  math: (tex: string, display: boolean) => Promise<MathPlacement>;
 }
 
 /** A standalone file: diagrams as inline SVG, every image embedded at its natural size, math typeset. */
 const FILE_EMBED: BodyEmbed = {
-  math: 'katex',
+  async math(tex, display) {
+    return { kind: 'html', html: await typesetMath(tex, display) };
+  },
   async diagram(code) {
     const diagram = await renderDiagram(code);
 
@@ -87,17 +95,48 @@ const FILE_EMBED: BodyEmbed = {
   },
 };
 
-/** The document body as self-contained HTML, with diagrams and images placed by `embed`. */
+/** Fills a formula's placeholder (`span.math` or `div.math-display`, which shows `$…$` until then). */
+function placeMath(slot: HTMLElement, tex: string, display: boolean, formula: MathPlacement): void {
+  switch (formula.kind) {
+    case 'html':
+      // Sanitized by typesetMath
+      slot.innerHTML = formula.html;
+      slot.setAttribute('data-math-done', '');
+
+      break;
+
+    case 'img': {
+      const img = document.createElement('img');
+      img.src = formula.src;
+      img.alt = tex;
+      img.setAttribute('width', String(formula.width));
+      img.setAttribute('height', String(formula.height));
+
+      // Inline formulas sit on the text's baseline, their descent below it
+      if (!display) img.style.verticalAlign = `-${formula.depth}px`;
+
+      slot.replaceChildren(img);
+
+      break;
+    }
+
+    case 'error':
+      // The placeholder's text is already the source
+      slot.classList.add('math-error');
+      slot.title = formula.error;
+
+      break;
+  }
+}
+
+/** The document body as self-contained HTML, with diagrams, images and formulas placed by `embed`. */
 export async function renderExportBody(markdown: string, docPath: string | null, embed: BodyEmbed = FILE_EMBED): Promise<string> {
   await loadHighlighter();
   const template = document.createElement('template');
   template.innerHTML = parseMarkdown(markdown);
   const root = template.content;
 
-  if (embed.math === 'katex' && root.querySelector('[data-math]')) {
-    await loadMath();
-    fillMath(root);
-  }
+  const formulas = takeMathSlots(root);
 
   const slots = Array.from(root.querySelectorAll<HTMLElement>('.mermaid-container[data-mermaid]'), (slot) => ({
     slot,
@@ -106,11 +145,19 @@ export async function renderExportBody(markdown: string, docPath: string | null,
 
   const images = Array.from(root.querySelectorAll('img'), (img) => ({ img, src: img.getAttribute('src') ?? '' }));
 
-  // Every distinct diagram and image is requested at once; the markup is then built without waiting
-  const [diagrams, loaded] = await Promise.all([
+  // Every distinct diagram, image and formula is requested at once; the markup is then built without waiting
+  const [diagrams, loaded, inlineMath, displayMath] = await Promise.all([
     loadUnique(slots.map(({ code }) => code), embed.diagram),
     loadUnique(images.map(({ src }) => src), (src) => embed.image(src, docPath)),
+    loadUnique(formulas.flatMap(({ tex, display }) => (display ? [] : [tex])), (tex) => embed.math(tex, false)),
+    loadUnique(formulas.flatMap(({ tex, display }) => (display ? [tex] : [])), (tex) => embed.math(tex, true)),
   ]);
+
+  for (const { slot, tex, display } of formulas) {
+    // SAFETY: loadUnique returns a result for every formula's TeX, inline and display apart
+    const formula = (display ? displayMath : inlineMath).get(tex)!;
+    placeMath(slot, tex, display, formula);
+  }
 
   const diagramCopies = new Map<string, number>();
 

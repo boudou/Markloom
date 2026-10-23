@@ -99,6 +99,32 @@ async function exportWord(page: Page): Promise<SavedFile> {
   return downloadOf(page, () => dialog.getByRole('button', { name: 'Export Word' }).click());
 }
 
+/** A Word document's paragraphs as XML */
+async function docxParagraphs(file: SavedFile): Promise<string[]> {
+  return (await zipText(file, 'word/document.xml')).match(/<w:p\b[\s\S]*?<\/w:p>/g) ?? [];
+}
+
+/** The alt text (`descr`) of each image in some Word XML, in order */
+function imageAlts(xml: string): string[] {
+  return Array.from(xml.matchAll(/<wp:docPr\b[^>]*\bdescr="([^"]*)"/g), (match) => match[1]);
+}
+
+/** Clicks Copy as rich text and reads back what went on the clipboard */
+async function copyRichText(page: Page): Promise<{ html: string; text: string }> {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('toolbar', { name: 'Document actions' }).getByRole('button', { name: 'Copy as rich text' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Copied as rich text' })).toBeVisible({ timeout: 15_000 });
+
+  return page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+
+    return {
+      html: await (await item.getType('text/html')).text(),
+      text: await (await item.getType('text/plain')).text(),
+    };
+  });
+}
+
 test.beforeEach(async ({ app }) => {
   await app.openFolder();
 });
@@ -255,10 +281,11 @@ test.describe('fixture.md', () => {
     expect(media.length).toBeGreaterThanOrEqual(2);
   });
 
-  test('Word typesets math (#201) @export @math', async ({ app, page }) => {
-    knownGap(app, 'both', 201, 'Word export writes math as its TeX source');
+  test('Word typesets math (#201) @export @math', async ({ page }) => {
+    const file = await exportWord(page);
 
-    expect(await docxText(await exportWord(page))).not.toContain('a^2');
+    expect(await docxText(file)).not.toContain('a^2');
+    expect(imageAlts(await zipText(file, 'word/document.xml'))).toContain('a^2 + b^2 = c^2');
   });
 
   test('Word writes footnotes as footnotes (#204) @export', async ({ app, page }) => {
@@ -295,19 +322,8 @@ test.describe('fixture.md', () => {
     expect(text).toContain('![Web image](https://images.e2e.test/web.png)');
   });
 
-  test('Copy as rich text puts formatted HTML on the clipboard @export', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.getByRole('toolbar', { name: 'Document actions' }).getByRole('button', { name: 'Copy as rich text' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Copied as rich text' })).toBeVisible({ timeout: 15_000 });
-
-    const clipboard = await page.evaluate(async () => {
-      const [item] = await navigator.clipboard.read();
-
-      return {
-        html: await (await item.getType('text/html')).text(),
-        text: await (await item.getType('text/plain')).text(),
-      };
-    });
+  test('Copy as rich text puts formatted HTML on the clipboard @export', async ({ page }) => {
+    const clipboard = await copyRichText(page);
 
     expect(clipboard.html).toContain('Callout body text.');
     expect(clipboard.html).toContain('<table');
@@ -315,6 +331,93 @@ test.describe('fixture.md', () => {
     expect(clipboard.html).toMatch(/<img\b[^>]*src="data:image\/png;base64,/);
     // Plain-text targets get the Markdown itself
     expect(clipboard.text).toContain('```mermaid');
+  });
+});
+
+test.describe('math.md', () => {
+  /** Every formula in math.md, in order: three inline (one in a heading), then six display */
+  const FORMULAS = ['x^2', 'a+b', 'E=mc^2', '\\int_0^1 x\\,dx', 'F=ma', 'E=mc^2', 'G=mc^3', 'q^2', 'l^2'];
+
+  const BROKEN = '$\\frac{1}{$';
+
+  test.beforeEach(async ({ app }) => {
+    await app.openFile('math.md');
+  });
+
+  test('Word places every formula as a sharp image, display ones centred (#201) @export @math', async ({ page }) => {
+    const file = await exportWord(page);
+    const paragraphs = await docxParagraphs(file);
+    const xml = paragraphs.join('');
+
+    expect(imageAlts(xml)).toEqual(FORMULAS);
+    expect(await docxText(file)).not.toContain('x^2');
+    // In place: inline formulas inside their sentence, display ones on their own centred line
+    const sentence = paragraphs.find((paragraph) => imageAlts(paragraph).includes('x^2')) ?? '';
+
+    expect(imageAlts(sentence)).toEqual(['x^2', 'a+b']);
+    expect(sentence).toMatch(/>Inline <\/w:t>/);
+    expect(sentence).not.toContain('<w:jc ');
+    expect(paragraphs.find((paragraph) => imageAlts(paragraph).includes('F=ma'))).toContain('<w:jc w:val="center"/>');
+
+    // Sharp: every picture holds twice the pixels of its size on the page (EMU at 96 dpi)
+    const zip = await JSZip.loadAsync(file.bytes);
+    const pixelWidths = await Promise.all(zip.file(/^word\/media\//).map(async (png) => pngSize(Buffer.from(await png.async('uint8array'))).width));
+    const pageWidths = Array.from(xml.matchAll(/<wp:extent cx="(\d+)"/g), (match) => Number(match[1]) / 9525);
+
+    expect(pageWidths).toHaveLength(FORMULAS.length);
+
+    for (const width of pageWidths) {
+      expect(width).toBeGreaterThan(8);
+      expect(pixelWidths.some((pixels) => Math.abs(pixels - 2 * width) <= 2), `a ${width}px formula at 2x`).toBe(true);
+    }
+
+    // An invalid formula stays readable as its source, in red
+    const broken = paragraphs.find((paragraph) => paragraph.includes(BROKEN)) ?? '';
+
+    expect(broken).toContain('<w:color w:val="991B1B"/>');
+  });
+
+  test('Copy as rich text pastes formulas as images with their TeX as alt text (#201) @export @math', async ({ page }) => {
+    const { html } = await copyRichText(page);
+    const images = Array.from(html.matchAll(/<img\b[^>]*>/g), (match) => match[0]);
+
+    expect(images.map((img) => /\balt="([^"]*)"/.exec(img)?.[1])).toEqual(FORMULAS);
+
+    for (const img of images) expect(img).toMatch(/src="data:image\/png;base64,/);
+
+    // KaTeX's markup needs a stylesheet, which a paste drops
+    expect(html).not.toContain('class="katex');
+    // Inline formulas sit on the baseline, display ones are centred
+    expect(images[0]).toMatch(/vertical-align:\s*-\d/);
+    expect(html).toMatch(/<div class="math math-display"[^>]*text-align:center[^>]*><img\b[^>]*alt="F=ma"/);
+
+    const broken = /<span\b([^>]*)>([^<]*)<\/span>/.exec(html.slice(html.indexOf('Broken')));
+
+    expect(broken?.[2]).toBe(BROKEN);
+    expect(broken?.[1]).toContain('math-error');
+    expect(broken?.[1]).toContain('color:#991B1B');
+  });
+
+  test('a formula edited in rich text exports as edited (#201) @export @math @rich-text', async ({ app, page }) => {
+    test.skip(app.editorMode !== 'wysiwyg', 'edits a formula in rich text');
+
+    const formula = app.rendered().locator('.rt-math').first();
+
+    await formula.click();
+
+    const source = page.getByRole('textbox', { name: 'Math TeX source' });
+
+    await source.fill('x^3');
+    await source.press('Enter');
+    await expect(formula.locator('annotation')).toHaveText('x^3');
+    // A caret, not the formula selected, so the whole document is copied
+    await app.rendered().getByText('costs $5 and $10 today.').click();
+    await expect
+      .poll(() => page.evaluate(() => (getSelection()?.isCollapsed ?? false) && (getSelection()?.anchorNode?.textContent ?? '').includes('today')))
+      .toBe(true);
+
+    expect(imageAlts(await zipText(await exportWord(page), 'word/document.xml'))[0]).toBe('x^3');
+    expect((await copyRichText(page)).html).toMatch(/<img\b[^>]*alt="x\^3"/);
   });
 });
 
