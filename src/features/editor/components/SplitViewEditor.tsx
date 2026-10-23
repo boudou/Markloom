@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
+import { GFM } from '@lezer/markdown';
 import { EditorView } from '@codemirror/view';
 import { highlightSelectionMatches } from '@codemirror/search';
 import { AnimatePresence, m } from 'framer-motion';
@@ -84,7 +85,9 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
 
   const extensions = useMemo(
     () => [
-      markdown(),
+      // GFM only: the preview renders tables, task lists, strikethrough and autolinks, but not
+      // the sub/superscript and emoji that markdownLanguage would add
+      markdown({ extensions: GFM }),
       markloomEditorTheme,
       markloomHighlight,
       markdownKeymap,

@@ -36,6 +36,7 @@
     "@fontsource/literata": "^5.3.0",
     "@fontsource/outfit": "^5.3.0",
     "@lezer/highlight": "1.2.5",
+    "@lezer/markdown": "^1.6.3",
     "@milkdown/kit": "7.22.3",
     "@milkdown/react": "7.22.3",
     "@oxlint/plugins": "1.88.0",
