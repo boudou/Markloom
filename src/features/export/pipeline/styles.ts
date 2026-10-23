@@ -56,6 +56,14 @@ blockquote.callout-caution { --callout: #CF222E; }
 .callout-icon { width: 1.05em; height: 1.05em; flex-shrink: 0; }
 .callout-title + * { margin-top: 0; }
 
+sup.footnote-ref { font-size: 0.75em; line-height: 0; }
+sup.footnote-ref a { padding: 0 0.1em; font-weight: 600; text-decoration: none; }
+hr.footnotes-sep { margin: 2.5em 0 1em; }
+section.footnotes { font-size: 0.88em; color: #3F3F46; }
+section.footnotes li > p { margin: 0.25em 0; }
+.footnote-item { break-inside: avoid; }
+a.footnote-backref { text-decoration: none; }
+
 code, pre, kbd { font-family: 'IBM Plex Mono', Consolas, monospace; }
 :not(pre) > code {
   font-size: 0.88em;

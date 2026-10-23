@@ -30,7 +30,10 @@ function previewAnchors(preview: HTMLElement): Anchor[] {
   for (const el of Array.from(preview.querySelectorAll<HTMLElement>('[data-line]'))) {
     const line = Number(el.dataset.fenceLine || el.dataset.line);
 
-    if (!line) continue;
+    // Footnotes are drawn at the end but keep their source lines; a mid-document definition's
+    // line there would go backwards and cut sync for every block after it
+    if (!line || el.closest('section.footnotes')) continue;
+
     anchors.push({ line, top: el.getBoundingClientRect().top - base });
   }
 

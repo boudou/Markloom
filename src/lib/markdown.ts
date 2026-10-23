@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it';
+import footnote from 'markdown-it-footnote';
 import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
 import DOMPurify from 'dompurify';
 import { CALLOUT_MARKER, calloutTitleHtml, type CalloutKind } from './callouts';
@@ -68,11 +69,14 @@ export function mermaidFence(token: Token): MermaidFence | null {
 
 /** The Mermaid fences of a parsed document, in source order */
 export function mermaidFences(tokens: Token[]): MermaidFence[] {
-  return tokens.flatMap((token) => {
+  const fences = tokens.flatMap((token) => {
     const fence = mermaidFence(token);
 
     return fence ? [fence] : [];
   });
+
+  // Token order isn't source order: footnote definitions are moved to the end
+  return fences.sort((a, b) => a.range[0] - b.range[0]);
 }
 
 const WHITESPACE = /\s/;
@@ -211,6 +215,29 @@ export function mathPlugin(md: MarkdownIt): void {
   };
 }
 
+/**
+ * GitHub-style footnotes: `[^1]` references become numbered superscripts linking to a list at
+ * the end, each note with a link back. Ids are fn-1 and fnref-1 (fnref-1:1 for a repeat), not
+ * the plugin's fn1, so a "# fn1" heading can't take a note's id.
+ */
+function footnotePlugin(md: MarkdownIt): void {
+  md.use(footnote);
+
+  // The plugin builds every id as fn<name> / fnref<name> and sets meta.id (0-based) on each token
+  md.renderer.rules.footnote_anchor_name = (tokens, idx) => `-${Number(tokens[idx].meta.id) + 1}`;
+  md.renderer.rules.footnote_caption = (tokens, idx) => String(Number(tokens[idx].meta.id) + 1);
+
+  const backLink = md.renderer.rules.footnote_anchor;
+
+  if (!backLink) return;
+
+  md.renderer.rules.footnote_anchor = (tokens, idx, options, env, slf) => {
+    const caption = slf.rules.footnote_caption?.(tokens, idx, options, env, slf) ?? '';
+
+    return backLink(tokens, idx, options, env, slf).replace('<a ', `<a aria-label="Back to reference ${caption}" `);
+  };
+}
+
 // Create and configure markdown-it instance
 export function createMarkdownParser(): MarkdownIt {
   const md = new MarkdownIt({
@@ -221,6 +248,9 @@ export function createMarkdownParser(): MarkdownIt {
   });
 
   md.use(mathPlugin);
+
+  // Before heading_ids: both run right after `inline`, and footnote_tail must gather the notes first
+  md.use(footnotePlugin);
 
   // Custom renderer for mermaid code blocks
   md.renderer.rules.fence = (tokens, idx) => {
@@ -325,6 +355,8 @@ export function createMarkdownParser(): MarkdownIt {
     for (let i = 0; i < tokens.length - 2; i++) {
       if (tokens[i].type !== 'blockquote_open' || tokens[i + 1].type !== 'paragraph_open') continue;
       const inline = tokens[i + 2];
+
+      // Only a marker alone on the quote's first line makes a callout, as on GitHub
       const match = inline.content.match(CALLOUT_MARKER);
 
       if (!match) continue;
@@ -334,12 +366,16 @@ export function createMarkdownParser(): MarkdownIt {
       tokens[i].attrJoin('class', `callout callout-${kind}`);
       tokens[i].attrSet('data-callout', kind);
 
-      // Drop the marker line: re-parse what follows it, or drop the paragraph if that was all
-      const rest = inline.content.slice(match[0].length);
+      // Drop the marker line's tokens up to its line break, keeping the rest as parsed (parsing it
+      // again would count its footnote references twice), or drop the paragraph if that was all.
+      // The marker line may be several tokens: "[!note]" can parse as a reference link.
+      const children = inline.children ?? [];
+      const lineEnd = children.findIndex((child) => child.type === 'softbreak' || child.type === 'hardbreak');
+      const rest = lineEnd < 0 ? [] : children.slice(lineEnd + 1);
 
-      if (rest.trim()) {
-        inline.content = rest;
-        inline.children = state.md.parseInline(rest, state.env)[0]?.children ?? [];
+      if (rest.length) {
+        inline.children = rest;
+        inline.content = inline.content.slice(match[0].length);
       } else {
         tokens.splice(i + 1, 3);
       }

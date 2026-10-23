@@ -85,8 +85,6 @@ test('math', async ({ app }) => {
 });
 
 test('footnotes', async ({ app }) => {
-  knownGap(app, 'split', 203, 'the preview shows footnotes as literal [^1] text');
-
   await expect(app.rendered().locator('sup')).toHaveText('1');
   await expect(app.rendered()).toContainText('The footnote text.');
   await expect(app.rendered()).not.toContainText('[^1]');

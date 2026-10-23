@@ -77,6 +77,8 @@ const INLINE_STYLES: [selector: string, style: string][] = [
   [':not(pre) > code', `${MONO};background:#F1F3F5;padding:0 3px;border-radius:3px`],
   ['blockquote', `margin:0 0 1em;padding:0 1em;border-left:3px solid ${RULE};color:#3F3F46`],
   ['img', 'max-width:100%;height:auto'],
+  ['sup.footnote-ref', 'font-size:0.75em;line-height:0;font-weight:600'],
+  ['section.footnotes', 'font-size:0.88em;color:#3F3F46'],
   ['.export-error', 'padding:8px 12px;border:1px solid #FECACA;background:#FEF2F2;color:#991B1B'],
 ];
 
@@ -88,6 +90,11 @@ export async function clipboardHtml(markdown: string, docPath: string | null): P
 
   // Decorative inline SVG, which email clients drop or show oversized
   root.querySelectorAll('svg.callout-icon').forEach((icon) => icon.remove());
+
+  // Footnote links point at ids in the fragment, which a message or page doesn't keep: drop
+  // the back-links and leave the references as plain numbers
+  root.querySelectorAll('a.footnote-backref').forEach((link) => link.remove());
+  root.querySelectorAll('sup.footnote-ref > a').forEach((link) => link.replaceWith(link.textContent ?? ''));
 
   // Pasted checkboxes come out as form fields or not at all; the markup already has the space after it
   root.querySelectorAll<HTMLInputElement>('input.task-checkbox').forEach((box) => {

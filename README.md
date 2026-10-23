@@ -27,6 +27,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 - **Mermaid diagrams**: rendered live, with errors reported as "Line N: …" against your document
 - **Math**: `$…$` and `$$…$$` typeset with KaTeX in the split-view preview and in PDF and HTML exports
 - **Callouts**: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and friends render as coloured boxes, in the preview and in exports
+- **Footnotes**: `[^1]` references become numbered superscripts that link to the notes at the end, in the preview, PDF, HTML and Copy as rich text; rich text shows them styled in place. Inline `^[…]` notes work in the preview and exports only
 - **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
 - **Copy as rich text**: paste a document, or just the selection, formatted into email, Google Docs or Confluence, diagrams included
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore
@@ -139,6 +140,7 @@ What the tests cover, one file per area:
 | `editing.spec.ts` | Toolbar formatting and its pressed state, find and replace, the command palette, focus mode, page width, smart typography |
 | `rich-text.spec.ts` | Raw HTML in rich text (no Tab stops inside, its source survives the window losing focus); saving keeps untouched Markdown byte for byte |
 | `parity.spec.ts` | Every construct renders in both editors: images, diagrams, tables, task lists, strikethrough, callouts, highlighted code, math, footnotes |
+| `footnotes.spec.ts` | Footnotes: numbering, links and back-links, unique ids, scroll sync past a mid-document definition, exports, Copy as rich text, rich-text styling |
 | `diagrams.spec.ts` | Mermaid renders and follows edits; an error names its document line and Show line goes there |
 | `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page or a .zip), the preflight warnings, Copy as rich text |
 | `settings.spec.ts` | The Settings window and each editor preference |
