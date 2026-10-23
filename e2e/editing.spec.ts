@@ -1,7 +1,7 @@
 // Editing: toolbar formatting and its pressed state, find and replace, the command palette,
 // focus mode and page width, in both editors. Smart typography is in typography.spec.ts.
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, expectNoPreviewInRichText, knownGap, type MarkloomApp } from './fixtures';
+import { test, expect, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
 
 function formatting(page: Page): Locator {
   return page.getByRole('toolbar', { name: 'Formatting' });

@@ -43,6 +43,12 @@ interface UiState {
   placeCursorAtLine: (tabId: string, line: number) => void;
   clearLineRequest: () => void;
 
+  // A tab whose editor should take the keyboard focus once it shows (a template was just
+  // applied). Consumed like lineRequest: by the editor of that tab, dropped by any other.
+  editorFocusRequest: string | null;
+  requestEditorFocus: (tabId: string) => void;
+  clearEditorFocusRequest: () => void;
+
   // Tabs waiting on a "save changes?" decision before they close
   pendingClose: string[] | null;
   setPendingClose: (tabIds: string[] | null) => void;
@@ -74,6 +80,10 @@ export const useUiStore = create<UiState>()((set, get) => ({
   navigateToLine: (tabId, line) => set({ lineRequest: { tabId, line, kind: 'reveal' } }),
   placeCursorAtLine: (tabId, line) => set({ lineRequest: { tabId, line, kind: 'cursor' } }),
   clearLineRequest: () => set({ lineRequest: null }),
+
+  editorFocusRequest: null,
+  requestEditorFocus: (editorFocusRequest) => set({ editorFocusRequest }),
+  clearEditorFocusRequest: () => set({ editorFocusRequest: null }),
 
   pendingClose: null,
   setPendingClose: (pendingClose) => set({ pendingClose }),

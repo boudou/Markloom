@@ -31,6 +31,7 @@ import { appCommand } from '@/lib/appCommands';
 import { useAppStore } from '@/stores/appStore';
 import { slugify } from '@/lib/markdown';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
+import { useEditorFocusRequest } from '../hooks/useEditorFocusRequest';
 import { useImageDrop } from '@/features/image-drop';
 import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, headingIds, imageSchemaFix, imageView, inlineCodeSpellcheck, linkSchemaFix, taskToggle } from '../milkdown/plugins';
 import { htmlLayout, htmlView } from '../milkdown/html';
@@ -259,6 +260,9 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
 
     return current?.status === EditorStatus.Created ? current.action((ctx) => ctx.get(editorViewCtx)) : undefined;
   };
+
+  // Hidden (Markdown mode keeps this editor mounted) or still loading: leave the request waiting
+  useEditorFocusRequest(editor && active ? (liveView() ?? null) : null);
 
   // Serializes the document now instead of waiting for the listener's debounce
   const flush = () => {

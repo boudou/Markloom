@@ -4,6 +4,7 @@ import { Input, Button } from '@/components/ui';
 import { parseMarkdown } from '@/lib/markdown';
 import { cn } from '@/lib/utils';
 import { useTabsStore } from '@/features/tabs';
+import { useUiStore } from '@/stores/uiStore';
 import { builtInTemplates, searchTemplates, processTemplate, type Template } from '../utils';
 
 interface TemplatesBodyProps {
@@ -54,6 +55,10 @@ export default function TemplatesBody({ onClose }: TemplatesBodyProps) {
   const applyTemplate = (template: Template | null) => {
     if (!template) return;
     createTab(null, processTemplate(template.content), template.name);
+    // The new tab's editor takes the focus once it mounts, so typing goes into the template
+    const { activeTabId } = useTabsStore.getState();
+
+    if (activeTabId) useUiStore.getState().requestEditorFocus(activeTabId);
     onClose();
   };
 

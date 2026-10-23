@@ -20,6 +20,7 @@ import { useSyncScroll } from '@/features/sync-scroll';
 import { markloomEditorTheme, markloomHighlight } from '../codemirror/theme';
 import { markdownKeymap, editingKeymap, linkUrlStep, runMarkdownAction, insertSnippet } from '../codemirror/commands';
 import { useLineRequest } from '../codemirror/useLineRequest';
+import { useEditorFocusRequest } from '../hooks/useEditorFocusRequest';
 import { diagramErrorLines, diagramErrorTheme, setDiagramErrorLines } from '../codemirror/diagramErrors';
 import type { EditorCommands, FormatState } from '../types';
 import { formatStateReporter, selectedSource, selectionReporter } from '../codemirror/formatState';
@@ -145,6 +146,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
   );
 
   useLineRequest(view);
+  useEditorFocusRequest(view);
 
   const resize = useResizeDrag({
     stored: splitRatio,
