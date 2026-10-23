@@ -196,3 +196,86 @@ test('a reload brings back the folder and documents @documents', async ({ app, p
   await expect(page.getByRole('heading', { name: FOLDER_NAME, exact: true })).toBeVisible();
   await expect(app.rendered()).toContainText('Paragraph 1.1.');
 });
+
+/** The names of the unsaved drafts kept in IndexedDB (written about a second after typing stops) */
+function draftNames(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      new Promise<string[]>((resolve, reject) => {
+        const request = indexedDB.open('markloom-drafts');
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+
+          if (!db.objectStoreNames.contains('drafts')) {
+            db.close();
+            resolve([]);
+
+            return;
+          }
+
+          const all = db.transaction('drafts').objectStore('drafts').getAll();
+
+          all.onerror = () => reject(all.error);
+          all.onsuccess = () => {
+            db.close();
+            resolve(all.result.map((draft: { name: string }) => draft.name));
+          };
+        };
+      })
+  );
+}
+
+test('new documents are numbered and a restored draft keeps its name (#171) @documents', async ({ app, page }) => {
+  await app.openFile('notes.md');
+  await page.keyboard.press('Alt+n');
+  await page.keyboard.press('Alt+n');
+  await expect(app.tab('Untitled')).toBeVisible();
+  await expect(app.tab('Untitled 2')).toHaveAttribute('aria-selected', 'true');
+
+  // Focus, not a click: the blank page's start-screen hints lie over an empty document
+  await app.editingSurface().focus();
+  await page.keyboard.type('Draft words.');
+  await expect.poll(() => draftNames(page)).toEqual(['Untitled 2']);
+  await sessionSaved(page, (session) => session.paths.length === 1);
+  await page.reload();
+
+  await expect(app.tab('Untitled 2')).toHaveAttribute('aria-selected', 'true');
+  await expect(app.tab('notes.md')).toBeVisible();
+  await expect(app.rendered()).toContainText('Draft words.');
+});
+
+test('a template opens under its own name (#171) @documents', async ({ app, page }) => {
+  await titleBar(page).getByRole('button', { name: /^New from template/ }).click();
+  await page.getByRole('combobox', { name: 'Search templates' }).fill('Meeting notes');
+  await expect(page.getByRole('option', { name: /^Meeting notes/, selected: true })).toBeVisible();
+  await page.keyboard.press('Enter');
+
+  await expect(app.tab('Meeting notes')).toHaveAttribute('aria-selected', 'true');
+});
+
+test('Export and Copy as rich text read the command table (#171) @documents @export @palette', async ({ app, page }) => {
+  await expect(titleBar(page).getByRole('button', { name: /^Export to Word, PDF, Web page, Markdown or images \(.+E\)$/ })).toBeVisible();
+
+  const copy = titleBar(page).getByRole('button', { name: /^Copy as rich text/ });
+
+  await app.openFile('notes.md');
+  await expect(copy).toBeEnabled();
+
+  // A diagram file publishes no editor commands: the button and the palette row go together
+  await app.treeItem('flow.mmd').click();
+  await expect(app.tab('flow.mmd')).toHaveAttribute('aria-selected', 'true');
+  await expect(copy).toBeDisabled();
+  await page.keyboard.press('ControlOrMeta+Shift+p');
+  await page.getByRole('combobox', { name: 'Command' }).fill('Copy as rich text');
+  await expect(page.getByRole('listbox', { name: 'Commands' }).getByRole('option', { name: /^Copy as rich text/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await app.tab('notes.md').click();
+  await expect(copy).toBeEnabled();
+  await page.keyboard.press('ControlOrMeta+Shift+p');
+  await page.getByRole('combobox', { name: 'Command' }).fill('Copy as rich text');
+  await expect(page.getByRole('listbox', { name: 'Commands' }).getByRole('option', { name: /^Copy as rich text/ })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+});

@@ -1,6 +1,7 @@
 // Single source of truth for app-level commands: the global key handler, the command palette
 // and the title bar read this table; a command with a key takes its name and group from SHORTCUTS.
 // Formatting commands live in the editors themselves.
+import { useSyncExternalStore } from 'react';
 import { selectActiveContent, selectActiveTab, useTabsStore } from '@/features/tabs';
 import { useFindReplaceStore } from '@/features/find-replace';
 import { toggleAutoSave } from '@/features/auto-save';
@@ -57,8 +58,13 @@ function copyAsRichText() {
 
 interface CommandBase {
   id: string;
-  /** Offered, in the palette and by its key, only while this holds */
+  /**
+   * Offered, in the palette and by its key, only while this holds. Read only useUiStore, useAppStore
+   * and useSettingsStore here: useOffered re-renders buttons when those change.
+   */
   when?: () => boolean;
+  /** Tooltip text in place of the label, for a button that says more than the palette row */
+  hint?: string;
   run: () => void;
 }
 
@@ -93,7 +99,12 @@ export const APP_COMMANDS: readonly AppCommand[] = [
     label: () => (useSettingsStore.getState().autoSave ? 'Turn off auto-save' : 'Turn on auto-save'),
     run: toggleAutoSave,
   },
-  { id: 'export', shortcut: 'export', run: () => useUiStore.getState().openDialog('export') },
+  {
+    id: 'export',
+    shortcut: 'export',
+    hint: 'Export to Word, PDF, Web page, Markdown or images',
+    run: () => useUiStore.getState().openDialog('export'),
+  },
   // No key: Ctrl+Shift+C opens the browser's element inspector. Not for .mmd files, which publish no editor commands.
   {
     id: 'copy-rich',
@@ -232,7 +243,7 @@ export function commandGroup(command: AppCommand): ShortcutGroup {
 
 /** Tooltip text, e.g. "Save (Ctrl+S)" */
 export function commandHint(command: AppCommand): string {
-  return shortcutHint(commandLabel(command), command.shortcut);
+  return shortcutHint(command.hint ?? commandLabel(command), command.shortcut);
 }
 
 /** Ids are literals in the table, so a typo throws as soon as the module that asks loads */
@@ -246,6 +257,19 @@ export function appCommand(id: string): AppCommand {
 
 export function isOffered(command: AppCommand): boolean {
   return command.when?.() ?? true;
+}
+
+// Module-level: a new subscribe function each render would make React resubscribe every render.
+// Not useTabsStore: it changes on every keystroke, and no `when` reads it.
+function subscribeToCommandStores(onChange: () => void): () => void {
+  const unsubscribes = [useUiStore.subscribe(onChange), useAppStore.subscribe(onChange), useSettingsStore.subscribe(onChange)];
+
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+}
+
+/** Whether a command is offered, re-rendering when that changes; for buttons that mirror the palette */
+export function useOffered(command: AppCommand): boolean {
+  return useSyncExternalStore(subscribeToCommandStores, () => isOffered(command));
 }
 
 /** The command a key press runs, if any */

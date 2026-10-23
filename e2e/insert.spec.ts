@@ -201,3 +201,25 @@ test('Ctrl+K takes the same two steps, and Tab indents again afterwards @insert 
   await page.keyboard.press('Tab');
   await expect.poll(async () => (await app.sourceLines()).some((line) => /^\s+Closing paragraph\.$/.test(line))).toBe(true);
 });
+
+test('the palette and the Diagram menu name diagrams alike (#171) @insert @palette', async ({ page }) => {
+  await page.keyboard.press('ControlOrMeta+Shift+p');
+  await page.getByRole('combobox', { name: 'Command' }).fill('Insert');
+
+  const commands = page.getByRole('listbox', { name: 'Commands' });
+
+  for (const label of ['Insert flowchart', 'Insert ER diagram', 'Insert Gantt chart', 'Insert mind map']) {
+    await expect(commands.getByRole('option', { name: new RegExp(`^${label}`) })).toBeVisible();
+  }
+
+  await page.keyboard.press('Escape');
+  await page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: 'Insert', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Diagram/ }).click();
+
+  // A menu item's name is its label followed by its description
+  for (const name of ['Flowchart', 'ER diagram', 'Gantt chart', 'Mind map']) {
+    await expect(page.getByRole('menuitem', { name: new RegExp(`^${name}`) })).toBeVisible();
+  }
+
+  await page.keyboard.press('Escape');
+});
