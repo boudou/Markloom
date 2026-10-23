@@ -23,7 +23,7 @@ import {
 import { showImage } from '../utils/previewImages';
 import type { ResolvedReference } from './references';
 
-function activeDocumentPath(): string | null {
+export function activeDocumentPath(): string | null {
   return selectActiveTab(useTabsStore.getState())?.path ?? null;
 }
 

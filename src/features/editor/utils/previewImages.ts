@@ -66,6 +66,13 @@ function imageFor(path: string): Promise<CachedImage> {
   return next;
 }
 
+/** The cached object URL of the file at `path` (a srcset candidate, a video); rejects when it can't be read. */
+export async function documentFileUrl(path: string): Promise<string> {
+  const { url } = await imageFor(path);
+
+  return url;
+}
+
 /**
  * Points `img` at the image file at `path`, or calls `onMissing` when the file can't be read.
  * Neither happens if a later render has pointed `img` at another file meanwhile.

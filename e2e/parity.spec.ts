@@ -34,6 +34,27 @@ test.describe('images', () => {
   test('raw HTML image @parity @images', async ({ app }) => {
     await expectImageShown(app.rendered().getByRole('img', { name: 'HTML image', exact: true }));
   });
+
+  // A relative srcset candidate wins over the resolved src unless it is resolved too (#185)
+  test('picture source @parity @images', async ({ app }) => {
+    const image = app.rendered().getByRole('img', { name: 'Picture image', exact: true });
+
+    await expectImageShown(image);
+    await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.currentSrc.startsWith('blob:'))).toBe(true);
+  });
+
+  test('srcset image @parity @images', async ({ app }) => {
+    const image = app.rendered().getByRole('img', { name: 'Srcset image', exact: true });
+
+    await expectImageShown(image);
+    await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.currentSrc.startsWith('blob:'))).toBe(true);
+  });
+
+  test('relative audio @parity @images', async ({ app }) => {
+    const audio = app.rendered().locator('audio');
+
+    await expect.poll(() => audio.evaluate((media) => media instanceof HTMLMediaElement && media.src.startsWith('blob:') && media.readyState >= 1)).toBe(true);
+  });
 });
 
 test('Mermaid diagram @parity @diagrams', async ({ app }) => {

@@ -11,7 +11,8 @@ import { NodeSelection } from '@milkdown/kit/prose/state';
 import type { Node as ProseNode, NodeType } from '@milkdown/kit/prose/model';
 import { Decoration, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { isUnknownHtmlTag, sanitizeHtml } from '@/lib/markdown';
-import { documentDecorations, showDocumentImage } from './plugins';
+import { showDocumentMedia } from '../utils/documentMedia';
+import { activeDocumentPath, documentDecorations, showDocumentImage } from './plugins';
 
 const COMMENT_ICON =
   '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v6.5H7l-3 2.5V10H3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
@@ -146,6 +147,9 @@ class HtmlView implements NodeView {
 
       return { img, src };
     });
+
+    // While the fragment is still inert, so relative srcset and media never load from the app's address
+    showDocumentMedia(fragment, activeDocumentPath());
 
     for (const element of fragment.querySelectorAll(TAB_STOPS)) element.setAttribute('tabindex', '-1');
 
