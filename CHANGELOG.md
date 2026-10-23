@@ -4,6 +4,40 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-23
+
+### Added
+
+- Export to images: a new Image format in the Export dialog shows the document page by page, like a print preview, and saves the current page as a PNG or every page as a .zip (#191, #193, #194). Tall tables, code blocks, lists and paragraphs break across pages instead of shrinking (#195).
+- Page size (A4 or Letter) and orientation (portrait or landscape) for Image and PDF export, remembered between sessions (#197). PDF export prints exactly the pages the preview shows (#196).
+- Math: `$…$` and `$$…$$` formulas render with KaTeX in the preview, rich text (typeset and editable), PDF and HTML, and as images in Word and Copy as rich text. Export warns about formulas with errors, with their line (#2, #199–#202).
+- Footnotes (`[^1]`) in the preview, exports and rich text, and as real footnotes in Word (#4, #203, #204).
+- Focus mode (`Ctrl+Shift+Enter`) hides everything but the page; the line you're writing stays centred and other paragraphs dim (#9, #205, #206).
+- A Settings window (`Ctrl+,`) with editor preferences, version history limit, storage used and Clear all, and What's new after an update (#154–#156).
+- Desktop: check for updates from Settings, minimize and close to the tray, open a folder passed on the command line, and on Windows "Open with Markloom" in the Explorer menu (#157–#160).
+- Recent folders, and recent files, on the start screen and in the command palette (#17).
+- Smart typography (curly quotes, dashes, ©) can be turned off for the preview and exports (#208).
+- The web version can count page views with Google Analytics, only if you allow it; nothing else is tracked, and the desktop app never includes it (#210).
+- An end-to-end test suite that runs every feature in Markdown mode and in Rich text on its own, used as the check on pull requests (#214–#216).
+
+### Changed
+
+- The file tree lists folders and the documents Markloom opens (Markdown and `.mmd`), not every file (#198).
+- The Markdown source editor highlights GFM: strikethrough, tables and task lists, and the Strikethrough button shows its state (#207).
+- Rich text shows callouts as the same coloured, titled boxes as the preview (#211), and keeps reference-style links as written (#186).
+- Inserting a table, diagram or other block puts it after the block you're in; the Link button selects the link text first (#162).
+- Relative images in raw HTML `srcset` and `<picture>`, and video and audio sources, resolve against the document (#185).
+- Browser PDF export names the file after the File name field and says what to pick in the print dialog (#165).
+- A focus ring shows on the writing surface, and a new document from a template gets focus (#164).
+
+### Fixed
+
+- In rich text, a key pressed right after a click acted on the old caret position on a busy machine: text could land at the top, an emptied heading saved wrongly, and an export could miss the last edit (#217).
+- Search results and "Show line" requests land on the right block in rich text, including below link and footnote definitions, and no longer jump the Markdown editor later (#189).
+- The web version kept failing to load if the browser couldn't write its offline cache (#213).
+- Tab and keys no longer reach controls inside rendered raw HTML in rich text (#183), and an HTML block's source stays open when the window loses focus (#184).
+- Clicking a tab's close button no longer moves focus to a hidden button (#187).
+
 ## [0.7.0] - 2026-10-22
 
 ### Added
@@ -166,7 +200,8 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/boudou/Markloom/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/boudou/Markloom/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/boudou/Markloom/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/boudou/Markloom/compare/v0.4.0...v0.5.0
