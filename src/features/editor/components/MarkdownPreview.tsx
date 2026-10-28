@@ -56,6 +56,30 @@ export function MarkdownPreview({
     else void loadMath();
   }, [html, mathReady, contentRef]);
 
+  // Each render replaces the front matter block, so remember whether it was open and reopen it.
+  // `toggle` doesn't bubble, hence the capture-phase listener.
+  const frontMatterOpen = useRef(false);
+  useEffect(() => {
+    const article = contentRef.current;
+
+    if (!article) return;
+
+    const onToggle = (event: Event) => {
+      const target = event.target;
+
+      if (target instanceof HTMLDetailsElement && target.classList.contains('front-matter')) frontMatterOpen.current = target.open;
+    };
+
+    article.addEventListener('toggle', onToggle, true);
+
+    return () => article.removeEventListener('toggle', onToggle, true);
+  }, [contentRef]);
+  useLayoutEffect(() => {
+    const block = contentRef.current?.querySelector<HTMLDetailsElement>('details.front-matter');
+
+    if (block) block.open = frontMatterOpen.current;
+  }, [html, contentRef]);
+
   // Resolve relative images and make links navigable
   useDocumentLinks(surfaceRef, html);
 

@@ -50,6 +50,7 @@ import { richFormatState } from '../milkdown/formatState';
 import { focusPlugin } from '../milkdown/focus';
 import { caretSync } from '../milkdown/caretSync';
 import { callouts } from '../milkdown/callouts';
+import { frontMatter } from '../milkdown/frontMatter';
 import { keepCalloutMarkers } from '../milkdown/calloutMarkdown';
 import { setSelectedText } from '@/features/word-count';
 
@@ -176,6 +177,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         .use(headingIds)
         .use(gfm)
         .use(math)
+        .use(frontMatter)
         .use(imageSchemaFix)
         .use(linkSchemaFix)
         .use(references)

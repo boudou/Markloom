@@ -3,6 +3,7 @@ import { m } from 'framer-motion';
 import { FileDown, Loader2, FileType, FileText, Globe, FileCode2, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import { Button, Input, Modal, ModalFooter } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { withoutFrontMatter } from '@/lib/markdown';
 import { selectActiveContent, useActivePath, useTabsStore } from '@/features/tabs';
 import { documentName } from '@/features/file-tree/api/fileSystem';
 import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
@@ -224,10 +225,11 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
   const setOrientation = useSettingsStore((s) => s.setExportOrientation);
   const { preview, page, setPage } = usePagePreview(open, showPages, docPath, pageSize, orientation);
 
-  // Suggest a title each time the dialog opens: the first heading, else the file name
+  // Suggest a title each time the dialog opens: the first heading (a `# comment` in front matter
+  // is YAML, not a heading), else the file name
   useEffect(() => {
     if (!open) return;
-    const content = readContent();
+    const content = withoutFrontMatter(readContent());
     const heading = content.match(/^#\s+(.+?)\s*#*\s*$/m)?.[1];
     const fileName = docPath ? documentName(docPath).replace(/\.(md|markdown|mdx)$/i, '') : null;
     setTitle(toFileName(heading ?? fileName ?? 'Untitled document'));

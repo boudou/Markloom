@@ -145,6 +145,9 @@ export async function renderExportBody(markdown: string, docPath: string | null,
   template.innerHTML = parseMarkdown(markdown);
   const root = template.content;
 
+  // Front matter is metadata for tools, not part of the document people read
+  root.querySelectorAll('.front-matter').forEach((block) => block.remove());
+
   const formulas = takeMathSlots(root);
 
   const slots = Array.from(root.querySelectorAll<HTMLElement>('.mermaid-container[data-mermaid]'), (slot) => ({

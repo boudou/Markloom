@@ -28,6 +28,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 - **Math**: `$…$` and `$$…$$` typeset with KaTeX in the split-view preview and in PDF and HTML exports
 - **Callouts**: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and friends render as coloured boxes, in the preview and in exports
 - **Footnotes**: `[^1]` references become numbered superscripts that link to the notes at the end, in the preview, PDF, HTML and Copy as rich text; rich text shows them styled in place. Inline `^[…]` notes work in the preview and exports only
+- **Front matter**: a YAML `---` block at the top shows as a collapsed block listing its keys, in the preview and in rich text (read-only there, saved byte for byte); exports leave it out
 - **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
 - **Copy as rich text**: paste a document, or just the selection, formatted into email, Google Docs or Confluence, diagrams included
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore
@@ -141,6 +142,7 @@ What the tests cover, one file per area:
 | `rich-text.spec.ts` | Raw HTML in rich text (no Tab stops inside, its source survives the window losing focus); saving keeps untouched Markdown byte for byte |
 | `parity.spec.ts` | Every construct renders in both editors: images, diagrams, tables, task lists, strikethrough, callouts, highlighted code, math, footnotes |
 | `footnotes.spec.ts` | Footnotes: numbering, links and back-links, unique ids, scroll sync past a mid-document definition, exports, Copy as rich text, rich-text styling |
+| `front-matter.spec.ts` | Front matter: one collapsed block with its keys in both editors, the Contents panel, saved byte for byte from rich text, left out of Web page and Word exports |
 | `diagrams.spec.ts` | Mermaid renders and follows edits; an error names its document line and Show line goes there |
 | `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page or a .zip), the preflight warnings, Copy as rich text |
 | `settings.spec.ts` | The Settings window and each editor preference |
