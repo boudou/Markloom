@@ -32,9 +32,9 @@ export const diagramErrorLines = StateField.define<DecorationSet>({
 
 export const diagramErrorTheme = EditorView.baseTheme({
   '.cm-diagram-error-line': {
-    backgroundColor: '#FEF2F2',
-    boxShadow: 'inset 2px 0 0 #DC2626',
-    textDecoration: 'underline wavy #DC2626',
+    backgroundColor: 'var(--error-surface)',
+    boxShadow: 'inset 2px 0 0 var(--error-line)',
+    textDecoration: 'underline wavy var(--error-line)',
     textDecorationSkipInk: 'none',
     textUnderlineOffset: '3px',
   },

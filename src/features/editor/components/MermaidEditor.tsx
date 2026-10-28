@@ -54,7 +54,8 @@ function MermaidSource({ content, onChange }: MermaidSourceProps) {
       onCreateEditor={setView}
       initialState={initialState}
       height="100%"
-      theme="light"
+      /* The library's light theme paints #fff over markloomEditorTheme, and its dark one is oneDark */
+      theme="none"
       extensions={sourceExtensions}
       basicSetup={basicSetup}
       className="h-full"
