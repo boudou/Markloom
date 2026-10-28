@@ -303,7 +303,7 @@
   .prose-markloom .front-matter > pre {
     margin: 0;
     border: 0;
-    border-top: 1px solid theme('colors.rule');
+    border-top: 1px solid var(--rule);
     border-radius: 0;
     background: transparent;
     padding: 0.75em 0.9em;
