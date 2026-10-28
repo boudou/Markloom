@@ -55,10 +55,10 @@ export function Sidebar() {
       animate={{ width: open ? resize.value : 0 }}
       // Follow the pointer exactly while dragging; animate only open/close
       transition={resize.dragging ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className={cn('relative h-full flex-shrink-0 overflow-hidden bg-panel', open && 'border-r border-rule')}
+      className={cn('relative h-full shrink-0 overflow-hidden bg-panel', open && 'border-r border-rule')}
     >
       <div className="h-full flex flex-col overflow-hidden" style={{ width: resize.value }}>
-        <div role="tablist" aria-label="Sidebar view" className="flex items-center gap-1 h-10 px-2 border-b border-rule flex-shrink-0">
+        <div role="tablist" aria-label="Sidebar view" className="flex items-center gap-1 h-10 px-2 border-b border-rule shrink-0">
           {VIEWS.map(({ id, label, icon: Icon }) => {
             const selected = view === id;
 
@@ -71,7 +71,7 @@ export function Sidebar() {
                 onClick={() => showSidebarView(id)}
                 className={cn(
                   'flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors',
-                  'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
+                  'outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary',
                   selected ? 'bg-canvas text-text-primary shadow-[0_1px_2px_rgba(26,26,26,0.08)]' : 'text-text-secondary hover:text-text-primary'
                 )}
               >
@@ -118,7 +118,7 @@ export function Sidebar() {
           onDoubleClick={resize.onDoubleClick}
           onKeyDown={resize.onKeyDown}
           className={cn(
-            'group absolute top-0 right-0 z-20 w-2 h-full cursor-col-resize outline-none touch-none',
+            'group absolute top-0 right-0 z-20 w-2 h-full cursor-col-resize outline-hidden touch-none',
             'flex justify-end'
           )}
         >

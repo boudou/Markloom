@@ -21,7 +21,7 @@ export function Toaster() {
   const dismiss = useUiStore((s) => s.dismissToast);
 
   return (
-    <div className="fixed bottom-10 right-4 z-[60] flex flex-col items-end gap-2 pointer-events-none">
+    <div className="fixed bottom-10 right-4 z-60 flex flex-col items-end gap-2 pointer-events-none">
       <AnimatePresence initial={false}>
         {toasts.map((toast) => {
           const Icon = toneIcon[toast.tone];
@@ -41,18 +41,18 @@ export function Toaster() {
                 'shadow-[0_10px_30px_-10px_rgba(26,26,26,0.25),0_2px_6px_rgba(26,26,26,0.06)]'
               )}
             >
-              <Icon className={cn('w-4 h-4 mt-0.5 flex-shrink-0', toneColor[toast.tone])} />
+              <Icon className={cn('w-4 h-4 mt-0.5 shrink-0', toneColor[toast.tone])} />
               <div className="flex-1 min-w-0 text-sm">
-                <p className="font-medium text-text-primary break-words">{toast.title}</p>
+                <p className="font-medium text-text-primary wrap-break-word">{toast.title}</p>
                 {toast.detail && (
-                  <p className="mt-0.5 text-text-secondary break-words">{toast.detail}</p>
+                  <p className="mt-0.5 text-text-secondary wrap-break-word">{toast.detail}</p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(toast.id)}
                 aria-label="Dismiss notification"
-                className="-m-1 p-1 rounded text-text-muted hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent-primary outline-none"
+                className="-m-1 p-1 rounded-sm text-text-muted hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent-primary outline-hidden"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

@@ -51,7 +51,7 @@ function HighlightedLine({ match }: { match: LineMatch }) {
   for (const range of match.ranges) {
     if (range.from > at) parts.push(match.text.slice(at, range.from));
     parts.push(
-      <mark key={range.from} className="bg-accent-muted text-accent-hover rounded-sm">
+      <mark key={range.from} className="bg-accent-muted text-accent-hover rounded-xs">
         {match.text.slice(range.from, range.to)}
       </mark>
     );
@@ -197,9 +197,9 @@ export default function SearchPanel() {
 
   return (
     <div role="search" aria-label="Search in folder" className="h-full flex flex-col min-h-0">
-      <div className="p-2 flex flex-col gap-1.5 border-b border-rule flex-shrink-0">
+      <div className="p-2 flex flex-col gap-1.5 border-b border-rule shrink-0">
         <div className="flex items-center gap-0.5 bg-canvas rounded-md border border-rule focus-within:border-accent-primary transition-colors">
-          <Search className="w-4 h-4 text-text-muted ml-2 flex-shrink-0" aria-hidden />
+          <Search className="w-4 h-4 text-text-muted ml-2 shrink-0" aria-hidden />
           <input
             ref={inputRef}
             id="folder-search-query"
@@ -212,7 +212,7 @@ export default function SearchPanel() {
             aria-label="Search in folder"
             autoComplete="off"
             spellCheck={false}
-            className="flex-1 min-w-0 bg-transparent py-1.5 px-2 text-sm text-text-primary placeholder:text-text-muted outline-none"
+            className="flex-1 min-w-0 bg-transparent py-1.5 px-2 text-sm text-text-primary placeholder:text-text-muted outline-hidden"
           />
           <Tooltip content="Match case">
             <IconButton variant="ghost" size="sm" pressed={caseSensitive} onClick={toggleCaseSensitive}>
@@ -230,7 +230,7 @@ export default function SearchPanel() {
             </IconButton>
           </Tooltip>
         </div>
-        <div aria-live="polite" className="px-1 text-xs text-text-muted leading-snug min-h-[1rem]">
+        <div aria-live="polite" className="px-1 text-xs text-text-muted leading-snug min-h-4">
           {status.map((line) => (
             <p key={line}>{line}</p>
           ))}
@@ -243,7 +243,7 @@ export default function SearchPanel() {
             <section key={file.path} className="pb-1">
               <h3 className="flex items-baseline gap-2 px-3 pt-1.5 pb-0.5 text-xs font-medium text-text-primary" title={file.path}>
                 <span className="truncate">{rootPath ? relativePath(file.path, rootPath) : file.path}</span>
-                <span className="ml-auto flex-shrink-0 text-text-muted tabular-nums">{file.lines.length}</span>
+                <span className="ml-auto shrink-0 text-text-muted tabular-nums">{file.lines.length}</span>
               </h3>
               <ul>
                 {file.lines.map((match) => {
@@ -257,9 +257,9 @@ export default function SearchPanel() {
                         tabIndex={index === tabStop ? 0 : -1}
                         onFocus={() => setTabStop(index)}
                         onClick={() => void openResult(file.path, match.line)}
-                        className="w-full flex items-baseline gap-2 pl-5 pr-3 py-0.5 text-left text-[13px] leading-snug outline-none hover:bg-wash focus-visible:bg-wash transition-colors"
+                        className="w-full flex items-baseline gap-2 pl-5 pr-3 py-0.5 text-left text-[13px] leading-snug outline-hidden hover:bg-wash focus-visible:bg-wash transition-colors"
                       >
-                        <span className="flex-shrink-0 min-w-[2ch] text-right text-xs text-text-muted tabular-nums">{match.line}</span>
+                        <span className="shrink-0 min-w-[2ch] text-right text-xs text-text-muted tabular-nums">{match.line}</span>
                         <span className="truncate text-text-secondary">
                           <HighlightedLine match={match} />
                         </span>

@@ -13,7 +13,6 @@
     "vite.config.ts",
     "tsconfig.json",
     "tsconfig.node.json",
-    "tailwind.config.ts",
     "postcss.config.js",
     "playwright.config.ts",
     "e2e/fixtures.ts",

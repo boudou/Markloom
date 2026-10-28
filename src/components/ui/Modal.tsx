@@ -151,7 +151,7 @@ export function Modal({
                 className={cn(
                   'relative w-full p-6 rounded-[14px] bg-canvas pointer-events-auto',
                   'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_12px_32px_-8px_rgba(26,26,26,0.14)]',
-                  'focus:outline-none',
+                  'focus:outline-hidden',
                   sizeClasses[size],
                   className
                 )}

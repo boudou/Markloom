@@ -39,7 +39,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    target: ['es2021', 'chrome100', 'safari13'],
+    target: ['es2022', 'chrome111', 'safari16.4', 'firefox128'],
     minify: !process.env.TAURI_DEBUG,
     sourcemap: !!process.env.TAURI_DEBUG,
   },

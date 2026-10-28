@@ -6,7 +6,7 @@ import { ProjectLinks } from './ProjectLinks';
 // plus the version and project links (hidden when the window is narrow).
 export function StatusBar() {
   return (
-    <footer className="h-7 flex items-center justify-between px-4 bg-panel border-t border-rule text-xs text-text-muted flex-shrink-0">
+    <footer className="h-7 flex items-center justify-between px-4 bg-panel border-t border-rule text-xs text-text-muted shrink-0">
       <div className="flex items-center gap-4">
         <AutoSaveIndicator />
       </div>

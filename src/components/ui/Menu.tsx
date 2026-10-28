@@ -22,7 +22,7 @@ export const MenuContent = forwardRef<
         onFocusCapture={onFocusCapture}
         className={cn(
           'ml-surface ml-float [--ml-origin:var(--radix-dropdown-menu-content-transform-origin)]',
-          'relative z-50 min-w-[200px] p-1 outline-none',
+          'relative z-50 min-w-[200px] p-1 outline-hidden',
           className
         )}
         {...props}
@@ -49,7 +49,7 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(function MenuI
       ref={ref}
       className={cn(
         'relative flex items-start gap-2.5 px-2 py-1.5 rounded-[7px] text-sm text-text-primary',
-        'cursor-default select-none outline-none data-[disabled]:opacity-40',
+        'cursor-default select-none outline-hidden data-disabled:opacity-40',
         className
       )}
       {...props}
@@ -83,7 +83,7 @@ export const MenuSubTrigger = forwardRef<HTMLDivElement, MenuSubTriggerProps>(fu
       ref={ref}
       className={cn(
         'relative flex items-center gap-2.5 px-2 py-1.5 rounded-[7px] text-sm text-text-primary',
-        'cursor-default select-none outline-none',
+        'cursor-default select-none outline-hidden',
         // Stays lit while focus is in its submenu
         'data-[state=open]:bg-wash',
         className
@@ -113,7 +113,7 @@ export const MenuSubContent = forwardRef<
         onFocusCapture={onFocusCapture}
         className={cn(
           'ml-surface ml-float [--ml-origin:var(--radix-dropdown-menu-content-transform-origin)]',
-          'relative z-50 min-w-[220px] p-1 outline-none',
+          'relative z-50 min-w-[220px] p-1 outline-hidden',
           className
         )}
         {...props}

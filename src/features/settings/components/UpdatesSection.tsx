@@ -26,7 +26,7 @@ function StatusLine({ status }: { status: UpdateStatus }) {
           href={status.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center text-xs font-medium px-2.5 py-1.5 rounded-lg bg-accent-primary text-white hover:bg-accent-hover outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+          className="inline-flex items-center text-xs font-medium px-2.5 py-1.5 rounded-lg bg-accent-primary text-white hover:bg-accent-hover outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           Download
         </a>

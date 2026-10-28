@@ -10,7 +10,7 @@ import { newDocument, requestCloseTabs } from '@/lib/documentActions';
 import { shortcutHint } from '@/lib/shortcuts';
 
 const menuItemClass =
-  'relative flex items-center px-2 py-1.5 text-sm text-text-primary rounded-[7px] cursor-default outline-none';
+  'relative flex items-center px-2 py-1.5 text-sm text-text-primary rounded-[7px] cursor-default outline-hidden';
 
 // The key a focused tab closes on, also announced through aria-keyshortcuts
 const CLOSE_TAB_KEY = 'Delete';
@@ -40,7 +40,7 @@ export function TabBar() {
   };
 
   return (
-    <div className="flex items-stretch h-9 bg-panel border-b border-rule flex-shrink-0">
+    <div className="flex items-stretch h-9 bg-panel border-b border-rule shrink-0">
       <div
         ref={listRef}
         role="tablist"
@@ -61,7 +61,7 @@ export function TabBar() {
         ))}
       </div>
 
-      <div className="flex items-center px-1 flex-shrink-0">
+      <div className="flex items-center px-1 shrink-0">
         <Tooltip content={shortcutHint('New document', 'newDocument')}>
           <IconButton variant="ghost" size="sm" onClick={newDocument}>
             <Plus className="w-4 h-4" />
@@ -121,11 +121,11 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
             title={path && !path.startsWith('file://') ? path : name}
             onClick={onSelect}
             onKeyDown={onKeyDown}
-            className="flex items-center gap-1.5 h-full text-sm outline-none focus-visible:underline decoration-accent-primary decoration-2 underline-offset-4"
+            className="flex items-center gap-1.5 h-full text-sm outline-hidden focus-visible:underline decoration-accent-primary decoration-2 underline-offset-4"
           >
             <span className="truncate max-w-[200px]">{name}</span>
             {isDirty && (
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-primary flex-shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-primary shrink-0">
                 <span className="sr-only">(unsaved changes)</span>
               </span>
             )}
@@ -143,7 +143,7 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
               onClose();
             }}
             className={cn(
-              'p-1 rounded text-text-muted hover:text-text-primary hover:bg-rule transition-opacity',
+              'p-1 rounded-sm text-text-muted hover:text-text-primary hover:bg-rule transition-opacity',
               isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
             )}
           >
@@ -155,7 +155,7 @@ function TabItem({ id, isActive, onSelect, onKeyDown, onClose, onCloseOthers, on
       <ContextMenu.Portal>
         <ContextMenu.Content
           onFocusCapture={onFocusCapture}
-          className="ml-surface ml-float [--ml-origin:var(--radix-context-menu-content-transform-origin)] relative z-50 min-w-[170px] p-1 outline-none"
+          className="ml-surface ml-float [--ml-origin:var(--radix-context-menu-content-transform-origin)] relative z-50 min-w-[170px] p-1 outline-hidden"
         >
           {highlight}
           <ContextMenu.Item className={menuItemClass} onSelect={onClose}>

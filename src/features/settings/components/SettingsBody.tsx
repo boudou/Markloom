@@ -38,7 +38,7 @@ const SECTIONS: readonly Section[] = [
   ...(desktop ? [{ id: 'updates' as const, label: 'Updates', icon: RefreshCw }] : []),
 ];
 
-const CONTROL_FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary';
+const CONTROL_FOCUS = 'outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary';
 
 interface CheckboxRowProps {
   label: string;
@@ -62,7 +62,7 @@ function CheckboxRow({ label, hint, checked, onChange, autoFocus, disabled }: Ch
           onChange={(e) => onChange(e.target.checked)}
           aria-describedby={hintId}
           data-autofocus={autoFocus || undefined}
-          className={cn('w-4 h-4 rounded accent-accent-primary cursor-pointer', CONTROL_FOCUS)}
+          className={cn('w-4 h-4 rounded-sm accent-accent-primary cursor-pointer', CONTROL_FOCUS)}
         />
         {label}
       </label>
@@ -92,7 +92,7 @@ function SelectRow({ label, hint, value, onChange, children }: SelectRowProps) {
           value={value}
           onChange={onChange}
           aria-describedby={hint ? hintId : undefined}
-          className={cn('h-8 min-w-[9rem] px-2 rounded-md border border-rule bg-canvas text-sm text-text-primary', CONTROL_FOCUS)}
+          className={cn('h-8 min-w-36 px-2 rounded-md border border-rule bg-canvas text-sm text-text-primary', CONTROL_FOCUS)}
         >
           {children}
         </select>
@@ -314,7 +314,7 @@ function HistorySection() {
           </p>
         )}
       </div>
-      <div ref={storageGroup} tabIndex={-1} className="pt-3 outline-none">
+      <div ref={storageGroup} tabIndex={-1} className="pt-3 outline-hidden">
         <h3 className="pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Storage</h3>
         <dl className="py-2 text-sm">
           <div className="flex justify-between gap-4 py-1">
@@ -510,7 +510,7 @@ export default function SettingsBody() {
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 min-h-[360px]">
-      <div role="tablist" aria-label="Settings sections" aria-orientation="vertical" className="flex sm:flex-col gap-1 sm:w-40 flex-shrink-0">
+      <div role="tablist" aria-label="Settings sections" aria-orientation="vertical" className="flex sm:flex-col gap-1 sm:w-40 shrink-0">
         {SECTIONS.map(({ id, label, icon: Icon }) => {
           const selected = id === section;
 

@@ -115,13 +115,13 @@ export function AppShell() {
             // Never the Rich text editor kept hidden in Markdown mode
             document.querySelector<HTMLElement>('.cm-content, [data-doc-surface] .rt-document')?.focus();
           }}
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-1/2 focus:-translate-x-1/2 focus:z-[70] focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-text-primary focus:text-canvas focus:text-sm"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-1/2 focus:-translate-x-1/2 focus:z-70 focus:px-3 focus:py-1.5 focus:rounded-md focus:bg-text-primary focus:text-canvas focus:text-sm"
         >
           Skip to document
         </a>
         {/* The desktop window draws its own buttons over the top 44px (titleBarOverlay), so focus
             mode keeps an empty strip there to drag the window by */}
-        {!focusMode ? <TitleBar /> : isDesktop && <div className="h-11 flex-shrink-0 bg-panel app-drag-region" aria-hidden />}
+        {!focusMode ? <TitleBar /> : isDesktop && <div className="h-11 shrink-0 bg-panel app-drag-region" aria-hidden />}
 
         <div className="flex-1 flex min-h-0">
           <Sidebar />

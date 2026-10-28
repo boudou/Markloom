@@ -63,8 +63,8 @@ export function AutoSaveIndicator() {
         aria-pressed={autoSave}
         onClick={toggleAutoSave}
         className={cn(
-          'flex items-center gap-1 h-5 px-1 -mx-1 rounded text-xs transition-colors',
-          'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
+          'flex items-center gap-1 h-5 px-1 -mx-1 rounded-sm text-xs transition-colors',
+          'outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary',
           look.className
         )}
       >

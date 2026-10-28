@@ -34,7 +34,7 @@ export function WordCountWidget() {
         className={cn(
           'flex items-center gap-3 text-text-muted',
           'hover:text-text-secondary transition-colors cursor-pointer',
-          'focus:outline-none focus:text-text-secondary'
+          'focus:outline-hidden focus:text-text-secondary'
         )}
         title="Document statistics"
       >

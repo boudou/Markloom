@@ -50,7 +50,7 @@ export function RecentFilesMenu() {
         <DropdownMenu.Content
           className={cn(
             'ml-surface ml-float [--ml-origin:var(--radix-dropdown-menu-content-transform-origin)]',
-            'relative z-50 min-w-[280px] max-w-[400px] p-1 outline-none'
+            'relative z-50 min-w-[280px] max-w-[400px] p-1 outline-hidden'
           )}
           sideOffset={6}
           align="start"
@@ -67,7 +67,7 @@ export function RecentFilesMenu() {
                   e.preventDefault();
                   clearRecentFiles();
                 }}
-                className="p-1 rounded hover:bg-rule text-text-muted hover:text-error transition-colors"
+                className="p-1 rounded-sm hover:bg-rule text-text-muted hover:text-error transition-colors"
               >
                 <Trash2 className="w-3 h-3" />
               </button>
@@ -81,11 +81,11 @@ export function RecentFilesMenu() {
               key={file.path}
               className={cn(
                 'relative flex items-center gap-2 px-2 py-2 rounded-[7px] cursor-pointer',
-                'outline-none group'
+                'outline-hidden group'
               )}
               onSelect={() => void openPath(file.path)}
             >
-              <FileText className="w-4 h-4 text-text-muted flex-shrink-0" />
+              <FileText className="w-4 h-4 text-text-muted shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-text-primary truncate">
                   {file.name}
@@ -103,7 +103,7 @@ export function RecentFilesMenu() {
                     e.stopPropagation();
                     removeRecentFile(file.path);
                   }}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-wash text-text-muted hover:text-error transition-all"
+                  className="p-1 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-wash text-text-muted hover:text-error transition-all"
                 >
                   <X className="w-3 h-3" />
                 </button>

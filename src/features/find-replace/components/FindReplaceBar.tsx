@@ -12,10 +12,10 @@ interface FindReplaceBarProps {
 const inputBox =
   'flex-1 min-w-0 flex items-center gap-1 bg-canvas rounded-md border border-rule focus-within:border-accent-primary transition-colors';
 
-const inputField = 'flex-1 min-w-0 bg-transparent py-1.5 px-2 text-sm text-text-primary placeholder:text-text-muted outline-none';
+const inputField = 'flex-1 min-w-0 bg-transparent py-1.5 px-2 text-sm text-text-primary placeholder:text-text-muted outline-hidden';
 
 const textButton =
-  'h-7 px-2.5 rounded-md text-xs font-medium text-text-secondary hover:bg-wash hover:text-text-primary disabled:opacity-40 disabled:pointer-events-none outline-none focus-visible:ring-2 focus-visible:ring-accent-primary';
+  'h-7 px-2.5 rounded-md text-xs font-medium text-text-secondary hover:bg-wash hover:text-text-primary disabled:opacity-40 disabled:pointer-events-none outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary';
 
 export function FindReplaceBar({ engine }: FindReplaceBarProps) {
   const isOpen = useFindReplaceStore((s) => s.isOpen);
@@ -89,11 +89,11 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
         : 'No matches';
 
   return (
-    <div role="search" aria-label="Find in document" className="border-b border-rule bg-panel flex-shrink-0">
+    <div role="search" aria-label="Find in document" className="border-b border-rule bg-panel shrink-0">
       <div className="p-2 flex flex-col gap-2 max-w-3xl">
         <div className="flex items-center gap-2">
           <div className={inputBox}>
-            <Search className="w-4 h-4 text-text-muted ml-2 flex-shrink-0" aria-hidden />
+            <Search className="w-4 h-4 text-text-muted ml-2 shrink-0" aria-hidden />
             <input
               ref={searchInputRef}
               id="find-query"
@@ -112,7 +112,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
               {status}
             </span>
           </div>
-          <div className="flex items-center gap-0.5 flex-shrink-0">
+          <div className="flex items-center gap-0.5 shrink-0">
             <Tooltip content="Match case">
               <IconButton variant="ghost" size="sm" pressed={caseSensitive} onClick={toggleCaseSensitive}>
                 <CaseSensitive className="w-4 h-4" />
@@ -155,7 +155,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
         {showReplace && (
           <div className="flex items-center gap-2">
             <div className={inputBox}>
-              <Replace className="w-4 h-4 text-text-muted ml-2 flex-shrink-0" aria-hidden />
+              <Replace className="w-4 h-4 text-text-muted ml-2 shrink-0" aria-hidden />
               <input
                 id="find-replacement"
                 name="find-replacement"
@@ -178,7 +178,7 @@ export function FindReplaceBar({ engine }: FindReplaceBarProps) {
                 className={inputField}
               />
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <button type="button" className={textButton} disabled={!result.count} onClick={() => engine.replace()}>
                 Replace
               </button>

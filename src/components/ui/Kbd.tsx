@@ -19,10 +19,10 @@ export function Kbd({ id, size = 'md', className }: KbdProps) {
           key={index}
           aria-hidden
           className={cn(
-            'inline-flex items-center justify-center font-mono rounded',
+            'inline-flex items-center justify-center font-mono rounded-sm',
             size === 'sm'
-              ? 'min-w-[1rem] h-4 px-1 text-[10px] bg-wash text-text-muted'
-              : 'min-w-[1.5rem] h-6 px-1.5 text-xs font-medium bg-rule text-text-secondary border border-rule/50 shadow-sm'
+              ? 'min-w-4 h-4 px-1 text-[10px] bg-wash text-text-muted'
+              : 'min-w-6 h-6 px-1.5 text-xs font-medium bg-rule text-text-secondary border border-rule/50 shadow-xs'
           )}
         >
           {key}
