@@ -6,7 +6,8 @@ import { TooltipProvider } from './components/ui/Tooltip';
 import './styles/fonts';
 import './styles/globals.css';
 import { setSmartTypography } from './lib/markdown';
-import { selectSmartTypography, useSettingsStore } from './stores/settingsStore';
+import { applyAppearance } from './lib/appearance';
+import { selectAppearance, selectSmartTypography, useSettingsStore } from './stores/settingsStore';
 
 // Enable Immer plugin for Map and Set support
 enableMapSet();
@@ -15,7 +16,13 @@ enableMapSet();
 // runs before React re-renders, so the preview's next parse already has the new setting
 setSmartTypography(selectSmartTypography(useSettingsStore.getState()));
 
-useSettingsStore.subscribe((state) => setSmartTypography(selectSmartTypography(state)));
+// public/appearance.js already set the theme before first paint; this keeps it in step from here on
+applyAppearance(selectAppearance(useSettingsStore.getState()));
+
+useSettingsStore.subscribe((state) => {
+  setSmartTypography(selectSmartTypography(state));
+  applyAppearance(selectAppearance(state));
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

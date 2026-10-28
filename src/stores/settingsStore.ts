@@ -42,6 +42,9 @@ export const PAGE_WIDTHS: readonly { value: PageWidth; label: string }[] = [
 /** The visitor's answer to the web version's usage statistics bar */
 export type AnalyticsConsent = 'unset' | 'granted' | 'denied';
 
+/** Colour theme: 'system' follows the operating system */
+export type Appearance = 'system' | 'light' | 'dark';
+
 /** Auto-save delays offered in Settings, in seconds */
 export const AUTO_SAVE_INTERVALS: readonly number[] = [10, 30, 60, 300];
 
@@ -110,6 +113,9 @@ interface SettingsState {
   /** Usage statistics on the web version (#210): 'unset' until the visitor answers the consent bar */
   analyticsConsent: AnalyticsConsent;
 
+  /** Colour theme; public/appearance.js applies it before first paint */
+  appearance: Appearance;
+
   // Actions
   setAutoSave: (enabled: boolean, interval?: number) => void;
   setAutoSaveInterval: (seconds: number) => void;
@@ -127,6 +133,7 @@ interface SettingsState {
   setExportOrientation: (orientation: Orientation) => void;
   setSmartTypography: (on: boolean) => void;
   setAnalyticsConsent: (consent: AnalyticsConsent) => void;
+  setAppearance: (appearance: Appearance) => void;
 
   // Recent files
   addRecentFile: (file: Omit<RecentFile, 'accessedAt'>) => void;
@@ -141,7 +148,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt' | 'exportPageSize' | 'exportOrientation' | 'smartTypography' | 'analyticsConsent'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt' | 'exportPageSize' | 'exportOrientation' | 'smartTypography' | 'analyticsConsent' | 'appearance'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -180,6 +187,7 @@ const KEPT_TOP_LEVEL_KEYS = [
   'exportOrientation',
   'smartTypography',
   'analyticsConsent',
+  'appearance',
 ] as const;
 
 function copyIfPresent<K extends (typeof KEPT_TOP_LEVEL_KEYS)[number]>(
@@ -233,6 +241,8 @@ export const useSettingsStore = create<SettingsState>()(
       exportOrientation: 'portrait',
       smartTypography: true,
       analyticsConsent: 'unset',
+      // public/appearance.js assumes the same default; change both together
+      appearance: 'light',
 
       // Word-count goals; null or 0 removes the goal
       setWordGoal: (key, goal) =>
@@ -334,6 +344,11 @@ export const useSettingsStore = create<SettingsState>()(
           state.analyticsConsent = consent;
         }),
 
+      setAppearance: (appearance) =>
+        set((state) => {
+          state.appearance = appearance;
+        }),
+
       // Recent files
       addRecentFile: (file) =>
         set((state) => {
@@ -400,6 +415,7 @@ export const useSettingsStore = create<SettingsState>()(
         exportOrientation: state.exportOrientation,
         smartTypography: state.smartTypography,
         analyticsConsent: state.analyticsConsent,
+        appearance: state.appearance,
       }),
       // Only saves from an older version reach here.
       // SAFETY: this app wrote the save with JSON.stringify, so a present key has the type it was written with.
@@ -421,3 +437,7 @@ export const selectSmartTypography = (s: SettingsState): boolean => s.smartTypog
 // A hand-edited value counts as no answer, so the consent bar asks again
 export const selectAnalyticsConsent = (s: SettingsState): AnalyticsConsent =>
   s.analyticsConsent === 'granted' || s.analyticsConsent === 'denied' ? s.analyticsConsent : 'unset';
+
+// Any other stored value reads as the default; public/appearance.js applies the same rule
+export const selectAppearance = (s: SettingsState): Appearance =>
+  s.appearance === 'dark' || s.appearance === 'system' ? s.appearance : 'light';

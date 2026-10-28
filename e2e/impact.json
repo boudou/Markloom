@@ -47,6 +47,7 @@
     "src/components/layout/index.ts": ["@documents"],
 
     "src/lib/analytics.ts": ["@web"],
+    "src/lib/appearance.ts": ["@appearance"],
     "src/lib/appCommands.ts": ["@palette", "@editing", "@settings", "@web"],
     "src/lib/callouts.ts": ["@parity", "@export"],
     "src/lib/desktopFiles.ts": ["@desktop"],
@@ -96,6 +97,7 @@
     "electron/**": ["@desktop", "@window", "@updates"],
     "pwa/**": ["@offline", "@web"],
     "public/**": ["@offline", "@web"],
+    "public/appearance.js": ["@appearance"],
 
     "build/**": [],
     "docs/**": [],
