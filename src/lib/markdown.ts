@@ -215,6 +215,77 @@ export function mathPlugin(md: MarkdownIt): void {
   };
 }
 
+const FRONT_MATTER_FENCE = /^---[ \t]*$/;
+
+const FRONT_MATTER_KEY = /^([A-Za-z0-9_-]+)\s*:/;
+
+// The same block as frontMatterPlugin reads, for code that looks at the text without parsing it
+const LEADING_FRONT_MATTER = /^---[ \t]*\n(?:[\s\S]*?\n)?---[ \t]*(?:\n|$)/;
+
+/** The document without its front matter, if it has one */
+export function withoutFrontMatter(markdown: string): string {
+  return markdown.replace(LEADING_FRONT_MATTER, '');
+}
+
+/** The top-level keys of YAML front matter, in order: what its collapsed block lists */
+export function frontMatterKeys(yaml: string): string[] {
+  return yaml.split('\n').flatMap((line) => line.match(FRONT_MATTER_KEY)?.[1] ?? []);
+}
+
+/** The collapsed block's key list: at most four keys, then an ellipsis */
+export function frontMatterSummary(yaml: string): string {
+  const keys = frontMatterKeys(yaml);
+
+  return keys.slice(0, 4).join(', ') + (keys.length > 4 ? ', …' : '');
+}
+
+/**
+ * YAML front matter: a `---` on the document's first line, closed by a later `---` line, becomes
+ * one `front_matter` token, shown as a collapsed block. The rules are remark-frontmatter's, which
+ * rich text uses: column 1 of line 1 only, spaces after a fence allowed, unclosed is not front
+ * matter. Not highlighted, so preserve.ts's cached block keys never depend on the grammars loading.
+ */
+export function frontMatterPlugin(md: MarkdownIt): void {
+  md.block.ruler.before(
+    'table',
+    'front_matter',
+    (state, startLine, endLine, silent) => {
+      if (startLine !== 0 || state.parentType !== 'root' || state.sCount[0] !== 0) return false;
+
+      const line = (n: number) => state.src.slice(state.bMarks[n], state.eMarks[n]);
+
+      if (!FRONT_MATTER_FENCE.test(line(0))) return false;
+
+      let close = 1;
+
+      while (close < endLine && !FRONT_MATTER_FENCE.test(line(close))) close++;
+
+      if (close >= endLine) return false;
+
+      if (silent) return true;
+
+      const token = state.push('front_matter', 'details', 0);
+      token.block = true;
+      token.markup = '---';
+      token.content = Array.from({ length: close - 1 }, (_, i) => line(i + 1)).join('\n');
+      token.map = [0, close + 1];
+      state.line = close + 1;
+
+      return true;
+    },
+    { alt: [] }
+  );
+
+  md.renderer.rules.front_matter = (tokens, idx, _options, _env, self) => {
+    const token = tokens[idx];
+    const yaml = md.utils.escapeHtml(token.content);
+    const keys = md.utils.escapeHtml(frontMatterSummary(token.content));
+
+    // renderAttrs carries the data-line that the source_lines rule sets, for scroll sync
+    return `<details class="front-matter"${self.renderAttrs(token)}><summary>Front matter<span class="front-matter-keys">${keys}</span></summary><pre><code>${yaml}</code></pre></details>\n`;
+  };
+}
+
 /**
  * GitHub-style footnotes: `[^1]` references become numbered superscripts linking to a list at
  * the end, each note with a link back. Ids are fn-1 and fnref-1 (fnref-1:1 for a repeat), not
@@ -248,6 +319,7 @@ export function createMarkdownParser(): MarkdownIt {
   });
 
   md.use(mathPlugin);
+  md.use(frontMatterPlugin);
 
   // Before heading_ids: both run right after `inline`, and footnote_tail must gather the notes first
   md.use(footnotePlugin);

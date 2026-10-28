@@ -195,6 +195,44 @@
     margin-bottom: 0;
   }
 
+  /* YAML front matter: a collapsed block listing its keys; open, the YAML as written */
+  .prose-markloom details.front-matter {
+    @apply bg-wash border border-rule rounded-lg;
+    margin: 0 0 1.5em;
+    font-size: 0.875rem;
+  }
+
+  .prose-markloom .front-matter > summary {
+    @apply text-text-secondary;
+    cursor: pointer;
+    padding: 0.5em 0.9em;
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-weight: 600;
+    user-select: none;
+  }
+
+  .prose-markloom .front-matter-keys {
+    @apply text-text-muted;
+    margin-left: 0.6em;
+    font-weight: 400;
+  }
+
+  .prose-markloom .front-matter > pre {
+    margin: 0;
+    border: 0;
+    border-top: 1px solid theme('colors.rule');
+    border-radius: 0;
+    background: transparent;
+    padding: 0.75em 0.9em;
+  }
+
+  .prose-markloom .front-matter-hint {
+    @apply text-text-muted;
+    margin: 0;
+    padding: 0 0.9em 0.6em;
+    font-size: 0.8rem;
+  }
+
   /* Footnotes: [^1] references and the numbered list at the end */
   .prose-markloom sup.footnote-ref {
     font-size: 0.75em;
