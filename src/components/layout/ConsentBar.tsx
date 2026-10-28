@@ -17,7 +17,7 @@ export function ConsentBar() {
       role="region"
       aria-label="Usage statistics"
       aria-live="polite"
-      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 bg-panel border-t border-rule text-sm text-text-secondary flex-shrink-0"
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 bg-panel border-t border-rule text-sm text-text-secondary shrink-0"
     >
       <p>Count page views with Google Analytics to help improve Markloom? Nothing else is tracked.</p>
       <div className="flex items-center gap-2">

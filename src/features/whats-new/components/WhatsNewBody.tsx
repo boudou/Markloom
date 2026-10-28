@@ -46,7 +46,7 @@ export default function WhatsNewBody() {
           role="region"
           aria-label="Release notes"
           tabIndex={0}
-          className="max-h-[60vh] overflow-y-auto rounded-lg border border-rule bg-canvas px-6 py-5 prose-markloom font-editor text-sm [&>:first-child]:mt-0 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+          className="max-h-[60vh] overflow-y-auto rounded-lg border border-rule bg-canvas px-6 py-5 prose-markloom font-editor text-sm *:first:mt-0 outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       )}
@@ -54,7 +54,7 @@ export default function WhatsNewBody() {
         href={CHANGELOG_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="self-start text-xs text-text-secondary hover:text-accent-hover hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-sm"
+        className="self-start text-xs text-text-secondary hover:text-accent-hover hover:underline underline-offset-2 outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary rounded-xs"
       >
         Full changelog
       </a>

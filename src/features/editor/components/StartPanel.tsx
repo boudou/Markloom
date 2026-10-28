@@ -26,8 +26,8 @@ const RECENT_ROWS = 5;
 
 const ROW_CLASS = cn(
   'w-full flex items-center gap-3 py-2.5 border-b border-rule text-left text-sm',
-  'text-text-primary hover:text-accent-hover outline-none',
-  'focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 rounded-sm'
+  'text-text-primary hover:text-accent-hover outline-hidden',
+  'focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 rounded-xs'
 );
 
 interface RecentRow {
@@ -46,7 +46,7 @@ function RecentList({ title, icon: Icon, rows }: { title: string; icon: typeof F
       <div className="mt-1 border-t border-rule">
         {rows.map(({ id, name, run }) => (
           <button key={id} type="button" onClick={run} title={name} className={ROW_CLASS}>
-            <Icon className="w-4 h-4 text-text-secondary flex-shrink-0" />
+            <Icon className="w-4 h-4 text-text-secondary shrink-0" />
             <span className="flex-1 truncate">{name}</span>
           </button>
         ))}
@@ -110,7 +110,7 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
       {offer && (
         <div className="mt-6 rounded-lg border border-accent-primary/30 bg-accent-muted/40 p-3">
           <div className="flex items-start gap-3">
-            <History className="w-4 h-4 mt-0.5 text-accent-hover flex-shrink-0" />
+            <History className="w-4 h-4 mt-0.5 text-accent-hover shrink-0" />
             <div className="flex-1 min-w-0 text-sm">
               <p className="font-medium text-text-primary">Pick up where you left off</p>
               <p className="text-text-secondary truncate">Reopen {offerLabel}</p>
@@ -121,14 +121,14 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
               type="button"
               onClick={() => void restoreLastSession()}
               disabled={restoring}
-              className="h-8 px-3 rounded-md bg-accent-primary text-white text-sm font-medium hover:bg-accent-hover disabled:opacity-60 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2"
+              className="h-8 px-3 rounded-md bg-accent-primary text-white text-sm font-medium hover:bg-accent-hover disabled:opacity-60 outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2"
             >
               {restoring ? 'Reopening…' : 'Reopen'}
             </button>
             <button
               type="button"
               onClick={dismissLastSession}
-              className="h-8 px-3 rounded-md text-sm text-text-secondary hover:text-text-primary hover:bg-wash outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+              className="h-8 px-3 rounded-md text-sm text-text-secondary hover:text-text-primary hover:bg-wash outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary"
             >
               Not now
             </button>

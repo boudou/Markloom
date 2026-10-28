@@ -209,7 +209,7 @@ export function MermaidEditor() {
                 <button
                   onClick={handleZoomOut}
                   disabled={zoom <= 25}
-                  className="p-1 rounded hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="p-1 rounded-sm hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
@@ -219,7 +219,7 @@ export function MermaidEditor() {
                 <button
                   onClick={handleZoomIn}
                   disabled={zoom >= 200}
-                  className="p-1 rounded hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="p-1 rounded-sm hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ZoomIn className="w-4 h-4" />
                 </button>
@@ -227,7 +227,7 @@ export function MermaidEditor() {
               <Tooltip content="Reset zoom">
                 <button
                   onClick={handleResetZoom}
-                  className="p-1 rounded hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors"
+                  className="p-1 rounded-sm hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -239,7 +239,7 @@ export function MermaidEditor() {
               <Tooltip content={viewMode === 'split' ? 'Diagram only' : 'Split view'}>
                 <button
                   onClick={toggleViewMode}
-                  className="p-1 rounded hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors"
+                  className="p-1 rounded-sm hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors"
                 >
                   {viewMode === 'split' ? <Maximize2 className="w-4 h-4" /> : <Columns className="w-4 h-4" />}
                 </button>
@@ -251,7 +251,7 @@ export function MermaidEditor() {
               <Tooltip content="Refresh diagram">
                 <button
                   onClick={handleRefresh}
-                  className="p-1 rounded hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors"
+                  className="p-1 rounded-sm hover:bg-rule/30 text-text-muted hover:text-text-primary transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>

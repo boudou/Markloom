@@ -30,7 +30,7 @@ export function HistoryPanel() {
           sideOffset={8}
           className={cn(
             'ml-surface ml-float [--ml-origin:var(--radix-popover-content-transform-origin)]',
-            'w-[28rem] max-h-[70vh] overflow-hidden outline-none z-50'
+            'w-md max-h-[70vh] overflow-hidden outline-hidden z-50'
           )}
         >
           <Suspense fallback={<p className="px-6 py-8 text-center text-sm text-text-secondary">Loading…</p>}>

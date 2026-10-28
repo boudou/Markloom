@@ -85,7 +85,7 @@ export default function HistoryBody() {
             <button
               type="button"
               onClick={handleSaveVersion}
-              className="flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-text-secondary hover:bg-wash hover:text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+              className="flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-text-secondary hover:bg-wash hover:text-text-primary outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary"
             >
               <Plus className="w-3.5 h-3.5" />
               Save version
@@ -116,7 +116,7 @@ export default function HistoryBody() {
               <button
                 type="button"
                 onClick={handleSaveVersion}
-                className="mt-4 h-8 px-3 rounded-md bg-accent-primary text-white text-sm font-medium hover:bg-accent-hover outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2"
+                className="mt-4 h-8 px-3 rounded-md bg-accent-primary text-white text-sm font-medium hover:bg-accent-hover outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2"
               >
                 Save this version
               </button>
@@ -225,7 +225,7 @@ const VersionItem = forwardRef<HTMLDivElement, VersionItemProps>(function Versio
         }
       }}
       className={cn(
-        'px-3 py-2 cursor-pointer transition-colors group outline-none focus-visible:bg-wash',
+        'px-3 py-2 cursor-pointer transition-colors group outline-hidden focus-visible:bg-wash',
         isSelected
           ? 'bg-accent-primary/10 border-l-2 border-accent-primary'
           : 'hover:bg-rule/50 border-l-2 border-transparent'
@@ -233,7 +233,7 @@ const VersionItem = forwardRef<HTMLDivElement, VersionItemProps>(function Versio
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <Clock className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+          <Clock className="w-3.5 h-3.5 text-text-muted shrink-0" />
           <div className="min-w-0">
             <p className="text-sm text-text-primary truncate">
               {formatDate(version.timestamp)}
@@ -251,7 +251,7 @@ const VersionItem = forwardRef<HTMLDivElement, VersionItemProps>(function Versio
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1 rounded text-text-muted hover:text-[#B91C1C] hover:bg-rule transition-colors"
+            className="p-1 rounded-sm text-text-muted hover:text-[#B91C1C] hover:bg-rule transition-colors"
           >
             <Trash2 className="w-3 h-3" />
           </button>

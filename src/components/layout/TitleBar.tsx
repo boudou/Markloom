@@ -68,7 +68,7 @@ export function TitleBar() {
       role="toolbar"
       aria-label="Document actions"
       className={cn(
-        'h-11 flex items-center gap-1 px-2 flex-shrink-0',
+        'h-11 flex items-center gap-1 px-2 shrink-0',
         'bg-panel border-b border-rule select-none',
         desktop && 'app-drag-region',
         isMacDesktop && 'pl-20',
@@ -135,7 +135,7 @@ export function TitleBar() {
         <span className="truncate text-sm text-text-primary" title={docPath ?? docName}>
           {docName}
         </span>
-        <span className={cn('flex-shrink-0 text-xs', isDirty ? 'text-accent-hover' : 'text-text-muted')}>
+        <span className={cn('shrink-0 text-xs', isDirty ? 'text-accent-hover' : 'text-text-muted')}>
           {isDirty ? 'Edited' : docPath ? 'Saved' : ''}
         </span>
       </div>
@@ -149,7 +149,7 @@ export function TitleBar() {
           className={cn(
             'hidden md:flex items-center gap-2 h-7 pl-2 pr-1.5 mr-1.5 rounded-md border border-rule bg-canvas',
             'text-xs text-text-secondary hover:text-text-primary hover:border-[#D9DCE1] transition-colors',
-            'outline-none focus-visible:ring-2 focus-visible:ring-accent-primary'
+            'outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary'
           )}
         >
           <Search className="w-3.5 h-3.5" aria-hidden />

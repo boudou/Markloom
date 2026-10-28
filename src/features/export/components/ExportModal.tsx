@@ -149,7 +149,7 @@ function ChoiceGroup<T extends string>({ label, options, value, onChange }: Choi
             onClick={() => onChange(option.value)}
             className={cn(
               'py-1.5 rounded-md border text-xs font-medium',
-              'transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
+              'transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary',
               value === option.value
                 ? 'border-accent-primary bg-accent-muted/60 text-accent-hover'
                 : 'border-rule text-text-secondary hover:border-text-muted hover:text-text-primary'
@@ -346,7 +346,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
               onClick={() => setFormat(id)}
               className={cn(
                 'flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-medium',
-                'transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-primary',
+                'transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary',
                 format === id
                   ? 'border-accent-primary bg-accent-muted/60 text-accent-hover'
                   : 'border-rule text-text-secondary hover:border-text-muted hover:text-text-primary'
@@ -357,7 +357,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
             </button>
           ))}
         </div>
-        <p className="-mt-2 text-sm text-text-secondary">{current.description}</p>
+        <p className="text-sm text-text-secondary">{current.description}</p>
 
         <div className={cn(showPages && 'grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-6')}>
           <div className="space-y-5 min-w-0">
@@ -383,7 +383,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
             {issues.length > 0 && (
               <div className="rounded-lg border border-[#FCD34D] bg-[#FFFBEB] p-3 text-sm">
                 <p className="flex items-center gap-2 font-medium text-[#92400E]">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden />
+                  <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />
                   {issueSummary}
                 </p>
                 <ul className="mt-2 space-y-1.5">
@@ -395,7 +395,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
                       <button
                         type="button"
                         onClick={() => review(issue)}
-                        className="flex-shrink-0 text-xs font-medium text-[#92400E] underline underline-offset-2 hover:text-[#78350F]"
+                        className="shrink-0 text-xs font-medium text-[#92400E] underline underline-offset-2 hover:text-[#78350F]"
                       >
                         {inRichText ? 'Show in Markdown' : 'Show'}
                       </button>

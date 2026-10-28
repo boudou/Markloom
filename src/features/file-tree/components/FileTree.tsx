@@ -102,7 +102,7 @@ export function FileTree() {
         <h2 className="min-w-0 truncate text-xs font-medium text-text-secondary" title={rootPath ?? undefined}>
           {rootPath ? documentName(rootPath) : 'Files'}
         </h2>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Tooltip content="Open another folder">
             <IconButton variant="ghost" size="sm" onClick={() => void openFolder()}>
               <FolderOpen className="w-4 h-4" />

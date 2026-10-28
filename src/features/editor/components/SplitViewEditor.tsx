@@ -230,7 +230,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
               onKeyDown={resize.onKeyDown}
               onDoubleClick={resize.onDoubleClick}
               className={cn(
-                'relative w-px flex-shrink-0 bg-rule cursor-col-resize outline-none touch-none',
+                'relative w-px shrink-0 bg-rule cursor-col-resize outline-hidden touch-none',
                 'before:absolute before:inset-y-0 before:-left-1.5 before:-right-1.5 before:content-[""]',
                 'hover:bg-accent-primary focus-visible:bg-accent-primary transition-colors'
               )}

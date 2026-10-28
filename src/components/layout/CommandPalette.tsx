@@ -295,13 +295,13 @@ export function CommandPalette() {
           onCloseAutoFocus={restoreFocus}
           className={cn(
             'fixed inset-x-0 mx-auto top-[14vh] z-50 w-[min(560px,calc(100%-2rem))]',
-            'ml-dialog rounded-[14px] bg-canvas overflow-hidden outline-none',
+            'ml-dialog rounded-[14px] bg-canvas overflow-hidden outline-hidden',
             'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_24px_48px_-12px_rgba(26,26,26,0.22)]'
           )}
         >
           <Dialog.Title className="sr-only">{view.title}</Dialog.Title>
           <div className="flex items-center gap-2 px-4 border-b border-rule">
-            <Search className="w-4 h-4 text-text-muted flex-shrink-0" aria-hidden />
+            <Search className="w-4 h-4 text-text-muted shrink-0" aria-hidden />
             {/* No autoFocus: Radix skips onOpenAutoFocus (and so rememberFocus) when focus is
                 already inside, and focuses this first field itself */}
             <input
@@ -316,7 +316,7 @@ export function CommandPalette() {
               aria-activedescendant={results[active] ? `command-${results[active].id}` : undefined}
               autoComplete="off"
               spellCheck={false}
-              className="flex-1 h-12 bg-transparent text-[15px] text-text-primary placeholder:text-text-muted outline-none"
+              className="flex-1 h-12 bg-transparent text-[15px] text-text-primary placeholder:text-text-muted outline-hidden"
             />
           </div>
           <ul id="command-list" role="listbox" aria-label={view.listLabel} ref={(el) => {
@@ -357,7 +357,7 @@ export function CommandPalette() {
                     )}
                   >
                     <span className="truncate">{command.label}</span>
-                    <span className="flex items-center gap-3 flex-shrink-0">
+                    <span className="flex items-center gap-3 shrink-0">
                       {aside && <span className="text-xs text-text-muted">{aside}</span>}
                       {command.shortcut && <Kbd id={command.shortcut} />}
                     </span>

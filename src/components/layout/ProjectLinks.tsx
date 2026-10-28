@@ -9,7 +9,7 @@ function ProjectLink({ href, children }: { href: string; children: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="hover:text-accent-hover hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary rounded-sm"
+      className="hover:text-accent-hover hover:underline underline-offset-2 outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary rounded-xs"
     >
       {children}
     </a>

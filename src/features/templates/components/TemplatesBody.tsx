@@ -72,7 +72,7 @@ export default function TemplatesBody({ onClose }: TemplatesBodyProps) {
 
   return (
     <div className="flex gap-5 h-[60vh] min-h-[360px]">
-      <div className="w-[38%] flex-shrink-0 flex flex-col min-h-0">
+      <div className="w-[38%] shrink-0 flex flex-col min-h-0">
         <div className="relative mb-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden />
           <Input
@@ -110,7 +110,7 @@ export default function TemplatesBody({ onClose }: TemplatesBodyProps) {
             >
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm font-medium text-text-primary">{template.name}</span>
-                <span className="text-[11px] text-text-muted flex-shrink-0">{CATEGORY_LABEL[template.category]}</span>
+                <span className="text-[11px] text-text-muted shrink-0">{CATEGORY_LABEL[template.category]}</span>
               </div>
               <p className="text-xs text-text-secondary leading-snug mt-0.5">{template.description}</p>
             </li>

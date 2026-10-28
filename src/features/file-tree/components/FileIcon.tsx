@@ -20,7 +20,7 @@ interface FileIconProps {
 
 export function FileIcon({ name, isDirectory, isExpanded, className }: FileIconProps) {
   const ext = getFileExtension(name);
-  const iconClass = cn('w-4 h-4 flex-shrink-0', className);
+  const iconClass = cn('w-4 h-4 shrink-0', className);
 
   if (isDirectory) {
     return isExpanded ? (

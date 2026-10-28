@@ -135,7 +135,7 @@ export function EditorToolbar({ commands, active = EMPTY_FORMAT_STATE, trailing,
       role="toolbar"
       aria-label="Formatting"
       className={cn(
-        'flex items-center gap-0.5 h-10 px-2 flex-shrink-0',
+        'flex items-center gap-0.5 h-10 px-2 shrink-0',
         'border-b border-rule bg-canvas',
         className
       )}
@@ -146,7 +146,7 @@ export function EditorToolbar({ commands, active = EMPTY_FORMAT_STATE, trailing,
       <Menu>
         <Tooltip content={`Text style: ${active.heading ? `Heading ${active.heading}` : 'Body text'}`}>
           <MenuTrigger asChild>
-            <IconButton variant="ghost" size="sm" disabled={disabled} className="w-auto min-w-[3.25rem] px-1.5 gap-0.5 justify-between">
+            <IconButton variant="ghost" size="sm" disabled={disabled} className="w-auto min-w-13 px-1.5 gap-0.5 justify-between">
               <span className="text-xs font-medium tabular-nums">{styleLabel}</span>
               <ChevronDown className="w-3 h-3 text-text-muted" />
             </IconButton>

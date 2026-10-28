@@ -165,7 +165,7 @@ export function OutlineDock() {
                     aria-current={isCurrent ? 'location' : undefined}
                     style={{ paddingLeft: `${16 + depth * 12}px` }}
                     className={cn(
-                      'relative w-full text-left pr-3 py-1 text-[13px] leading-snug outline-none truncate',
+                      'relative w-full text-left pr-3 py-1 text-[13px] leading-snug outline-hidden truncate',
                       'focus-visible:bg-wash hover:bg-wash transition-colors',
                       depth === 0 ? 'font-medium' : '',
                       isCurrent ? 'text-accent-hover' : depth === 0 ? 'text-text-primary' : 'text-text-secondary'
