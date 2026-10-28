@@ -1,6 +1,7 @@
 // Rich-text specifics: rendered raw HTML (#183, #184) and minimal-diff saving. Callouts (#211),
 // code highlighting (#212), math (#200) and footnotes (#203) render in parity.spec.ts, in both editors.
 import { test, expect, expectNoPreviewInRichText, seedText } from './fixtures';
+import type { Page } from '@playwright/test';
 
 test.beforeEach(async ({ app }) => {
   await app.openFolder();
@@ -136,5 +137,166 @@ test.describe('keys right after a click', () => {
     await expect(source).toBeHidden();
     await app.save();
     expect(await app.readFile('math.md')).toBe(seedText('math.md').replace('Escaped \\$y$ stays text.\n', 'Escaped \\$y$ stays text.\n\nNext\n'));
+  });
+});
+
+// What Chrome does when a key arrives while the editor shows a selected node: it moves its hidden
+// selection to the first caret position in the document and reports it. The listener is added after
+// ProseMirror's, so ProseMirror has read the moved selection when this resolves.
+async function browserJumpsToTop(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        document.addEventListener('selectionchange', () => setTimeout(resolve), { once: true });
+
+        const heading = document.querySelector('[data-doc-surface] .rt-document h1');
+        const text = heading?.firstChild;
+
+        if (!text) throw new Error('The document has no heading text');
+        getSelection()?.collapse(text, 0);
+      })
+  );
+}
+
+test.describe('keys after the editor selects a node (#234)', () => {
+  test.beforeEach(async ({ app }) => {
+    test.skip(app.editorMode !== 'wysiwyg', 'Only rich text selects a block as a whole');
+  });
+
+  test('ArrowDown from a clicked definition selects the next one @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await page.keyboard.press('ArrowDown');
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[guide\]:/);
+  });
+
+  test('Delete removes a clicked definition and selects the next one @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[guide\]:/);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('Delete removes a formula selected by Escape @rich-text @editing @math', async ({ app, page }) => {
+    await app.openFile('math.md');
+
+    const blocks = app.rendered().locator('.rt-math-block');
+    const before = await blocks.count();
+
+    await blocks.first().click();
+
+    const source = page.getByRole('textbox', { name: 'Display math TeX source' });
+
+    await expect(source).toBeFocused();
+    await source.press('Escape');
+    await expect(source).toBeHidden();
+    await page.keyboard.press('Delete');
+    await expect(blocks).toHaveCount(before - 1);
+    await expect(app.rendered().locator('h1')).toHaveText('Math');
+    await app.save();
+
+    const saved = await app.readFile('math.md');
+
+    expect(saved).not.toContain('\\int_0^1');
+    expect(saved).toContain('$$F=ma$$');
+  });
+
+  test('Delete removes a clicked front matter block @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('front-matter.md');
+
+    const block = app.rendered().locator('details.front-matter');
+
+    await block.locator('summary').click();
+    await block.locator('pre').click();
+    await page.keyboard.press('Delete');
+    await expect(block).toHaveCount(0);
+    await expect(app.rendered().locator('h1')).toHaveText('Front matter heading');
+  });
+
+  test('a key acts on the selected node when the browser jumps to the top first @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await browserJumpsToTop(page);
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('the caret stays where a deleted definition was when the browser jumps to the top @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[img]:' }).click();
+    await page.keyboard.press('Delete');
+    await browserJumpsToTop(page);
+    await page.keyboard.type('X');
+    await expect(app.rendered().locator('p', { hasText: 'bad' })).toHaveText(/^XA bad/);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('Ctrl held a moment before X cuts a clicked definition @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await page.keyboard.down('Control');
+    await page.waitForTimeout(120);
+    await page.keyboard.press('x');
+    await page.keyboard.up('Control');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('a modifier pressed and released alone keeps a clicked definition selected @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await page.keyboard.down('Shift');
+    await page.waitForTimeout(150);
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('after a click back into text, Ctrl+Home still moves the caret to the top @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await app.placeCursorAfter('Last paragraph.');
+    await page.keyboard.press('Control+Home');
+    await page.keyboard.type('X');
+    await expect(app.rendered().locator('h1')).toHaveText('XReferences');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(5);
+  });
+
+  test('a click inside a Ctrl+clicked paragraph places the caret there @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+
+    const paragraph = app.rendered().locator('p', { hasText: 'Last paragraph.' });
+
+    // Ctrl+click selects the whole paragraph as a node
+    await paragraph.click({ modifiers: ['Control'] });
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText('Last paragraph.');
+
+    const box = await paragraph.boundingBox();
+
+    if (!box) throw new Error('The paragraph is not laid out');
+
+    // Right after "Last", the first four letters of the text
+    const x = await paragraph.evaluate((element) => {
+      const text = element.firstChild;
+
+      if (!text) throw new Error('The paragraph has no text');
+
+      const range = document.createRange();
+
+      range.setStart(text, 4);
+      range.setEnd(text, 4);
+
+      return range.getBoundingClientRect().left - element.getBoundingClientRect().left;
+    });
+
+    await paragraph.click({ position: { x, y: box.height / 2 } });
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveCount(0);
+    await page.keyboard.type('X');
+    await expect(app.rendered().locator('p', { hasText: 'paragraph.' })).toHaveText('LastX paragraph.');
   });
 });
