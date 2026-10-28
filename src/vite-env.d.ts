@@ -37,10 +37,14 @@ interface Window {
         margins?: import('./features/export/pipeline/pageGeometry').Margins;
       }
     ) => Promise<Uint8Array>;
-    /** Merges the given toggles into the desktop window preferences and returns those now in effect; `{}` only reads them */
+    /**
+     * Merges the given toggles into the desktop window preferences and returns those now in effect; `{}` only reads them.
+     * Main also keeps the appearance and paints the window with it; the reply carries the tray toggles only.
+     */
     updateWindowPrefs: (changes: {
       minimizeToTray?: boolean;
       closeToTray?: boolean;
+      appearance?: import('./stores/settingsStore').Appearance;
     }) => Promise<{ minimizeToTray: boolean; closeToTray: boolean }>;
     /**
      * Windows only: adds (true) or removes (false) "Open with Markloom" in the Explorer menu and returns

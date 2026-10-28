@@ -241,7 +241,7 @@ export const useSettingsStore = create<SettingsState>()(
       exportOrientation: 'portrait',
       smartTypography: true,
       analyticsConsent: 'unset',
-      // public/appearance.js assumes the same default; change both together
+      // public/appearance.js and electron/main.cjs (DEFAULT_APPEARANCE) assume the same default; change all three together
       appearance: 'light',
 
       // Word-count goals; null or 0 removes the goal
