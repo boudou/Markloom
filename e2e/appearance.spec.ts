@@ -43,6 +43,17 @@ async function bodyBackground(page: Page): Promise<string> {
   return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 }
 
+const WINDOW_CALLS_KEY = 'e2e-window-prefs-calls';
+
+/** The appearances the fake desktop bridge was sent, oldest first */
+async function windowAppearances(page: Page): Promise<(Appearance | undefined)[]> {
+  return page.evaluate((key) => {
+    const calls: { appearance?: Appearance }[] = JSON.parse(localStorage.getItem(key) ?? '[]');
+
+    return calls.map((call) => call.appearance);
+  }, WINDOW_CALLS_KEY);
+}
+
 test.afterEach(async ({ app }) => {
   await expectNoPreviewInRichText(app);
 });
@@ -98,6 +109,49 @@ test('the default is light, even on a dark OS @appearance', async ({ app }) => {
   expect(await colorScheme(page)).toBe('light');
   expect(await bodyBackground(page)).toBe(WHITE);
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#F8F9FA');
+});
+
+test('the desktop window is told the stored appearance at startup @appearance @desktop', async ({ app }) => {
+  const { page } = app;
+
+  // A fake desktop bridge that records what updateWindowPrefs receives
+  await page.addInitScript((callsKey) => {
+    if (window !== window.top) return;
+
+    Object.defineProperty(window, 'markloomDesktop', {
+      value: {
+        isDesktop: true,
+        platform: 'win32',
+        takePendingFiles: async () => ({ files: [], folder: null }),
+        onOpenFiles: () => () => {},
+        onOpenFolder: () => () => {},
+        listFolder: async () => [],
+        readFile: async () => {
+          throw new Error('No files here');
+        },
+        statFile: async () => {
+          throw new Error('No files here');
+        },
+        writeFile: async () => {},
+        printToPdf: async () => new Uint8Array(),
+        updateWindowPrefs: async (changes: { appearance?: Appearance }) => {
+          const calls = JSON.parse(localStorage.getItem(callsKey) ?? '[]');
+
+          localStorage.setItem(callsKey, JSON.stringify([...calls, changes]));
+
+          return { minimizeToTray: false, closeToTray: false };
+        },
+        setExplorerMenu: async () => ({ enabled: false, portable: false }),
+      },
+    });
+  }, WINDOW_CALLS_KEY);
+
+  await startWith(page, 'dark');
+  expect(await windowAppearances(page)).toContain('dark');
+
+  // Init scripts run in the order added, so this stored value replaces 'dark'
+  await startWith(page, 'system');
+  expect((await windowAppearances(page)).at(-1)).toBe('system');
 });
 
 test('a Web page exported in dark mode stays light @appearance @export', async ({ app, context }) => {

@@ -1,7 +1,8 @@
 /**
  * Turns the appearance setting into a light or dark page: the `dark` class and `color-scheme` on
  * <html>, and the theme-color meta (the `--panel` colour of each palette). public/appearance.js does
- * the same before first paint; keep the two in step.
+ * the same before first paint; keep the two in step. electron/main.cjs (`WINDOW_COLOURS`) paints the
+ * desktop window with the same palette.
  */
 import type { Appearance } from '@/stores/settingsStore';
 
@@ -28,6 +29,9 @@ export function applyAppearance(appearance: Appearance): void {
 
   applied = appearance;
   render(appearance);
+
+  // The window colours are cosmetic and the page has already themed itself
+  window.markloomDesktop?.updateWindowPrefs({ appearance }).catch(() => undefined);
 
   if (listening) return;
 

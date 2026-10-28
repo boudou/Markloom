@@ -1,5 +1,5 @@
 // Electron main process: wraps the Markloom web build in a native desktop window.
-const { app, BrowserWindow, protocol, net, shell, dialog, ipcMain, Menu, Tray, nativeImage, session } = require('electron');
+const { app, BrowserWindow, protocol, net, shell, dialog, ipcMain, Menu, Tray, nativeImage, session, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -456,11 +456,22 @@ function guardLinkedFileWindow(child, { url: fileUrl }) {
 // ---------------------------------------------------------------------------
 // Window preferences and the tray. Main keeps the tray toggles (and the Explorer menu's, below)
 // in its own file so it has them before the page loads; the page changes the tray toggles
-// through update-window-prefs.
+// through update-window-prefs. It keeps the appearance there too, so the window opens in the
+// page's colours with no white frame.
 
 const WINDOW_PREF_KEYS = ['minimizeToTray', 'closeToTray'];
+const APPEARANCES = ['system', 'light', 'dark'];
+// Keep in step with the appearance default in src/stores/settingsStore.ts
+const DEFAULT_APPEARANCE = 'light';
+const TITLE_BAR_HEIGHT = 44;
+// --canvas, --panel and --text-secondary of each palette in src/styles/globals.css
+const WINDOW_COLOURS = {
+  light: { background: '#FFFFFF', overlay: '#F8F9FA', symbols: '#5A5A5A' },
+  dark: { background: '#17191C', overlay: '#1E2024', symbols: '#B6BBC3' },
+};
+const DEFAULT_WINDOW_PREFS = { minimizeToTray: false, closeToTray: false, explorerMenu: false, appearance: DEFAULT_APPEARANCE };
 const windowPrefsFile = () => path.join(app.getPath('userData'), 'window-prefs.json');
-let windowPrefs = { minimizeToTray: false, closeToTray: false, explorerMenu: false };
+let windowPrefs = { ...DEFAULT_WINDOW_PREFS };
 
 function loadWindowPrefs() {
   try {
@@ -469,9 +480,25 @@ function loadWindowPrefs() {
       minimizeToTray: saved?.minimizeToTray === true,
       closeToTray: saved?.closeToTray === true,
       explorerMenu: saved?.explorerMenu === true,
+      appearance: APPEARANCES.includes(saved?.appearance) ? saved.appearance : DEFAULT_APPEARANCE,
     };
   } catch {
-    windowPrefs = { minimizeToTray: false, closeToTray: false, explorerMenu: false };
+    windowPrefs = { ...DEFAULT_WINDOW_PREFS };
+  }
+}
+
+// themeSource is the appearance, so shouldUseDarkColors is the resolved theme in every mode
+function windowColours() {
+  return nativeTheme.shouldUseDarkColors ? WINDOW_COLOURS.dark : WINDOW_COLOURS.light;
+}
+
+function applyWindowTheme() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const colours = windowColours();
+  mainWindow.setBackgroundColor(colours.background);
+  if (process.platform !== 'darwin') {
+    mainWindow.setTitleBarOverlay({ color: colours.overlay, symbolColor: colours.symbols, height: TITLE_BAR_HEIGHT });
   }
 }
 
@@ -493,7 +520,18 @@ let quitting = false;
 
 ipcMain.handle('update-window-prefs', (event, changes) => {
   assertFromApp(event);
+  // Checked before anything applies, so a bad appearance beside a valid toggle changes nothing
+  const appearance = changes?.appearance;
+  if (appearance !== undefined && !APPEARANCES.includes(appearance)) throw new Error('Unknown appearance');
+
   let changed = false;
+  if (appearance !== undefined && appearance !== windowPrefs.appearance) {
+    windowPrefs.appearance = appearance;
+    // This emits 'updated' too; painting here as well keeps the change from depending on it
+    nativeTheme.themeSource = appearance;
+    applyWindowTheme();
+    changed = true;
+  }
   for (const key of WINDOW_PREF_KEYS) {
     const value = changes?.[key];
     if (typeof value === 'boolean' && value !== windowPrefs[key]) {
@@ -787,12 +825,13 @@ function contextMenuFor(win, params) {
 }
 
 function createWindow() {
+  const colours = windowColours();
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 800,
     minHeight: 500,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colours.background,
     title: 'Markloom',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     show: false,
@@ -801,7 +840,7 @@ function createWindow() {
     titleBarOverlay:
       process.platform === 'darwin'
         ? undefined
-        : { color: '#F8F9FA', symbolColor: '#5A5A5A', height: 44 },
+        : { color: colours.overlay, symbolColor: colours.symbols, height: TITLE_BAR_HEIGHT },
     trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -912,6 +951,9 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     loadTrust();
     loadWindowPrefs();
+    nativeTheme.themeSource = windowPrefs.appearance;
+    // Once, here: createWindow runs again on macOS activate. Covers OS theme changes under 'system'
+    nativeTheme.on('updated', applyWindowTheme);
     openFromOs([...launchPaths(process.argv, process.cwd()), ...earlyPaths.splice(0)]);
     setUpSpellCheck();
     registerAppProtocol();
