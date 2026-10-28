@@ -1,6 +1,7 @@
 // The appearance setting (#228): a stored 'dark' marks <html> dark before first paint, 'system'
 // follows the OS live, the default stays light, and exports stay light whatever the app shows.
-import type { Page } from '@playwright/test';
+// Dialogs, menus and toasts take their edges, backdrops and status colours from the theme (#229).
+import type { Locator, Page } from '@playwright/test';
 import { test, expect, downloadOf, expectNoPreviewInRichText } from './fixtures';
 
 type Appearance = 'system' | 'light' | 'dark';
@@ -120,4 +121,90 @@ test('a Web page exported in dark mode stays light @appearance @export', async (
   await viewer.setContent(file.bytes.toString('utf8'));
   expect(await bodyBackground(viewer)).toBe(WHITE);
   await viewer.close();
+});
+
+/** What covers the window's top-left corner: a dialog's backdrop while one is open */
+async function backdropColor(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const top = document.elementFromPoint(4, 4);
+
+    return top ? getComputedStyle(top).backgroundColor : '';
+  });
+}
+
+/** Black at `alpha`, as Chrome reports a colour-mixed scrim */
+function blackAt(alpha: number): RegExp {
+  return new RegExp(String.raw`^(rgba\(0, 0, 0, ${alpha}\)|oklab\(0 0 0 / ${alpha}\))$`);
+}
+
+async function boxShadow(locator: Locator): Promise<string> {
+  return locator.evaluate((element) => getComputedStyle(element).boxShadow);
+}
+
+/** Copies the open document as rich text and returns the success toast's icon colour */
+async function successToastIconColor(page: Page): Promise<string> {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('toolbar', { name: 'Document actions' }).getByRole('button', { name: 'Copy as rich text' }).click();
+
+  const icon = page.getByRole('status').filter({ hasText: 'Copied as rich text' }).locator('svg').first();
+
+  await expect(icon).toBeVisible({ timeout: 15_000 });
+
+  return icon.evaluate((element) => getComputedStyle(element).color);
+}
+
+test('floating surfaces get a light edge and a black backdrop in dark mode (#229) @appearance @palette @export @documents', async ({ app }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.openFile('fixture.md');
+
+  await page.keyboard.press('ControlOrMeta+Shift+P');
+
+  const palette = page.getByRole('dialog').filter({ has: page.getByRole('combobox', { name: 'Command' }) });
+
+  await expect(palette).toBeVisible();
+  expect(await boxShadow(palette)).toContain('rgba(255, 255, 255, 0.12)');
+  await expect.poll(() => backdropColor(page)).toMatch(blackAt(0.25));
+  await page.keyboard.press('Escape');
+  await expect(palette).toBeHidden();
+
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const exportDialog = page.getByRole('dialog', { name: 'Export' });
+
+  await expect(exportDialog).toBeVisible();
+  expect(await boxShadow(exportDialog)).toContain('rgba(255, 255, 255, 0.12)');
+  await expect.poll(() => backdropColor(page)).toMatch(blackAt(0.4));
+  await page.keyboard.press('Escape');
+  await expect(exportDialog).toBeHidden();
+
+  await app.tab('fixture.md').click({ button: 'right' });
+
+  const menu = page.getByRole('menu');
+
+  await expect(menu).toBeVisible();
+  expect(await boxShadow(menu)).toContain('rgba(255, 255, 255, 0.1)');
+  await page.keyboard.press('Escape');
+
+  expect(await successToastIconColor(page)).toBe('rgb(74, 222, 128)');
+});
+
+test('floating surfaces keep their light colours by default (#229) @appearance @palette @export', async ({ app }) => {
+  const { page } = app;
+
+  await app.openFolder();
+  await app.openFile('fixture.md');
+
+  await page.keyboard.press('ControlOrMeta+Shift+P');
+
+  const palette = page.getByRole('dialog').filter({ has: page.getByRole('combobox', { name: 'Command' }) });
+
+  await expect(palette).toBeVisible();
+  expect(await boxShadow(palette)).toContain('rgba(26, 26, 26, 0.12)');
+  await page.keyboard.press('Escape');
+  await expect(palette).toBeHidden();
+
+  expect(await successToastIconColor(page)).toBe('rgb(21, 128, 61)');
 });

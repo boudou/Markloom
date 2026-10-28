@@ -288,7 +288,7 @@ export function CommandPalette() {
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && closeDialog()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="ml-backdrop fixed inset-0 z-50 bg-[#1A1A1A]/25" />
+        <Dialog.Overlay className="ml-backdrop fixed inset-0 z-50 bg-scrim/25" />
         <Dialog.Content
           aria-describedby={undefined}
           onOpenAutoFocus={rememberFocus}
@@ -296,7 +296,7 @@ export function CommandPalette() {
           className={cn(
             'fixed inset-x-0 mx-auto top-[14vh] z-50 w-[min(560px,calc(100%-2rem))]',
             'ml-dialog rounded-[14px] bg-canvas overflow-hidden outline-hidden',
-            'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_24px_48px_-12px_rgba(26,26,26,0.22)]'
+            'shadow-[0_0_0_1px_rgb(var(--edge-rgb)/0.12),0_2px_4px_rgb(var(--shadow-rgb)/0.06),0_24px_48px_-12px_rgb(var(--shadow-rgb)/0.22)]'
           )}
         >
           <Dialog.Title className="sr-only">{view.title}</Dialog.Title>

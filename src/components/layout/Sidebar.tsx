@@ -72,7 +72,7 @@ export function Sidebar() {
                 className={cn(
                   'flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors',
                   'outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary',
-                  selected ? 'bg-canvas text-text-primary shadow-[0_1px_2px_rgba(26,26,26,0.08)]' : 'text-text-secondary hover:text-text-primary'
+                  selected ? 'bg-canvas text-text-primary shadow-[0_1px_2px_rgb(var(--shadow-rgb)/0.08)]' : 'text-text-secondary hover:text-text-primary'
                 )}
               >
                 <Icon className="w-3.5 h-3.5" aria-hidden />

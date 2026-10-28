@@ -44,7 +44,7 @@ export function ModeToggle() {
 
       <m.div
         aria-hidden
-        className="pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] overflow-hidden rounded-sm bg-canvas shadow-[0_1px_2px_rgba(26,26,26,0.08)]"
+        className="pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] overflow-hidden rounded-sm bg-canvas shadow-[0_1px_2px_rgb(var(--shadow-rgb)/0.08)]"
         initial={false}
         animate={{ x: `${index * 100}%` }}
         transition={THUMB}

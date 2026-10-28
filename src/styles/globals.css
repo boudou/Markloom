@@ -22,6 +22,17 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
+  --color-scrim: var(--scrim);
+  --color-on-accent: var(--on-accent);
+  --color-success-text: var(--success-text);
+  --color-error-text: var(--error-text);
+  --color-warning-surface: var(--warning-surface);
+  --color-warning-border: var(--warning-border);
+  --color-warning-text: var(--warning-text);
+  --color-warning-text-strong: var(--warning-text-strong);
+  --color-diff-added: var(--diff-added);
+  --color-diff-removed: var(--diff-removed);
+  --color-rule-strong: var(--rule-strong);
 }
 
 @theme {
@@ -105,6 +116,20 @@
     --success: #22C55E;
     --warning: #F59E0B;
     --error: #EF4444;
+    --scrim: #1A1A1A;
+    --on-accent: #FFFFFF;
+    --success-text: #15803D;
+    --error-text: #B91C1C;
+    --warning-surface: #FFFBEB;
+    --warning-border: #FCD34D;
+    --warning-text: #92400E;
+    --warning-text-strong: #78350F;
+    --diff-added: oklch(72.3% 0.219 149.579);
+    --diff-removed: oklch(63.7% 0.237 25.331);
+    --rule-strong: #D9DCE1;
+    /* Space-separated channels for rgb(var(--x) / alpha): not in @theme, no opacity modifier */
+    --shadow-rgb: 26 26 26;
+    --edge-rgb: 26 26 26;
   }
 
   /* Dark palette (#1). :root.dark outranks :root whatever the order. Text and status colours meet
@@ -125,6 +150,20 @@
     --success: #4ADE80;
     --warning: #FBBF24;
     --error: #F87171;
+    --scrim: #000000;
+    --on-accent: #17191C;
+    --success-text: #4ADE80;
+    --error-text: #F87171;
+    --warning-surface: #2A2410;
+    --warning-border: #6B5418;
+    --warning-text: #FBBF24;
+    --warning-text-strong: #FDE68A;
+    --diff-added: #4ADE80;
+    --diff-removed: #F87171;
+    --rule-strong: #4A4F57;
+    --shadow-rgb: 0 0 0;
+    /* A black hairline vanishes on dark surfaces, so floating edges turn light */
+    --edge-rgb: 255 255 255;
   }
 
   * {
@@ -573,9 +612,9 @@
     background: var(--canvas);
     border-radius: 11px;
     box-shadow:
-      0 0 0 1px rgba(26, 26, 26, 0.1),
-      0 2px 4px rgba(26, 26, 26, 0.06),
-      0 12px 32px -8px rgba(26, 26, 26, 0.14);
+      0 0 0 1px rgb(var(--edge-rgb) / 0.1),
+      0 2px 4px rgb(var(--shadow-rgb) / 0.06),
+      0 12px 32px -8px rgb(var(--shadow-rgb) / 0.14);
   }
 
   /* Rises from the trigger's side with a slight scale; leaves faster than it came */
