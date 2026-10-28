@@ -118,6 +118,8 @@
     --error: #EF4444;
     --scrim: #1A1A1A;
     --on-accent: #FFFFFF;
+    /* The task tick, drawn in --on-accent */
+    --task-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --success-text: #15803D;
     --error-text: #B91C1C;
     --warning-surface: #FFFBEB;
@@ -127,6 +129,22 @@
     --diff-added: oklch(72.3% 0.219 149.579);
     --diff-removed: oklch(63.7% 0.237 25.331);
     --rule-strong: #D9DCE1;
+    /* Editors and preview (#230) */
+    --code-text: #475569;
+    --syntax-keyword: #7C3AED;
+    --syntax-string: #15803D;
+    --syntax-number: #B45309;
+    --active-line: rgba(241, 243, 245, 0.7);
+    --find-match-bg: #FEF3C7;
+    --find-match-ring: #FCD34D;
+    --find-current-bg: #FDE68A;
+    --find-current-ring: #F59E0B;
+    --error-surface: #FEF2F2;
+    --error-card-text: #991B1B;
+    --error-card-border: #FECACA;
+    --error-card-button-border: #FCA5A5;
+    --error-card-hover: #FEE2E2;
+    --error-line: #DC2626;
     /* Space-separated channels for rgb(var(--x) / alpha): not in @theme, no opacity modifier */
     --shadow-rgb: 26 26 26;
     --edge-rgb: 26 26 26;
@@ -152,6 +170,7 @@
     --error: #F87171;
     --scrim: #000000;
     --on-accent: #17191C;
+    --task-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%2317191C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --success-text: #4ADE80;
     --error-text: #F87171;
     --warning-surface: #2A2410;
@@ -161,6 +180,21 @@
     --diff-added: #4ADE80;
     --diff-removed: #F87171;
     --rule-strong: #4A4F57;
+    --code-text: #A3AEBE;
+    --syntax-keyword: #B794F6;
+    --syntax-string: #4ADE80;
+    --syntax-number: #FDBA74;
+    --active-line: rgba(38, 41, 46, 0.7);
+    --find-match-bg: #3A2D08;
+    --find-match-ring: #A16207;
+    --find-current-bg: #453508;
+    --find-current-ring: #FBBF24;
+    --error-surface: #2A1517;
+    --error-card-text: #FCA5A5;
+    --error-card-border: #5C2A2E;
+    --error-card-button-border: #7F3A3F;
+    --error-card-hover: #3A1D20;
+    --error-line: #F87171;
     --shadow-rgb: 0 0 0;
     /* A black hairline vanishes on dark surfaces, so floating edges turn light */
     --edge-rgb: 255 255 255;
@@ -249,6 +283,12 @@
     --tw-prose-td-borders: var(--rule);
   }
 
+  :root.dark .prose-markloom {
+    --tw-prose-code: #FDA4AF;
+    --tw-prose-kbd: var(--text-primary);
+    --tw-prose-kbd-shadows: rgb(255 255 255 / 10%);
+  }
+
   /* Inline code: a quiet chip. The typography plugin's decorative backticks are removed:
      they read as part of the text, especially in the editable rich-text view. */
   .prose-markloom :not(pre) > code {
@@ -314,6 +354,13 @@
   .prose-markloom blockquote.callout-important { --callout: #8250DF; }
   .prose-markloom blockquote.callout-warning { --callout: #9A6700; }
   .prose-markloom blockquote.callout-caution { --callout: #CF222E; }
+
+  /* Same specificity as the base rule, so the kinds must follow it */
+  :root.dark .prose-markloom blockquote.callout { --callout: #4493F8; }
+  :root.dark .prose-markloom blockquote.callout-tip { --callout: #3FB950; }
+  :root.dark .prose-markloom blockquote.callout-important { --callout: #AB7DF8; }
+  :root.dark .prose-markloom blockquote.callout-warning { --callout: #D29922; }
+  :root.dark .prose-markloom blockquote.callout-caution { --callout: #F85149; }
 
   .prose-markloom .callout-title {
     display: flex;
@@ -442,9 +489,7 @@
 
   .prose-markloom .task-checkbox:checked {
     border-color: var(--accent-primary);
-    background: var(--accent-primary)
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-      center / 80% no-repeat;
+    background: var(--accent-primary) var(--task-tick) center / 80% no-repeat;
   }
 
   .prose-markloom li.task-list-item:has(> .task-checkbox:checked),
@@ -498,7 +543,7 @@
     background: var(--canvas);
     color: var(--text-secondary);
     font: 500 0.7rem/1 'Outfit', system-ui, sans-serif;
-    box-shadow: 0 1px 2px rgba(26, 26, 26, 0.06);
+    box-shadow: 0 1px 2px rgb(var(--shadow-rgb) / 0.06);
     opacity: 0;
     cursor: pointer;
     transition: opacity 150ms ease, color 150ms ease, transform 120ms ease;
@@ -524,11 +569,11 @@
   }
 
   .code-copy[data-state='copied'] {
-    color: #15803D;
+    color: var(--success-text);
   }
 
   .code-copy[data-state='error'] {
-    color: #B91C1C;
+    color: var(--error-text);
   }
 
   /* Touch screens have no hover, so the button is always there */
@@ -786,7 +831,7 @@
 
 /* A formula KaTeX can't parse shows its source in red, with the error as a tooltip */
 .katex-error {
-  color: #B91C1C;
+  color: var(--error-text);
   cursor: help;
 }
 
@@ -808,9 +853,9 @@
 
 .mermaid-error {
   @apply text-sm p-4 rounded-lg border;
-  color: #991B1B;
-  background-color: #FEF2F2;
-  border-color: #FECACA;
+  color: var(--error-card-text);
+  background-color: var(--error-surface);
+  border-color: var(--error-card-border);
 }
 
 .mermaid-error-title {
@@ -840,21 +885,21 @@
 
 .mermaid-error-actions button {
   padding: 0.25rem 0.65rem;
-  border: 1px solid #FCA5A5;
+  border: 1px solid var(--error-card-button-border);
   border-radius: 6px;
-  background: #fff;
-  color: #991B1B;
+  background: var(--canvas);
+  color: var(--error-card-text);
   font-weight: 500;
 }
 
 .mermaid-error-actions button:hover {
-  background: #FEE2E2;
+  background: var(--error-card-hover);
 }
 
 .mermaid-error-actions summary {
   padding: 0.25rem 0;
   cursor: pointer;
-  color: #991B1B;
+  color: var(--error-card-text);
 }
 
 .mermaid-error-actions details pre {
@@ -873,7 +918,27 @@
   color: inherit;
 }
 
-/* Highlight.js theme - VS Code Light style for light theme */
+/* Highlight.js theme: VS Code Light, and Dark+ under :root.dark */
+:root {
+  --hl-comment: #6A9955;
+  --hl-keyword: #AF00DB;
+  --hl-string: #A31515;
+  --hl-title: #795E26;
+  --hl-type: #267F99;
+  --hl-symbol: #001080;
+  --hl-builtin: #0000FF;
+}
+
+:root.dark {
+  --hl-comment: #7CA668;
+  --hl-keyword: #C586C0;
+  --hl-string: #CE9178;
+  --hl-title: #DCDCAA;
+  --hl-type: #4EC9B0;
+  --hl-symbol: #9CDCFE;
+  --hl-builtin: #6CB6FF;
+}
+
 .hljs {
   color: var(--text-primary);
   background: var(--panel);
@@ -881,14 +946,14 @@
 
 .hljs-comment,
 .hljs-quote {
-  color: #6A9955;
+  color: var(--hl-comment);
   font-style: italic;
 }
 
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-addition {
-  color: #AF00DB;
+  color: var(--hl-keyword);
 }
 
 .hljs-number,
@@ -897,7 +962,7 @@
 .hljs-literal,
 .hljs-doctag,
 .hljs-regexp {
-  color: #A31515;
+  color: var(--hl-string);
 }
 
 .hljs-title,
@@ -905,7 +970,7 @@
 .hljs-name,
 .hljs-selector-id,
 .hljs-selector-class {
-  color: #795E26;
+  color: var(--hl-title);
 }
 
 .hljs-attribute,
@@ -914,7 +979,7 @@
 .hljs-template-variable,
 .hljs-class .hljs-title,
 .hljs-type {
-  color: #267F99;
+  color: var(--hl-type);
 }
 
 .hljs-symbol,
@@ -925,17 +990,17 @@
 .hljs-selector-attr,
 .hljs-selector-pseudo,
 .hljs-link {
-  color: #001080;
+  color: var(--hl-symbol);
 }
 
 .hljs-built_in,
 .hljs-deletion {
-  color: #0000FF;
+  color: var(--hl-builtin);
 }
 
 .hljs-function .hljs-title,
 .hljs-title.function_ {
-  color: #795E26;
+  color: var(--hl-title);
 }
 
 .hljs-params {
@@ -943,7 +1008,7 @@
 }
 
 .hljs-property {
-  color: #001080;
+  color: var(--hl-symbol);
 }
 
 .hljs-operator {
@@ -1073,9 +1138,7 @@
 }
 
 .rt-document li[data-item-type='task'][data-checked='true']::before {
-  background: var(--accent-primary)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-    center / 80% no-repeat;
+  background: var(--accent-primary) var(--task-tick) center / 80% no-repeat;
   border-color: var(--accent-primary);
 }
 
@@ -1225,8 +1288,8 @@
 
 /* The source line a diagram error points to */
 .rt-diagram-error-line {
-  background: #FEF2F2;
-  text-decoration: underline wavy #DC2626;
+  background: var(--error-surface);
+  text-decoration: underline wavy var(--error-line);
   text-decoration-skip-ink: none;
   text-underline-offset: 3px;
 }
@@ -1247,7 +1310,7 @@
 }
 
 .rt-document th {
-  border-bottom-color: #D9DCE1;
+  border-bottom-color: var(--rule-strong);
 }
 
 .rt-document .selectedCell {
@@ -1268,14 +1331,14 @@
 
 /* Find matches in the rich-text editor */
 .rt-find-match {
-  background: #FEF3C7;
-  box-shadow: 0 0 0 1px #FCD34D;
+  background: var(--find-match-bg);
+  box-shadow: 0 0 0 1px var(--find-match-ring);
   border-radius: 2px;
 }
 
 .rt-find-match.is-current {
-  background: #FDE68A;
-  box-shadow: 0 0 0 1px #F59E0B;
+  background: var(--find-current-bg);
+  box-shadow: 0 0 0 1px var(--find-current-ring);
 }
 
 /* Table cells hold a paragraph in the rich-text editor; keep rows as compact as the preview */

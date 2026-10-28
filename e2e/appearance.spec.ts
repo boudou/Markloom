@@ -1,8 +1,9 @@
 // The appearance setting (#228): a stored 'dark' marks <html> dark before first paint, 'system'
 // follows the OS live, the default stays light, and exports stay light whatever the app shows.
 // Dialogs, menus and toasts take their edges, backdrops and status colours from the theme (#229).
+// The source editors, the preview and rich text follow it too, without losing undo history (#230).
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, downloadOf, expectNoPreviewInRichText } from './fixtures';
+import { test, expect, downloadOf, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
 
 type Appearance = 'system' | 'light' | 'dark';
 
@@ -261,4 +262,184 @@ test('floating surfaces keep their light colours by default (#229) @appearance @
   await expect(palette).toBeHidden();
 
   expect(await successToastIconColor(page)).toBe('rgb(21, 128, 61)');
+});
+
+async function color(locator: Locator): Promise<string> {
+  return locator.evaluate((element) => getComputedStyle(element).color);
+}
+
+async function background(locator: Locator): Promise<string> {
+  return locator.evaluate((element) => getComputedStyle(element).backgroundColor);
+}
+
+/** The first background painted behind `locator`: its own, or the nearest ancestor's */
+async function paintedBehind(locator: Locator): Promise<string> {
+  return locator.evaluate((element) => {
+    for (let node: Element | null = element; node; node = node.parentElement) {
+      const value = getComputedStyle(node).backgroundColor;
+
+      if (value !== 'rgba(0, 0, 0, 0)') return value;
+    }
+
+    return '';
+  });
+}
+
+/** The checked task's tick image: the preview's checkbox, or rich text's ::before box */
+async function taskTick(app: MarkloomApp): Promise<string> {
+  if (app.editorMode === 'split') {
+    return app.rendered().locator('.task-checkbox:checked').evaluate((box) => getComputedStyle(box).backgroundImage);
+  }
+
+  return app.rendered().locator("li[data-item-type='task'][data-checked='true']").evaluate((item) => getComputedStyle(item, '::before').backgroundImage);
+}
+
+async function borderColor(locator: Locator): Promise<string> {
+  return locator.evaluate((element) => getComputedStyle(element).borderTopColor);
+}
+
+/** Opens the find bar on `query`; matches are highlighted once it counts them */
+async function find(page: Page, query: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+f');
+
+  const bar = page.getByRole('search', { name: 'Find in document' });
+
+  await expect(bar.getByRole('textbox', { name: 'Find' })).toBeFocused();
+  await page.keyboard.type(query);
+  await expect(bar).toContainText(/\d+ of \d+/);
+}
+
+/** Text of the Markdown source, the rich-text document's body text */
+const DARK_SURFACE_TEXT = { split: 'rgb(232, 234, 237)', wysiwyg: 'rgb(211, 214, 219)' } as const;
+
+test('the editors and the preview use dark colours in dark mode (#230) @appearance @editing @rich-text', async ({ app }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.openFile('dark.md');
+
+  const rendered = app.rendered();
+
+  if (app.editorMode === 'split') {
+    const source = page.locator('.cm-editor');
+
+    expect(await color(page.locator('.cm-content'))).toBe('rgb(232, 234, 237)');
+    expect(await background(source)).toBe('rgba(0, 0, 0, 0)');
+    expect(await paintedBehind(source)).toBe(DARK_CANVAS);
+    expect(await color(source.locator('span', { hasText: /^https:\/\/example\.com\/nightowl$/ }))).toBe('rgb(158, 197, 254)');
+    await app.placeCursorAfter('Checked nightowl task');
+    expect(await background(source.locator('.cm-activeLine'))).toBe('rgba(38, 41, 46, 0.7)');
+  }
+
+  await expect(rendered.locator('.katex-error')).toHaveCount(1);
+  await expect(rendered.locator('.mermaid-error')).toBeVisible({ timeout: 15_000 });
+
+  const note = rendered.locator('blockquote[data-callout="note"]');
+
+  expect(await note.evaluate((quote) => getComputedStyle(quote).borderLeftColor)).toBe('rgb(68, 147, 248)');
+  // Not in the callout: the typography plugin makes code in a quote take the quote's colour
+  expect(await color(rendered.locator('code', { hasText: 'inline nightowl' }))).toBe('rgb(253, 164, 175)');
+  expect(await color(note.locator('kbd'))).toBe('rgb(232, 234, 237)');
+  expect(await color(rendered.locator('.katex-error'))).toBe('rgb(248, 113, 113)');
+  expect(await color(rendered.locator('.mermaid-error'))).toBe('rgb(252, 165, 165)');
+  expect(await background(rendered.locator('.mermaid-error'))).toBe('rgb(42, 21, 23)');
+
+  // Rich text draws the card borderless inside its diagram block
+  if (app.editorMode === 'split') expect(await borderColor(rendered.locator('.mermaid-error'))).toBe('rgb(92, 42, 46)');
+
+  expect(await taskTick(app)).toContain('%2317191C');
+
+  if (app.editorMode === 'split') {
+    // Grammars load when the browser is idle; the preview redraws then
+    await expect(rendered.locator('pre .hljs-keyword')).toHaveText('const');
+    expect(await color(rendered.locator('pre .hljs-keyword'))).toBe('rgb(197, 134, 192)');
+
+    await find(page, 'nightowl');
+    expect(await background(page.locator('.cm-searchMatch:not(.cm-searchMatch-selected)').first())).toBe('rgb(58, 45, 8)');
+    expect(await background(page.locator('.cm-searchMatch-selected').first())).toBe('rgb(69, 53, 8)');
+  } else {
+    await find(page, 'nightowl');
+    expect(await background(rendered.locator('.rt-find-match:not(.is-current)').first())).toBe('rgb(58, 45, 8)');
+    expect(await background(rendered.locator('.rt-find-match.is-current').first())).toBe('rgb(69, 53, 8)');
+  }
+});
+
+test('switching the appearance keeps the text and its undo history (#230) @appearance @editing @rich-text', async ({ app }) => {
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await startWith(page, 'system');
+  await app.openFolder();
+  await app.openFile('dark.md');
+
+  const surface = app.editingSurface();
+
+  await app.placeCursorAfter('Checked nightowl task');
+  await page.keyboard.type(' Undo me');
+  await expect(surface).toContainText('Undo me');
+  expect(await color(surface)).not.toBe(DARK_SURFACE_TEXT[app.editorMode]);
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(() => color(surface)).toBe(DARK_SURFACE_TEXT[app.editorMode]);
+  await expect(surface).toContainText('Undo me');
+
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(surface).not.toContainText('Undo me');
+});
+
+test('the editors and the preview keep their light colours by default (#230) @appearance @editing @rich-text', async ({ app }) => {
+  const { page } = app;
+
+  await app.openFolder();
+  await app.openFile('dark.md');
+
+  const rendered = app.rendered();
+
+  await expect(rendered.locator('.katex-error')).toHaveCount(1);
+  await expect(rendered.locator('.mermaid-error')).toBeVisible({ timeout: 15_000 });
+  expect(await color(rendered.locator('.katex-error'))).toBe('rgb(185, 28, 28)');
+  expect(await color(rendered.locator('.mermaid-error'))).toBe('rgb(153, 27, 27)');
+  expect(await background(rendered.locator('.mermaid-error'))).toBe('rgb(254, 242, 242)');
+
+  // Rich text draws the card borderless inside its diagram block
+  if (app.editorMode === 'split') expect(await borderColor(rendered.locator('.mermaid-error'))).toBe('rgb(254, 202, 202)');
+
+  expect(await taskTick(app)).toContain("stroke='white'");
+
+  if (app.editorMode === 'split') {
+    expect(await color(page.locator('.cm-content'))).toBe('rgb(26, 26, 26)');
+    await find(page, 'nightowl');
+    expect(await background(page.locator('.cm-searchMatch:not(.cm-searchMatch-selected)').first())).toBe('rgb(254, 243, 199)');
+  } else {
+    await app.openFile('fixture.md');
+
+    const header = app.rendered().locator('th').first();
+
+    expect(await header.evaluate((cell) => getComputedStyle(cell).borderBottomColor)).toBe('rgb(217, 220, 225)');
+  }
+});
+
+test('a Web page exported in dark mode keeps light callouts and formula errors (#230) @appearance @export', async ({ app, context }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.openFile('dark.md');
+  await expect(app.rendered().locator('.katex-error')).toHaveCount(1);
+
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const dialog = page.getByRole('dialog', { name: 'Export' });
+
+  await dialog.getByRole('radio', { name: 'Web page' }).click();
+
+  const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Web page' }).click());
+  const viewer = await context.newPage();
+
+  await viewer.emulateMedia({ colorScheme: 'dark' });
+  await viewer.setContent(file.bytes.toString('utf8'));
+  expect(await color(viewer.locator('.katex-error'))).toBe('rgb(185, 28, 28)');
+  expect(await viewer.locator('blockquote.callout').evaluate((quote) => getComputedStyle(quote).borderLeftColor)).toBe('rgb(9, 105, 218)');
+  await viewer.close();
 });

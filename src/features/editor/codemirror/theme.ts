@@ -1,18 +1,19 @@
-// Light CodeMirror theme drawn from the app's tokens (see src/styles/globals.css).
+// CodeMirror theme drawn from the app's CSS variables (see src/styles/globals.css), so it follows
+// the `dark` class on <html> with no reconfigure: the document and undo history are untouched.
 import { EditorView } from '@codemirror/view';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
 
 const ink = {
-  primary: '#1A1A1A',
-  secondary: '#5A5A5A',
-  muted: '#626977',
-  accent: '#1D4ED8',
-  accentMuted: '#DBEAFE',
+  primary: 'var(--text-primary)',
+  secondary: 'var(--text-secondary)',
+  muted: 'var(--text-muted)',
+  accent: 'var(--accent-hover)',
+  accentMuted: 'var(--accent-muted)',
   // Code (inline and fenced) in slate: readable without shouting over long diagram blocks
-  code: '#475569',
-  wash: '#F1F3F5',
-  rule: '#E9ECEF',
+  code: 'var(--code-text)',
+  wash: 'var(--wash)',
+  rule: 'var(--rule)',
 };
 
 export const markloomEditorTheme = EditorView.theme(
@@ -39,7 +40,7 @@ export const markloomEditorTheme = EditorView.theme(
       border: 'none',
       color: ink.muted,
     },
-    // CodeMirror's default #888 fails AA contrast on the active-line wash
+    // CodeMirror's default grey fails AA contrast on the active-line wash
     '.cm-placeholder': {
       color: ink.muted,
     },
@@ -52,7 +53,7 @@ export const markloomEditorTheme = EditorView.theme(
       color: ink.primary,
     },
     '.cm-activeLine': {
-      backgroundColor: 'rgba(241, 243, 245, 0.7)',
+      backgroundColor: 'var(--active-line)',
     },
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: ink.accent,
@@ -62,11 +63,11 @@ export const markloomEditorTheme = EditorView.theme(
       backgroundColor: `${ink.accentMuted} !important`,
     },
     '.cm-searchMatch': {
-      backgroundColor: '#FEF3C7',
-      outline: '1px solid #F59E0B',
+      backgroundColor: 'var(--find-match-bg)',
+      outline: '1px solid var(--find-current-ring)',
     },
     '.cm-searchMatch.cm-searchMatch-selected': {
-      backgroundColor: '#FDE68A',
+      backgroundColor: 'var(--find-current-bg)',
     },
     '.cm-selectionMatch': {
       backgroundColor: ink.wash,
@@ -76,8 +77,7 @@ export const markloomEditorTheme = EditorView.theme(
       border: `1px solid ${ink.rule}`,
       color: ink.muted,
     },
-  },
-  { dark: false }
+  }
 );
 
 // Markdown syntax: content stays near-black; the markup recedes so the words lead.
@@ -93,8 +93,8 @@ export const markloomHighlight = syntaxHighlighting(
     { tag: t.quote, color: ink.secondary, fontStyle: 'italic' },
     { tag: [t.processingInstruction, t.contentSeparator, t.meta], color: ink.muted },
     { tag: t.comment, color: ink.muted, fontStyle: 'italic' },
-    { tag: [t.keyword, t.atom, t.bool], color: '#7C3AED' },
-    { tag: [t.string, t.special(t.string)], color: '#15803D' },
-    { tag: t.number, color: '#B45309' },
+    { tag: [t.keyword, t.atom, t.bool], color: 'var(--syntax-keyword)' },
+    { tag: [t.string, t.special(t.string)], color: 'var(--syntax-string)' },
+    { tag: t.number, color: 'var(--syntax-number)' },
   ])
 );

@@ -51,7 +51,8 @@ export function isMathReady(): boolean {
 const KATEX_OPTIONS: KatexOptions = {
   output: 'htmlAndMathml',
   throwOnError: false,
-  errorColor: '#B91C1C',
+  // The app's error colour in each theme, with a light fallback for exported pages (no --error-text there)
+  errorColor: 'var(--error-text, #B91C1C)',
   trust: false,
   strict: 'ignore',
   maxSize: 50,

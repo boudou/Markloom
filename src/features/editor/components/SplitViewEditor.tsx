@@ -207,7 +207,8 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
             onCreateEditor={setView}
             initialState={initialState}
             extensions={extensions}
-            theme="light"
+            /* The library's light theme paints #fff over markloomEditorTheme, and its dark one is oneDark */
+            theme="none"
             autoFocus={isBlank}
             placeholder="Start writing in Markdown…"
             className="h-full"
