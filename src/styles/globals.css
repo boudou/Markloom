@@ -2,6 +2,9 @@
 
 @plugin '@tailwindcss/typography';
 
+/* dark: utilities follow the app's setting (the class on <html>), not the OS */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Design tokens. Utilities read the :root variables below (inline), so redefining a variable
    recolours every utility that uses it. */
 @theme inline {
@@ -102,6 +105,26 @@
     --success: #22C55E;
     --warning: #F59E0B;
     --error: #EF4444;
+  }
+
+  /* Dark palette (#1). :root.dark outranks :root whatever the order. Text and status colours meet
+     4.5:1 on --wash, the lightest dark surface. */
+  :root.dark {
+    --canvas: #17191C;
+    --panel: #1E2024;
+    --wash: #26292E;
+    --rule: #33373D;
+    --text-primary: #E8EAED;
+    --text-secondary: #B6BBC3;
+    --text-body: #D3D6DB;
+    --text-muted: #9CA3AF;
+    --accent-primary: #6EA8FE;
+    --accent-hover: #9EC5FE;
+    --accent-muted: #1E3A5F;
+    --accent-secondary: #B794F6;
+    --success: #4ADE80;
+    --warning: #FBBF24;
+    --error: #F87171;
   }
 
   * {
