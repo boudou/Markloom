@@ -10,8 +10,8 @@ const toneIcon: Record<ToastTone, typeof Info> = {
 };
 
 const toneColor: Record<ToastTone, string> = {
-  success: 'text-[#15803D]',
-  error: 'text-[#B91C1C]',
+  success: 'text-success-text',
+  error: 'text-error-text',
   info: 'text-accent-hover',
 };
 
@@ -38,7 +38,7 @@ export function Toaster() {
               className={cn(
                 'pointer-events-auto flex items-start gap-3 w-[360px] max-w-[calc(100vw-2rem)]',
                 'px-3.5 py-3 rounded-lg bg-canvas border border-rule',
-                'shadow-[0_10px_30px_-10px_rgba(26,26,26,0.25),0_2px_6px_rgba(26,26,26,0.06)]'
+                'shadow-[0_10px_30px_-10px_rgb(var(--shadow-rgb)/0.25),0_2px_6px_rgb(var(--shadow-rgb)/0.06)]'
               )}
             >
               <Icon className={cn('w-4 h-4 mt-0.5 shrink-0', toneColor[toast.tone])} />

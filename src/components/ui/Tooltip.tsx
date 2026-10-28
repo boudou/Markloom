@@ -32,10 +32,10 @@ export function Tooltip({
           align={align}
           sideOffset={6}
           className={cn(
-            // After interior.dev: a light chip that rises on first show, then swaps between neighbours
+            // After interior.dev: a chip on the canvas colour that rises on first show, then swaps between neighbours
             'ml-tooltip z-50 max-w-[240px] px-2 py-1 rounded-lg select-none',
             'bg-canvas text-[11.5px] font-medium leading-snug text-text-primary',
-            'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_8px_20px_-8px_rgba(26,26,26,0.14)]'
+            'shadow-[0_0_0_1px_rgb(var(--edge-rgb)/0.12),0_2px_4px_rgb(var(--shadow-rgb)/0.06),0_8px_20px_-8px_rgb(var(--shadow-rgb)/0.14)]'
           )}
         >
           {content}

@@ -136,7 +136,7 @@ export function Modal({
                 initial="closed"
                 animate="open"
                 exit="gone"
-                className="fixed inset-0 bg-[#1A1A1A]/40 z-50"
+                className="fixed inset-0 bg-scrim/40 z-50"
               />
             </Dialog.Overlay>
 
@@ -150,7 +150,7 @@ export function Modal({
                 exit="gone"
                 className={cn(
                   'relative w-full p-6 rounded-[14px] bg-canvas pointer-events-auto',
-                  'shadow-[0_0_0_1px_rgba(26,26,26,0.12),0_2px_4px_rgba(26,26,26,0.06),0_12px_32px_-8px_rgba(26,26,26,0.14)]',
+                  'shadow-[0_0_0_1px_rgb(var(--edge-rgb)/0.12),0_2px_4px_rgb(var(--shadow-rgb)/0.06),0_12px_32px_-8px_rgb(var(--shadow-rgb)/0.14)]',
                   'focus:outline-hidden',
                   sizeClasses[size],
                   className
