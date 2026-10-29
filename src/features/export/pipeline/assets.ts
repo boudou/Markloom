@@ -115,6 +115,11 @@ export async function toPngBlob(dataUrl: string, width: number, height: number, 
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
+  return canvasPng(canvas);
+}
+
+/** A canvas encoded as PNG; rejects when the browser yields no image. */
+export function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png')
   );

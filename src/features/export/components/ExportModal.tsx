@@ -11,6 +11,7 @@ import { useAppStore } from '@/stores/appStore';
 import { selectExportOrientation, selectExportPageSize, useSettingsStore } from '@/stores/settingsStore';
 import type { ExportIssue } from '../pipeline/preflight';
 import type { Orientation, PageSetup, PageSize } from '../pipeline/pageGeometry';
+import type { PageSelection } from '../pipeline/pageImages';
 import { PagePreview, type Preview } from './PagePreview';
 
 interface ExportModalProps {
@@ -53,7 +54,7 @@ const FORMATS: { id: ExportFormat; label: string; icon: typeof FileText; descrip
     id: 'image',
     label: 'Image',
     icon: ImageIcon,
-    description: 'Each page as a PNG image, as it would print.',
+    description: 'Each page as a PNG image, as it would print: one page, all pages in a .zip, or all pages as one long image.',
   },
 ];
 
@@ -251,11 +252,12 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
 
   const pagedDoc = preview.status === 'ready' ? preview.doc : null;
   const pageCount = pagedDoc?.pages.length ?? 0;
-  // Image with several pages: Save this page beside Save all pages (a .zip); else one Export button
+  // Image with several pages: Save this page and Save as one image beside Save all pages (a .zip);
+  // else one Export button
   const imagePages = format === 'image' && pageCount > 1;
   const primaryFace = imagePages ? 'image-all' : format;
 
-  const handleExport = async (which: 'all' | number = 'all') => {
+  const handleExport = async (which: PageSelection = 'all') => {
     setExporting(true);
     setError(null);
     const request = { markdown: readContent(), docPath, title: toFileName(title), author: author.trim() || undefined };
@@ -420,13 +422,18 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         </div>
       </div>
 
-      <ModalFooter>
+      <ModalFooter className="flex-wrap">
         <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={exporting}>
           Cancel
         </Button>
         {imagePages && (
           <Button variant="secondary" onClick={() => void handleExport(page)} disabled={exporting}>
             Save this page
+          </Button>
+        )}
+        {imagePages && (
+          <Button variant="secondary" onClick={() => void handleExport('stacked')} disabled={exporting}>
+            Save as one image
           </Button>
         )}
         <Button
