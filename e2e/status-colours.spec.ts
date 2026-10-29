@@ -18,9 +18,14 @@ const DARK_STATUS: StatusColours = {
 /** As before #238: Tailwind's green-500 and red-500 edges, the fixed hex text colours */
 const LIGHT_STATUS: StatusColours = {
   card: { border: 'rgb(252, 211, 77)', fill: 'rgb(255, 251, 235)', summary: 'rgb(146, 64, 14)', issue: 'rgb(120, 53, 15)' },
-  diff: { added: 'rgb(21, 128, 61)', addedEdge: 'lab(70.5521 -66.5147 45.8072)', removed: 'rgb(185, 28, 28)', removedEdge: 'lab(55.4814 75.0732 48.8528)' },
+  diff: { added: 'rgb(21, 128, 61)', addedEdge: 'lab(70.552 -66.515 45.807)', removed: 'rgb(185, 28, 28)', removedEdge: 'lab(55.481 75.073 48.853)' },
   goal: { text: 'rgb(21, 128, 61)', bar: 'rgb(21, 128, 61)' },
 };
+
+/** A lab() colour to 3 decimals: the last digit differs between platforms (45.8072 on Windows, 45.8073 on Linux) */
+function roundLab(value: string): string {
+  return value.replace(/-?\d+\.\d+/g, (channel) => String(Math.round(Number(channel) * 1000) / 1000));
+}
 
 /** Reads the status colours from broken.md: its preflight, a diff against a saved version, a goal of one word */
 async function statusColours(app: MarkloomApp): Promise<StatusColours & { contrasts: number[] }> {
@@ -113,6 +118,7 @@ test('status, warning and diff colours keep their light values on a light OS (#2
   await app.page.emulateMedia({ colorScheme: 'light' });
 
   const { contrasts: _contrasts, ...colours } = await statusColours(app);
+  const diff = { ...colours.diff, addedEdge: roundLab(colours.diff.addedEdge), removedEdge: roundLab(colours.diff.removedEdge) };
 
-  expect(colours).toEqual(LIGHT_STATUS);
+  expect({ ...colours, diff }).toEqual(LIGHT_STATUS);
 });
