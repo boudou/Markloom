@@ -300,3 +300,65 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await expect(app.rendered().locator('p', { hasText: 'paragraph.' })).toHaveText('LastX paragraph.');
   });
 });
+
+test.describe('missing images (#236)', () => {
+  test.beforeEach(async ({ app }) => {
+    await app.openFile('missing-image.md');
+  });
+
+  test('a missing image shows the Image not found box @rich-text @images', async ({ app }) => {
+    const rendered = app.rendered();
+
+    await expect(rendered.getByRole('img', { name: 'Image not found: Gone lantern', exact: true })).toBeVisible();
+    await expect(rendered.getByRole('img', { name: 'Image not found: Gone HTML lantern', exact: true })).toBeVisible();
+    await expect(rendered.locator('img[alt="Gone lantern"]')).not.toBeVisible();
+
+    const svgSources = await rendered.locator('img').evaluateAll((images) =>
+      images.flatMap((img) => (img.getAttribute('src')?.startsWith('data:image/svg+xml') ? [img.getAttribute('src')] : []))
+    );
+
+    expect(svgSources).toEqual([]);
+  });
+
+  test('clicking a missing image selects it and Delete removes it @rich-text @images', async ({ app, page }) => {
+    test.skip(app.editorMode !== 'wysiwyg', 'Only rich text selects an image as a node');
+
+    const box = app.rendered().getByRole('img', { name: 'Image not found: Gone lantern', exact: true });
+
+    await expect(box).toBeVisible();
+    await expect(page.getByText('(unsaved changes)')).toHaveCount(0);
+    await box.click();
+    await expect(app.rendered().locator('.rt-image.ProseMirror-selectednode')).toHaveCount(1);
+    await expect(page.getByText('(unsaved changes)')).toHaveCount(0);
+    await page.keyboard.press('Delete');
+    await expect(box).toHaveCount(0);
+    await app.save();
+
+    const saved = await app.readFile('missing-image.md');
+
+    expect(saved).not.toContain('gone-lantern.png');
+    expect(saved).toContain('Before the lantern.');
+    expect(saved).toContain('<img src="assets/gone-html.png" alt="Gone HTML lantern">');
+    expect(saved).toContain('After the lantern.');
+  });
+
+  test('a missing image shows once its source is fixed @rich-text @images', async ({ app, page }) => {
+    // Markdown mode only: switching shows the preview, which rich text alone must never mount
+    test.skip(app.editorMode !== 'split', 'starts in Markdown mode');
+
+    const document = page.locator('[data-doc-surface] .rt-document');
+
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+    await expect(document.getByRole('img', { name: 'Image not found: Gone lantern', exact: true })).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+    await app.selectLine('![Gone lantern](assets/gone-lantern.png)');
+    await page.keyboard.type('![Gone lantern](assets/pic.png)');
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+
+    const image = document.getByRole('img', { name: 'Gone lantern', exact: true });
+
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(document.getByRole('img', { name: 'Image not found: Gone lantern', exact: true })).toHaveCount(0);
+  });
+});

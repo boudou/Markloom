@@ -21,7 +21,7 @@ import {
   leadingBlankLines,
   mermaidFences,
 } from '@/lib/markdown';
-import { showImage } from '../utils/previewImages';
+import { createMissingImage, showImage } from '../utils/previewImages';
 import type { ResolvedReference } from './references';
 
 export function activeDocumentPath(): string | null {
@@ -470,24 +470,27 @@ export const imageSchemaFix = imageSchema.extendSchema((prev) => (ctx) => {
 
 export const linkSchemaFix = linkSchema.extendSchema((prev) => (ctx) => ({ ...prev(ctx), inclusive: false, excludes: 'link linkReference' }));
 
-// Images: keep the markdown src untouched, display a resolved one.
+// Images: keep the markdown src untouched, display a resolved one. A missing file hides the img
+// and shows the preview's `.missing-image` box beside it; the node and the Markdown are untouched.
 
-// The node keeps its real src (so the Markdown is untouched); only the display changes
-function missingImagePlaceholder(label: string): string {
-  const text = `Image not found: ${label}`.slice(0, 80).replace(/[<>&"']/g, '');
-  const width = Math.max(220, text.length * 7.4 + 32);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="40"><rect x="0.5" y="0.5" width="${width - 1}" height="39" rx="6" fill="#fff" stroke="#D9DCE1" stroke-dasharray="4 3"/><text x="16" y="25" font-family="Outfit, system-ui, sans-serif" font-size="13" fill="#626977">${text}</text></svg>`;
-
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
+// The box shown for each img whose file is missing; only these imgs are ever unhidden, so an
+// author's `<img hidden>` stays hidden
+const missingImages = new WeakMap<HTMLImageElement, HTMLSpanElement>();
 
 /**
  * Shows a document image in an img: a relative src loads from the open folder (through the
- * preview's image cache), anything else as written. A missing file shows a placeholder that
- * names `label`.
+ * preview's image cache), anything else as written. A missing file hides the img and inserts a
+ * sibling box that names `label`. The img needs a parent.
  */
 export function showDocumentImage(img: HTMLImageElement, src: string, label: string): void {
-  img.classList.remove('is-missing');
+  const shownBox = missingImages.get(img);
+
+  if (shownBox) {
+    shownBox.remove();
+    missingImages.delete(img);
+    img.hidden = false;
+  }
+
   const docPath = activeDocumentPath();
 
   if (!src || isAbsoluteUrl(src) || !canResolveRelative(docPath)) {
@@ -499,28 +502,41 @@ export function showDocumentImage(img: HTMLImageElement, src: string, label: str
   }
 
   void showImage(img, resolveSourcePath(docPath, src), () => {
-    img.src = missingImagePlaceholder(label);
-    img.classList.add('is-missing');
     // Keeps a focus refresh from painting over the placeholder
     delete img.dataset.imagePath;
+
+    // An author-hidden image, or one whose box is already shown, gets no box
+    if (img.hidden) return;
+
+    const box = createMissingImage(label);
+    img.hidden = true;
+    // Beside a raw-HTML <picture>, not inside it
+    const anchor = img.parentElement instanceof HTMLPictureElement ? img.parentElement : img;
+    anchor.after(box);
+    missingImages.set(img, box);
   });
 }
 
+// A wrapper, so a missing image's box sits inside the node view (selected, deleted and dragged with it)
 class ImageView implements NodeView {
-  dom: HTMLImageElement;
+  dom: HTMLSpanElement;
+  private img: HTMLImageElement;
 
   constructor(private node: ProseNode) {
-    this.dom = document.createElement('img');
+    this.dom = document.createElement('span');
+    this.dom.className = 'rt-image';
+    this.img = document.createElement('img');
+    this.dom.append(this.img);
     this.apply(node);
   }
 
   private apply(node: ProseNode) {
     this.node = node;
     const { src, alt, title } = node.attrs;
-    this.dom.alt = alt ?? '';
+    this.img.alt = alt ?? '';
 
-    if (title) this.dom.title = title;
-    showDocumentImage(this.dom, src, alt || src);
+    if (title) this.img.title = title;
+    showDocumentImage(this.img, src, alt || src);
   }
 
   update(node: ProseNode) {

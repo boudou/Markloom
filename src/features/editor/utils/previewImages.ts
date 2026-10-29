@@ -89,6 +89,21 @@ export async function showImage(img: HTMLImageElement, path: string, onMissing: 
   }
 }
 
+/**
+ * The box shown in place of an image that couldn't be found, naming `name` (and `hint`, when given).
+ * Drawn by the `.missing-image` CSS, so it follows the theme in the preview and in rich text.
+ */
+export function createMissingImage(name: string, hint?: string): HTMLSpanElement {
+  const box = document.createElement('span');
+  box.className = 'missing-image';
+  box.setAttribute('role', 'img');
+  const label = `Image not found: ${name}`;
+  box.setAttribute('aria-label', hint ? `${label}. ${hint}` : label);
+  box.textContent = hint ? `${label} (${hint})` : label;
+
+  return box;
+}
+
 /** Re-reads the images shown in `container` whose files changed. */
 export function refreshImages(container: HTMLElement): void {
   container.querySelectorAll<HTMLImageElement>('img[data-image-path]').forEach((img) => {
