@@ -8,7 +8,14 @@ import { toggleAutoSave } from '@/features/auto-save';
 // The store only: the panel itself is a lazy chunk, loaded by the sidebar
 import { useFolderSearchStore } from '@/features/folder-search/stores/folderSearchStore';
 import { useAppStore } from '@/stores/appStore';
-import { PAGE_WIDTHS, selectAnalyticsConsent, selectSmartTypography, useSettingsStore } from '@/stores/settingsStore';
+import {
+  APPEARANCES,
+  PAGE_WIDTHS,
+  selectAnalyticsConsent,
+  selectAppearance,
+  selectSmartTypography,
+  useSettingsStore,
+} from '@/stores/settingsStore';
 import { flushEditorEdits, notify, useUiStore } from '@/stores/uiStore';
 import { newDocument, openFile, openFolder, requestCloseTabs, saveActiveTab } from './documentActions';
 import { analyticsAvailable } from './analytics';
@@ -54,6 +61,14 @@ function copyAsRichText() {
     () => notify({ tone: 'success', title: selection ? 'Copied the selection as rich text' : 'Copied as rich text' }),
     (error) => notify({ tone: 'error', title: 'Could not copy', detail: errorMessage(error) })
   );
+}
+
+/** The theme after the current one, wrapping from Dark back to System */
+function nextAppearance(): (typeof APPEARANCES)[number] {
+  const current = selectAppearance(useSettingsStore.getState());
+  const index = APPEARANCES.findIndex((a) => a.value === current);
+
+  return APPEARANCES[(index + 1) % APPEARANCES.length];
 }
 
 interface CommandBase {
@@ -172,6 +187,13 @@ export const APP_COMMANDS: readonly AppCommand[] = [
       const settings = useSettingsStore.getState();
       settings.setSmartTypography(!selectSmartTypography(settings));
     },
+  },
+  {
+    id: 'appearance',
+    group: 'View',
+    // What running it chooses, like Smart typography
+    label: () => `Theme: ${nextAppearance().label}`,
+    run: () => useSettingsStore.getState().setAppearance(nextAppearance().value),
   },
   {
     id: 'outline',

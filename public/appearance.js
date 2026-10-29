@@ -2,18 +2,18 @@
  * Applies the stored appearance before first paint, so a dark start doesn't flash white.
  * A file rather than an inline script: the desktop Content-Security-Policy is script-src 'self'.
  * Keep in step with src/lib/appearance.ts (what is set) and src/stores/settingsStore.ts
- * (the 'light' default and selectAppearance: only 'dark' and 'system' count).
+ * (the 'system' default and selectAppearance: only 'light' and 'dark' override it).
  */
 (function () {
-  var appearance = 'light';
+  var appearance = 'system';
 
   try {
     var saved = JSON.parse(localStorage.getItem('markloom-settings') || 'null');
     var stored = saved && saved.state && saved.state.appearance;
 
-    if (stored === 'dark' || stored === 'system') appearance = stored;
+    if (stored === 'light' || stored === 'dark') appearance = stored;
   } catch (error) {
-    // Blocked storage or a broken save: stay light
+    // Blocked storage or a broken save: follow the OS
   }
 
   var isDark =

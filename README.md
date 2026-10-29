@@ -29,6 +29,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 - **Callouts**: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and friends render as coloured boxes, in the preview and in exports
 - **Footnotes**: `[^1]` references become numbered superscripts that link to the notes at the end, in the preview, PDF, HTML and Copy as rich text; rich text shows them styled in place. Inline `^[…]` notes work in the preview and exports only
 - **Front matter**: a YAML `---` block at the top shows as a collapsed block listing its keys, in the preview and in rich text (read-only there, saved byte for byte); exports leave it out
+- **Dark mode**: follows your system, or pick Light or Dark in Settings → Appearance or the command palette; images show as authored, and exports stay light
 - **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
 - **Copy as rich text**: paste a document, or just the selection, formatted into email, Google Docs or Confluence, diagrams included
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore

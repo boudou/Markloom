@@ -45,6 +45,13 @@ export type AnalyticsConsent = 'unset' | 'granted' | 'denied';
 /** Colour theme: 'system' follows the operating system */
 export type Appearance = 'system' | 'light' | 'dark';
 
+/** Order of the Settings select and cycle order of the palette command */
+export const APPEARANCES: readonly { value: Appearance; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
 /** Auto-save delays offered in Settings, in seconds */
 export const AUTO_SAVE_INTERVALS: readonly number[] = [10, 30, 60, 300];
 
@@ -242,7 +249,7 @@ export const useSettingsStore = create<SettingsState>()(
       smartTypography: true,
       analyticsConsent: 'unset',
       // public/appearance.js and electron/main.cjs (DEFAULT_APPEARANCE) assume the same default; change all three together
-      appearance: 'light',
+      appearance: 'system',
 
       // Word-count goals; null or 0 removes the goal
       setWordGoal: (key, goal) =>
@@ -438,6 +445,6 @@ export const selectSmartTypography = (s: SettingsState): boolean => s.smartTypog
 export const selectAnalyticsConsent = (s: SettingsState): AnalyticsConsent =>
   s.analyticsConsent === 'granted' || s.analyticsConsent === 'denied' ? s.analyticsConsent : 'unset';
 
-// Any other stored value reads as the default; public/appearance.js applies the same rule
+// Only 'light' and 'dark' override the 'system' default; public/appearance.js applies the same rule
 export const selectAppearance = (s: SettingsState): Appearance =>
-  s.appearance === 'dark' || s.appearance === 'system' ? s.appearance : 'light';
+  s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system';

@@ -1,8 +1,10 @@
 // The appearance setting (#228): a stored 'dark' marks <html> dark before first paint, 'system'
-// follows the OS live, the default stays light, and exports stay light whatever the app shows.
+// follows the OS live, the default follows the OS (#233), and exports stay light whatever the app shows.
 // Dialogs, menus and toasts take their edges, backdrops and status colours from the theme (#229).
 // The source editors, the preview and rich text follow it too, without losing undo history (#230).
 // Mermaid diagrams are drawn in a dark palette and redraw on a switch; exports keep light ones (#231).
+// Settings > Appearance and a palette command choose the theme, every fixture is dark, and the
+// title-bar logo turns white (#233).
 import JSZip from 'jszip';
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, downloadOf, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
@@ -111,10 +113,22 @@ test('system follows the OS without a reload @appearance', async ({ app }) => {
   expect(await bodyBackground(page)).toBe(WHITE);
 });
 
-test('the default is light, even on a dark OS @appearance', async ({ app }) => {
+test('a fresh profile follows a dark OS @appearance', async ({ app }) => {
   const { page } = app;
 
   await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+
+  expect(await isDark(page)).toBe(true);
+  expect(await colorScheme(page)).toBe('dark');
+  await expect.poll(() => bodyBackground(page)).toBe(DARK_CANVAS);
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#1E2024');
+});
+
+test('a fresh profile follows a light OS @appearance', async ({ app }) => {
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'light' });
   await page.reload();
 
   expect(await isDark(page)).toBe(false);
@@ -288,9 +302,10 @@ test('floating surfaces get a light edge and a black backdrop in dark mode (#229
   expect(await successToastIconColor(page)).toBe('rgb(74, 222, 128)');
 });
 
-test('floating surfaces keep their light colours by default (#229) @appearance @palette @export', async ({ app }) => {
+test('floating surfaces keep their light colours on a light OS (#229) @appearance @palette @export', async ({ app }) => {
   const { page } = app;
 
+  await page.emulateMedia({ colorScheme: 'light' });
   await app.openFolder();
   await app.openFile('fixture.md');
 
@@ -430,9 +445,10 @@ test('switching the appearance keeps the text and its undo history (#230) @appea
   await expect(surface).not.toContainText('Undo me');
 });
 
-test('the editors and the preview keep their light colours by default (#230) @appearance @editing @rich-text', async ({ app }) => {
+test('the editors and the preview keep their light colours on a light OS (#230) @appearance @editing @rich-text', async ({ app }) => {
   const { page } = app;
 
+  await page.emulateMedia({ colorScheme: 'light' });
   await app.openFolder();
   await app.openFile('dark.md');
 
@@ -703,4 +719,139 @@ test('the .mmd editor redraws its diagram when the appearance changes (#231) @ap
 
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect.poll(async () => hasColour(await style(), DARK_DIAGRAM_TEXT)).toBe(true);
+});
+
+const DARK_PANEL = 'rgb(30, 32, 36)';
+
+const DARK_BODY_TEXT = 'rgb(211, 214, 219)';
+
+const DARK_ACCENT = 'rgb(110, 168, 254)';
+
+const DARK_FIXTURES = ['callouts.md', 'footnotes.md', 'math.md', 'night-diagrams.md', 'front-matter.md'];
+
+test('dark mode covers every fixture and still exports light @appearance @math @diagrams @rich-text @export', async ({ app, context }) => {
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await startWith(page, 'dark');
+  await app.openFolder();
+
+  for (const name of DARK_FIXTURES) {
+    await app.openFile(name);
+    expect(await bodyBackground(page), name).toBe(DARK_CANVAS);
+    expect(await background(page.locator('footer')), name).toBe(DARK_PANEL);
+    expect(await color(app.rendered()), name).toBe(DARK_BODY_TEXT);
+  }
+
+  await app.openFile('dark.md');
+  expect(await color(app.rendered().locator('a[href="https://example.com/nightowl"]'))).toBe(DARK_ACCENT);
+
+  await app.openFile('callouts.md');
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const dialog = page.getByRole('dialog', { name: 'Export' });
+
+  await dialog.getByRole('radio', { name: 'Web page' }).click();
+
+  const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Web page' }).click());
+  const viewer = await context.newPage();
+
+  await viewer.emulateMedia({ colorScheme: 'dark' });
+  await viewer.setContent(file.bytes.toString('utf8'));
+  expect(await bodyBackground(viewer)).toBe(WHITE);
+  await viewer.close();
+});
+
+function themeSelect(page: Page): Locator {
+  return page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Theme' });
+}
+
+/** Opens Settings on its Appearance section */
+async function openAppearance(page: Page): Promise<Locator> {
+  await page.keyboard.press('ControlOrMeta+Comma');
+
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+
+  await dialog.getByRole('tab', { name: 'Appearance' }).click();
+  await expect(themeSelect(page)).toBeVisible();
+
+  return themeSelect(page);
+}
+
+test('Settings > Appearance switches the theme at once and keeps it @appearance @settings', async ({ app }) => {
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.reload();
+
+  const select = await openAppearance(page);
+
+  await expect(select).toHaveValue('system');
+  await select.selectOption({ label: 'Dark' });
+  await expect.poll(() => isDark(page)).toBe(true);
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+
+  await page.reload();
+  expect(await isDark(page)).toBe(true);
+  await expect(await openAppearance(page)).toHaveValue('dark');
+
+  // Light no longer follows the OS
+  await themeSelect(page).selectOption({ label: 'Light' });
+  await expect.poll(() => isDark(page)).toBe(false);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(() => colorScheme(page)).toBe('light');
+  expect(await isDark(page)).toBe(false);
+});
+
+async function storedAppearance(page: Page): Promise<string | undefined> {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('markloom-settings') ?? '{}').state?.appearance);
+}
+
+/** Runs the palette's theme command, checking that its label names `next` first */
+async function runThemeCommand(page: Page, next: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+Shift+p');
+  await page.getByRole('combobox', { name: 'Command' }).fill('Theme:');
+
+  const option = page.getByRole('listbox', { name: 'Commands' }).getByRole('option');
+
+  await expect(option).toHaveCount(1);
+  await expect(option).toContainText(`Theme: ${next}`);
+  await page.keyboard.press('Enter');
+}
+
+test('the palette cycles the theme and names the next one @appearance @palette', async ({ app }) => {
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.reload();
+
+  await runThemeCommand(page, 'Light');
+  await expect.poll(() => storedAppearance(page)).toBe('light');
+  expect(await isDark(page)).toBe(false);
+
+  await runThemeCommand(page, 'Dark');
+  await expect.poll(() => storedAppearance(page)).toBe('dark');
+  await expect.poll(() => isDark(page)).toBe(true);
+
+  await runThemeCommand(page, 'System');
+  await expect.poll(() => storedAppearance(page)).toBe('system');
+  await expect.poll(() => isDark(page)).toBe(false);
+});
+
+async function logoFilter(page: Page): Promise<string> {
+  return page
+    .getByRole('toolbar', { name: 'Document actions' })
+    .locator('img[src*="markloom-mark"]')
+    .evaluate((img) => getComputedStyle(img).filter);
+}
+
+test('the logo is white in dark mode @appearance @documents', async ({ app }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  expect(await logoFilter(page)).toBe('brightness(0) invert(1)');
+
+  // Init scripts run in the order added, so this stored value replaces 'dark'
+  await startWith(page, 'light');
+  expect(await logoFilter(page)).toBe('none');
 });
