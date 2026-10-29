@@ -148,7 +148,7 @@ export function TitleBar() {
           // No aria-label: axe reads Kbd's sr-only text as visible, so the name must come from the content
           className={cn(
             'hidden md:flex items-center gap-2 h-7 pl-2 pr-1.5 mr-1.5 rounded-md border border-rule bg-canvas',
-            'text-xs text-text-secondary hover:text-text-primary hover:border-[#D9DCE1] transition-colors',
+            'text-xs text-text-secondary hover:text-text-primary hover:border-rule-strong transition-colors',
             'outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary'
           )}
         >

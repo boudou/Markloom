@@ -8,8 +8,7 @@
 import JSZip from 'jszip';
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, downloadOf, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
-
-type Appearance = 'system' | 'light' | 'dark';
+import { background, borderColor, color, contrastRatio, paintedBehind, startWith, type Appearance } from './colours';
 
 interface FirstPaint {
   dark: boolean;
@@ -33,16 +32,6 @@ const DARK_DIAGRAM_TEXT = '#E8EAED';
 
 function hasColour(css: string, colour: string): boolean {
   return css.toUpperCase().includes(colour);
-}
-
-/** Stores `appearance` in markloom-settings and reloads, so the app starts with it */
-async function startWith(page: Page, appearance: Appearance): Promise<void> {
-  await page.addInitScript((value) => {
-    if (window !== window.top) return;
-
-    localStorage.setItem('markloom-settings', JSON.stringify({ state: { appearance: value }, version: 1 }));
-  }, appearance);
-  await page.reload();
 }
 
 async function isDark(page: Page): Promise<boolean> {
@@ -321,23 +310,6 @@ test('floating surfaces keep their light colours on a light OS (#229) @appearanc
   expect(await successToastIconColor(page)).toBe('rgb(21, 128, 61)');
 });
 
-/** WCAG contrast ratio of two opaque `rgb(r, g, b)` colours */
-function contrastRatio(first: string, second: string): number {
-  const luminance = (css: string): number => {
-    const [r, g, b] = (css.match(/\d+/g) ?? []).map((value) => {
-      const c = Number(value) / 255;
-
-      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
-
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  };
-
-  const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a);
-
-  return (light + 0.05) / (dark + 0.05);
-}
-
 /** Opens the Export dialog and returns its primary (Export …) button */
 async function exportPrimaryButton(app: MarkloomApp): Promise<Locator> {
   const { page } = app;
@@ -373,27 +345,6 @@ test('primary buttons keep white text on a light OS (#237) @appearance @export',
   expect(await color(button)).toBe(WHITE);
 });
 
-async function color(locator: Locator): Promise<string> {
-  return locator.evaluate((element) => getComputedStyle(element).color);
-}
-
-async function background(locator: Locator): Promise<string> {
-  return locator.evaluate((element) => getComputedStyle(element).backgroundColor);
-}
-
-/** The first background painted behind `locator`: its own, or the nearest ancestor's */
-async function paintedBehind(locator: Locator): Promise<string> {
-  return locator.evaluate((element) => {
-    for (let node: Element | null = element; node; node = node.parentElement) {
-      const value = getComputedStyle(node).backgroundColor;
-
-      if (value !== 'rgba(0, 0, 0, 0)') return value;
-    }
-
-    return '';
-  });
-}
-
 /** The checked task's tick image: the preview's checkbox, or rich text's ::before box */
 async function taskTick(app: MarkloomApp): Promise<string> {
   if (app.editorMode === 'split') {
@@ -401,10 +352,6 @@ async function taskTick(app: MarkloomApp): Promise<string> {
   }
 
   return app.rendered().locator("li[data-item-type='task'][data-checked='true']").evaluate((item) => getComputedStyle(item, '::before').backgroundImage);
-}
-
-async function borderColor(locator: Locator): Promise<string> {
-  return locator.evaluate((element) => getComputedStyle(element).borderTopColor);
 }
 
 /** Opens the find bar on `query`; matches are highlighted once it counts them */

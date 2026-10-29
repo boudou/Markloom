@@ -125,12 +125,12 @@ function GoalProgress({ words, goal }: { words: number; goal: number }) {
   const done = words >= goal;
 
   return (
-    <span className={cn('flex items-center gap-1.5', done && 'text-[#15803D]')}>
+    <span className={cn('flex items-center gap-1.5', done && 'text-success-text')}>
       <span aria-hidden className="relative w-12 h-1 rounded-full bg-rule overflow-hidden">
         <span
           className={cn(
             'absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]',
-            done ? 'bg-[#15803D]' : 'bg-accent-primary'
+            done ? 'bg-success-text' : 'bg-accent-primary'
           )}
           style={{ width: `${Math.min(100, (words / goal) * 100)}%` }}
         />

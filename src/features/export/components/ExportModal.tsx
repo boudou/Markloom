@@ -383,34 +383,34 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
             )}
 
             {issues.length > 0 && (
-              <div className="rounded-lg border border-[#FCD34D] bg-[#FFFBEB] p-3 text-sm">
-                <p className="flex items-center gap-2 font-medium text-[#92400E]">
+              <div className="rounded-lg border border-warning-border bg-warning-surface p-3 text-sm">
+                <p className="flex items-center gap-2 font-medium text-warning-text">
                   <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />
                   {issueSummary}
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {issues.slice(0, 4).map((issue) => (
                     <li key={`${issue.kind}-${issue.line}-${issue.message}`} className="flex items-start gap-3">
-                      <span className="flex-1 min-w-0 text-[#78350F]">
+                      <span className="flex-1 min-w-0 text-warning-text-strong">
                         <span className="tabular-nums font-medium">Line {issue.line}</span> · {issue.message}
                       </span>
                       <button
                         type="button"
                         onClick={() => review(issue)}
-                        className="shrink-0 text-xs font-medium text-[#92400E] underline underline-offset-2 hover:text-[#78350F]"
+                        className="shrink-0 text-xs font-medium text-warning-text underline underline-offset-2 hover:text-warning-text-strong"
                       >
                         {inRichText ? 'Show in Markdown' : 'Show'}
                       </button>
                     </li>
                   ))}
                 </ul>
-                {issues.length > 4 && <p className="mt-1.5 text-xs text-[#92400E]">and {issues.length - 4} more</p>}
-                <p className="mt-2 text-xs text-[#92400E]">You can still export; these parts will appear as error notes.</p>
+                {issues.length > 4 && <p className="mt-1.5 text-xs text-warning-text">and {issues.length - 4} more</p>}
+                <p className="mt-2 text-xs text-warning-text">You can still export; these parts will appear as error notes.</p>
               </div>
             )}
 
             {error && (
-              <p role="alert" className="text-sm text-[#B91C1C]">
+              <p role="alert" className="text-sm text-error-text">
                 Export failed: {error}
               </p>
             )}
