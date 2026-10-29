@@ -773,6 +773,128 @@ test('the .mmd editor redraws its diagram when the appearance changes (#231) @ap
   await expect.poll(async () => hasColour(await style(), DARK_DIAGRAM_TEXT)).toBe(true);
 });
 
+const DARK_LABEL = 'rgb(26, 26, 26)';
+
+/** painted-diagrams.md: each label's colour on its author fill, in both themes and in exports (#235) */
+const PAINTED_LABELS = {
+  'Pale sky': DARK_LABEL,
+  'Class mist': DARK_LABEL,
+  'Pale harbour': DARK_LABEL,
+  'Deep sea': WHITE,
+  'Round stone': WHITE,
+  'Dark dock': WHITE,
+  'Own ink': 'rgb(122, 0, 0)',
+} satisfies Record<string, string>;
+
+/**
+ * The computed colour of each label in the SVGs under `scope`, read from the deepest element holding
+ * its text: `fill` for an SVG <text>/<tspan>, `color` for an HTML label.
+ */
+async function labelColours(scope: Locator, labels: string[]): Promise<Record<string, string>> {
+  return scope.evaluateAll((svgs, texts) => {
+    const colours: Record<string, string> = {};
+
+    for (const text of texts) {
+      const holders = svgs.flatMap((svg) => Array.from(svg.querySelectorAll('*')).filter((element) => element.textContent?.trim() === text));
+      const deepest = holders.at(-1);
+
+      if (!deepest) continue;
+
+      const style = getComputedStyle(deepest);
+      const isSvgText = deepest.localName === 'text' || deepest.localName === 'tspan';
+
+      colours[text] = isSvgText ? style.fill : style.color;
+    }
+
+    return colours;
+  }, labels);
+}
+
+for (const appearance of ['dark', 'light'] as const) {
+  test(`author-filled diagram shapes get readable labels in ${appearance} (#235) @appearance @diagrams @rich-text`, async ({ app }) => {
+    await startWith(app.page, appearance);
+    await app.openFolder();
+    await app.openFile('painted-diagrams.md');
+    await expect(diagrams(app)).toHaveCount(1, { timeout: 30_000 });
+    expect(await isDark(app.page)).toBe(appearance === 'dark');
+
+    expect(await contrastFailures(app)).toEqual([]);
+    expect(await labelColours(diagrams(app), Object.keys(PAINTED_LABELS))).toEqual(PAINTED_LABELS);
+  });
+}
+
+test('the .mmd editor fixes labels on author fills (#235) @appearance @diagrams', async ({ app }) => {
+  test.skip(app.editorMode !== 'split', 'A .mmd file opens in its own diagram editor, whatever the mode');
+
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.treeItem('flow.mmd').click();
+
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.insertText('flowchart TD\n  A[Pale sky] --> B[Deep sea]\n  style A fill:#a5d8ff\n  style B fill:#1e3a5f');
+
+  const diagram = page.locator('.mermaid-diagram > svg');
+
+  await expect(diagram).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(() => labelColours(diagram, ['Pale sky', 'Deep sea']), { timeout: 15_000 })
+    .toEqual({ 'Pale sky': DARK_LABEL, 'Deep sea': WHITE });
+});
+
+test('exports fix labels on author fills (#235) @appearance @export @diagrams', async ({ app, context }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.openFile('painted-diagrams.md');
+  await expect(diagrams(app)).toHaveCount(1, { timeout: 30_000 });
+
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const dialog = page.getByRole('dialog', { name: 'Export' });
+
+  await dialog.getByRole('radio', { name: 'Web page' }).click();
+
+  const web = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Web page' }).click());
+  const viewer = await context.newPage();
+
+  await viewer.setContent(web.bytes.toString('utf8'));
+  expect(await labelColours(viewer.locator('svg'), Object.keys(PAINTED_LABELS))).toEqual(PAINTED_LABELS);
+  await viewer.close();
+
+  await page.keyboard.press('ControlOrMeta+e');
+  await dialog.getByRole('radio', { name: 'Word' }).click();
+
+  const word = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Word' }).click());
+  const zip = await JSZip.loadAsync(word.bytes);
+
+  const svgs = await Promise.all(
+    Object.keys(zip.files).flatMap((name) => (/^word\/media\/.*\.svg$/.test(name) ? [zip.file(name)?.async('string') ?? ''] : []))
+  );
+
+  // The palette's text colour would be #1E293B: inline fills prove the pass ran on the export SVG
+  const fills = await page.evaluate((sources) => {
+    const found: Record<string, string> = {};
+
+    for (const source of sources) {
+      const svg = new DOMParser().parseFromString(source, 'image/svg+xml');
+
+      for (const text of Array.from(svg.querySelectorAll('text'))) {
+        const label = text.textContent?.trim() ?? '';
+
+        if (label === 'Pale sky' || label === 'Deep sea') found[label] = text.style.getPropertyValue('fill');
+      }
+    }
+
+    return found;
+  }, svgs);
+
+  expect(fills).toEqual({ 'Pale sky': DARK_LABEL, 'Deep sea': WHITE });
+});
+
 const DARK_PANEL = 'rgb(30, 32, 36)';
 
 const DARK_BODY_TEXT = 'rgb(211, 214, 219)';

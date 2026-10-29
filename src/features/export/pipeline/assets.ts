@@ -2,6 +2,7 @@
 import { canResolveRelative, readFileBlob } from '@/features/file-tree/api/fileSystem';
 import { isAbsoluteUrl, resolveSourcePath, webAddress } from '@/lib/documentPath';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
+import { fixLabelContrast } from '@/features/mermaid/utils/labelContrast';
 
 export interface ExportImage {
   dataUrl: string;
@@ -86,6 +87,7 @@ export async function renderDiagram(code: string): Promise<ExportDiagram> {
   root.setAttribute('width', String(width));
   root.setAttribute('height', String(height));
   root.style.removeProperty('max-width');
+  fixLabelContrast(root);
 
   return { ok: true, svg: new XMLSerializer().serializeToString(root), width, height };
 }
