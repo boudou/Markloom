@@ -27,8 +27,8 @@ export function DiffViewer({ oldContent, newContent }: DiffViewerProps) {
             key={index}
             className={cn(
               'px-2 py-0.5 border-l-2',
-              row.kind === 'added' && 'bg-green-500/10 border-green-500 text-[#15803D]',
-              row.kind === 'removed' && 'bg-red-500/10 border-red-500 text-[#B91C1C]',
+              row.kind === 'added' && 'bg-diff-added/10 border-diff-added text-success-text',
+              row.kind === 'removed' && 'bg-diff-removed/10 border-diff-removed text-error-text',
               row.kind === 'same' && 'border-transparent text-text-muted'
             )}
           >

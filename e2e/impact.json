@@ -16,6 +16,7 @@
     "postcss.config.js",
     "playwright.config.ts",
     "e2e/fixtures.ts",
+    "e2e/colours.ts",
     "e2e/servers.ts",
     "e2e/tsconfig.json",
     "e2e/folder/**",
