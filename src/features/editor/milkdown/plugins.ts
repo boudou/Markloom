@@ -8,6 +8,7 @@ import type { Node as ProseNode, NodeType } from '@milkdown/kit/prose/model';
 import type { Transform } from '@milkdown/kit/prose/transform';
 import { Decoration, DecorationSet, type EditorProps, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
+import { currentTheme, onThemeChange, type Theme } from '@/lib/appearance';
 import { fillDiagram } from '@/features/mermaid/utils/errors';
 import { canResolveRelative } from '@/features/file-tree/api/fileSystem';
 import { isAbsoluteUrl, resolveSourcePath } from '@/lib/documentPath';
@@ -168,6 +169,8 @@ class CodeBlockView implements NodeView {
   private toggle: HTMLButtonElement | null = null;
   private renderTimer: number | undefined;
   private lastRendered = '';
+  private lastTheme: Theme | null = null;
+  private stopThemeWatch: (() => void) | null = null;
 
   constructor(
     private node: ProseNode,
@@ -206,6 +209,8 @@ class CodeBlockView implements NodeView {
       this.dom.append(header, this.preview, pre);
       this.setSourceVisible(node.textContent.trim() === '');
       this.scheduleRender(0);
+      // Mermaid bakes its palette into the SVG, so redraw in the new theme
+      this.stopThemeWatch = onThemeChange(() => this.scheduleRender(0));
     } else {
       const label = document.createElement('span');
       label.className = 'rt-code-label';
@@ -263,9 +268,11 @@ class CodeBlockView implements NodeView {
 
   private async render() {
     const source = this.node.textContent.trim();
+    const theme = currentTheme();
 
-    if (!this.preview || source === this.lastRendered) return;
+    if (!this.preview || (source === this.lastRendered && theme === this.lastTheme)) return;
     this.lastRendered = source;
+    this.lastTheme = theme;
 
     if (!source) {
       this.preview.removeAttribute('role');
@@ -276,9 +283,10 @@ class CodeBlockView implements NodeView {
       return;
     }
 
-    const result = await renderMermaid(source, 'preview');
+    const result = await renderMermaid(source, theme);
 
-    if (source !== this.lastRendered) return;
+    // A newer edit or theme change has started its own render
+    if (source !== this.lastRendered || theme !== this.lastTheme) return;
 
     // Same numbering as the Markdown view: lines of the document, not of the diagram
     const firstLine = result.ok ? undefined : documentLineOfDiagram(source, this.occurrence(source));
@@ -328,6 +336,7 @@ class CodeBlockView implements NodeView {
 
   destroy() {
     window.clearTimeout(this.renderTimer);
+    this.stopThemeWatch?.();
   }
 }
 
