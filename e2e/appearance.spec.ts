@@ -321,6 +321,58 @@ test('floating surfaces keep their light colours on a light OS (#229) @appearanc
   expect(await successToastIconColor(page)).toBe('rgb(21, 128, 61)');
 });
 
+/** WCAG contrast ratio of two opaque `rgb(r, g, b)` colours */
+function contrastRatio(first: string, second: string): number {
+  const luminance = (css: string): number => {
+    const [r, g, b] = (css.match(/\d+/g) ?? []).map((value) => {
+      const c = Number(value) / 255;
+
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+
+  const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+
+  return (light + 0.05) / (dark + 0.05);
+}
+
+/** Opens the Export dialog and returns its primary (Export …) button */
+async function exportPrimaryButton(app: MarkloomApp): Promise<Locator> {
+  const { page } = app;
+
+  await app.openFolder();
+  await app.openFile('fixture.md');
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const button = page.getByRole('dialog', { name: 'Export' }).getByRole('button', { name: /^Export (Word|PDF|Web page|Markdown)/ });
+
+  await expect(button).toBeVisible();
+
+  return button;
+}
+
+test('primary buttons put dark text on the light accent in dark mode (#237) @appearance @export', async ({ app }) => {
+  await startWith(app.page, 'dark');
+
+  const button = await exportPrimaryButton(app);
+  const [text, fill] = [await color(button), await background(button)];
+
+  expect(fill).toBe('rgb(110, 168, 254)');
+  expect(text).toBe(DARK_CANVAS);
+  expect(contrastRatio(text, fill)).toBeGreaterThanOrEqual(4.5);
+});
+
+test('primary buttons keep white text on a light OS (#237) @appearance @export', async ({ app }) => {
+  await app.page.emulateMedia({ colorScheme: 'light' });
+
+  const button = await exportPrimaryButton(app);
+
+  expect(await background(button)).toBe('rgb(37, 99, 235)');
+  expect(await color(button)).toBe(WHITE);
+});
+
 async function color(locator: Locator): Promise<string> {
   return locator.evaluate((element) => getComputedStyle(element).color);
 }

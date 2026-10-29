@@ -27,7 +27,7 @@ const RECENT_ROWS = 5;
 const ROW_CLASS = cn(
   'w-full flex items-center gap-3 py-2.5 border-b border-rule text-left text-sm',
   'text-text-primary hover:text-accent-hover outline-hidden',
-  'focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 rounded-xs'
+  'focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas rounded-xs'
 );
 
 interface RecentRow {
@@ -121,7 +121,7 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
               type="button"
               onClick={() => void restoreLastSession()}
               disabled={restoring}
-              className="h-8 px-3 rounded-md bg-accent-primary text-white text-sm font-medium hover:bg-accent-hover disabled:opacity-60 outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2"
+              className="h-8 px-3 rounded-md bg-accent-primary text-on-accent text-sm font-medium hover:bg-accent-hover disabled:opacity-60 outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
             >
               {restoring ? 'Reopening…' : 'Reopen'}
             </button>
