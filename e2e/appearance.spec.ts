@@ -477,6 +477,36 @@ test('the editors and the preview keep their light colours on a light OS (#230) 
   }
 });
 
+test('a missing image is a box on the dark theme colours in dark mode (#236) @appearance @images @rich-text', async ({ app }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.openFile('missing-image.md');
+
+  const box = app.rendered().getByRole('img', { name: 'Image not found: Gone lantern', exact: true });
+
+  await expect(box).toBeVisible();
+  expect(await color(box)).toBe('rgb(156, 163, 175)');
+  expect(await borderColor(box)).toBe('rgb(51, 55, 61)');
+  expect(await box.evaluate((element) => getComputedStyle(element).borderTopStyle)).toBe('dashed');
+  expect(await paintedBehind(box)).toBe(DARK_CANVAS);
+});
+
+test('a missing image keeps the light theme colours on a light OS (#236) @appearance @images @rich-text', async ({ app }) => {
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await app.openFolder();
+  await app.openFile('missing-image.md');
+
+  const box = app.rendered().getByRole('img', { name: 'Image not found: Gone lantern', exact: true });
+
+  await expect(box).toBeVisible();
+  expect(await color(box)).toBe('rgb(98, 105, 119)');
+  expect(await borderColor(box)).toBe('rgb(233, 236, 239)');
+});
+
 test('a Web page exported in dark mode keeps light callouts and formula errors (#230) @appearance @export', async ({ app, context }) => {
   const { page } = app;
 

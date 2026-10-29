@@ -1093,8 +1093,11 @@
   border-radius: 6px;
 }
 
-.rt-document img.is-missing {
-  border-radius: 6px;
+/* The image node view; line-height 0 keeps it the image's height, so the selection outline hugs it */
+.rt-document .rt-image {
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
 }
 
 .rt-document a {

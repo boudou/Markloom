@@ -4,7 +4,7 @@ import { canResolveRelative, documentName, readFileBlob } from '@/features/file-
 import { openPath } from '@/lib/documentActions';
 import { notify } from '@/stores/uiStore';
 import { errorMessage } from '@/lib/utils';
-import { refreshImages, showImage } from '../utils/previewImages';
+import { createMissingImage, refreshImages, showImage } from '../utils/previewImages';
 import { isMediaPending, showDocumentMedia } from '../utils/documentMedia';
 import { isAbsoluteUrl, resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
 
@@ -32,13 +32,7 @@ const VIEWABLE_TYPES = new Map<string, string>([
 
 function showMissingImage(img: HTMLImageElement, src: string, hint?: string) {
   if (!img.isConnected) return;
-  const placeholder = document.createElement('span');
-  placeholder.className = 'missing-image';
-  placeholder.setAttribute('role', 'img');
-  const label = `Image not found: ${img.alt || src}`;
-  placeholder.setAttribute('aria-label', hint ? `${label}. ${hint}` : label);
-  placeholder.textContent = hint ? `${label} (${hint})` : label;
-  img.replaceWith(placeholder);
+  img.replaceWith(createMissingImage(img.alt || src, hint));
 }
 
 function scrollToAnchor(container: HTMLElement, id: string): void {
