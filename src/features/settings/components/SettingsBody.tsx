@@ -9,17 +9,25 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { AppWindow, History as HistoryIcon, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { AppWindow, History as HistoryIcon, RefreshCw, SlidersHorizontal, SunMoon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { toggleAutoSave } from '@/features/auto-save';
 // Deep paths: the version-history barrel is imported eagerly by the title bar, and these must stay in this lazy chunk
 import { useHistoryStore } from '@/features/version-history/stores/historyStore';
 import { readHistoryUsage, type HistoryUsage } from '@/features/version-history/utils';
-import { AUTO_SAVE_INTERVALS, HISTORY_LIMITS, PAGE_WIDTHS, formatInterval, useSettingsStore } from '@/stores/settingsStore';
+import {
+  APPEARANCES,
+  AUTO_SAVE_INTERVALS,
+  HISTORY_LIMITS,
+  PAGE_WIDTHS,
+  formatInterval,
+  selectAppearance,
+  useSettingsStore,
+} from '@/stores/settingsStore';
 import { UpdatesSection } from './UpdatesSection';
 
-type SectionId = 'editor' | 'history' | 'window' | 'updates';
+type SectionId = 'editor' | 'history' | 'appearance' | 'window' | 'updates';
 
 interface Section {
   id: SectionId;
@@ -30,10 +38,11 @@ interface Section {
 // The desktop bridge; this module is a lazy chunk, so the preload has run
 const desktop = window.markloomDesktop;
 
-// Later sections (About, Appearance) append here; Window and Updates are desktop only
+// Later sections (About) append here; Window and Updates are desktop only
 const SECTIONS: readonly Section[] = [
   { id: 'editor', label: 'Editor', icon: SlidersHorizontal },
   { id: 'history', label: 'History', icon: HistoryIcon },
+  { id: 'appearance', label: 'Appearance', icon: SunMoon },
   ...(desktop ? [{ id: 'window' as const, label: 'Window', icon: AppWindow }] : []),
   ...(desktop ? [{ id: 'updates' as const, label: 'Updates', icon: RefreshCw }] : []),
 ];
@@ -488,6 +497,30 @@ function WindowSection() {
   );
 }
 
+function AppearanceSection() {
+  const appearance = useSettingsStore(selectAppearance);
+  const setAppearance = useSettingsStore((s) => s.setAppearance);
+
+  const changeAppearance = (event: ChangeEvent<HTMLSelectElement>) => {
+    const found = APPEARANCES.find((a) => a.value === event.target.value);
+
+    if (found) setAppearance(found.value);
+  };
+
+  return (
+    <div>
+      <h3 className={GROUP_HEADING}>Theme</h3>
+      <SelectRow label="Theme" hint="System follows your computer's light or dark setting" value={appearance} onChange={changeAppearance}>
+        {APPEARANCES.map(({ value, label }) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </SelectRow>
+    </div>
+  );
+}
+
 /** Settings window: a section list on the left, the chosen section on the right */
 export default function SettingsBody() {
   const [section, setSection] = useState<SectionId>('editor');
@@ -540,6 +573,7 @@ export default function SettingsBody() {
       <div id={`${baseId}-panel`} role="tabpanel" aria-labelledby={tabId(current.id)} className="flex-1 min-w-0">
         {current.id === 'editor' && <EditorSection />}
         {current.id === 'history' && <HistorySection />}
+        {current.id === 'appearance' && <AppearanceSection />}
         {current.id === 'window' && <WindowSection />}
         {current.id === 'updates' && <UpdatesSection />}
       </div>

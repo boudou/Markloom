@@ -462,7 +462,7 @@ function guardLinkedFileWindow(child, { url: fileUrl }) {
 const WINDOW_PREF_KEYS = ['minimizeToTray', 'closeToTray'];
 const APPEARANCES = ['system', 'light', 'dark'];
 // Keep in step with the appearance default in src/stores/settingsStore.ts
-const DEFAULT_APPEARANCE = 'light';
+const DEFAULT_APPEARANCE = 'system';
 const TITLE_BAR_HEIGHT = 44;
 // --canvas, --panel and --text-secondary of each palette in src/styles/globals.css
 const WINDOW_COLOURS = {
