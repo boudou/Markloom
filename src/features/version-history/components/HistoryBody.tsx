@@ -116,7 +116,7 @@ export default function HistoryBody() {
               <button
                 type="button"
                 onClick={handleSaveVersion}
-                className="mt-4 h-8 px-3 rounded-md bg-accent-primary text-white text-sm font-medium hover:bg-accent-hover outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2"
+                className="mt-4 h-8 px-3 rounded-md bg-accent-primary text-on-accent text-sm font-medium hover:bg-accent-hover outline-hidden focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
                 Save this version
               </button>
@@ -170,7 +170,7 @@ export default function HistoryBody() {
                 }}
                 className={cn(
                   'w-full py-1.5 px-3 rounded-lg text-sm',
-                  'bg-accent-primary text-white',
+                  'bg-accent-primary text-on-accent',
                   'hover:bg-accent-primary/90 transition-colors disabled:opacity-50',
                   'flex items-center justify-center gap-2'
                 )}
@@ -251,7 +251,7 @@ const VersionItem = forwardRef<HTMLDivElement, VersionItemProps>(function Versio
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1 rounded-sm text-text-muted hover:text-[#B91C1C] hover:bg-rule transition-colors"
+            className="p-1 rounded-sm text-text-muted hover:text-error-text hover:bg-rule transition-colors"
           >
             <Trash2 className="w-3 h-3" />
           </button>

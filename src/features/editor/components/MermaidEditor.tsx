@@ -190,7 +190,7 @@ export function MermaidEditor() {
           <GripVertical
             className={cn(
               'w-4 h-4 transition-colors',
-              isDragging ? 'text-white' : 'text-text-muted group-hover:text-accent-primary'
+              isDragging ? 'text-on-accent' : 'text-text-muted group-hover:text-accent-primary'
             )}
           />
         </div>
