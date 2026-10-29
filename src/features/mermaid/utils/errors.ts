@@ -1,5 +1,6 @@
 // Turns Mermaid's parser output into something a writer can act on.
 import type { DiagramRender } from './mermaidConfig';
+import { fixLabelContrast } from './labelContrast';
 
 export interface DiagramError {
   /** One plain sentence */
@@ -80,6 +81,7 @@ export function fillDiagram(
 ): DiagramError | null {
   if (result.ok) {
     target.innerHTML = result.svg;
+    fixLabelContrast(target);
     target.setAttribute('role', 'img');
     target.setAttribute('aria-label', `Diagram: ${code.split('\n')[0].trim()}`);
 
