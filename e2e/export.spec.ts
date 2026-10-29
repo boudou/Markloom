@@ -1,6 +1,6 @@
 // Export, started from either editor: PDF prints the pages the export preview shows (#196), Web
 // page stays one flowing page with fonts and images built in, Word, portable Markdown, Image (page
-// PNGs and a .zip, #193-#195), the preflight warnings and Copy as rich text. The browser's print
+// PNGs, a .zip or one long image, #193-#195, #222), the preflight warnings and Copy as rich text. The browser's print
 // dialog is replaced by a stub that keeps the printed document, which is then printed for real by
 // the same engine to count its sheets.
 import { readFileSync } from 'node:fs';
@@ -267,6 +267,21 @@ test.describe('pages.md', () => {
     expect(pngSize(one.bytes)).toEqual({ width: 1632, height: 2112 });
   });
 
+  test('Image saves every page stacked in one long PNG (#222) @export', async ({ page }) => {
+    // Draws every page as a 2x PNG and stacks them
+    test.slow();
+
+    const dialog = await openExport(page, 'Image');
+    const count = await pageCount(page);
+
+    expect(count).toBeGreaterThan(2);
+
+    const stacked = await downloadOf(page, () => dialog.getByRole('button', { name: 'Save as one image' }).click());
+
+    expect(stacked.name).toBe('Pages fixture.png');
+    expect(pngSize(stacked.bytes)).toEqual({ width: A4_PNG.width, height: A4_PNG.height * count });
+  });
+
   test('Browser PDF names the print job after the File name field and says what to pick (#165) @export', async ({ page }) => {
     // Chrome and Edge suggest the tab's title as the PDF's name: keep what the app shows when print() runs
     await page.addInitScript(() => {
@@ -292,6 +307,30 @@ test.describe('pages.md', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Save as PDF' })).toBeVisible();
     await expect(page).toHaveTitle(/^Markloom/);
     await expect(page.getByRole('status').filter({ hasText: 'Exported' })).toHaveCount(0);
+  });
+});
+
+test.describe('tall.md', () => {
+  test.beforeEach(async ({ app }) => {
+    await app.openFile('tall.md');
+  });
+
+  test('One long image taller than a canvas allows is scaled down to fit (#222) @export', async ({ page }) => {
+    // Lays out and draws about twenty pages at 2x
+    test.setTimeout(180_000);
+
+    const dialog = await openExport(page, 'Image');
+    const count = await pageCount(page);
+
+    expect(count).toBeGreaterThanOrEqual(15);
+
+    const stacked = await downloadOf(page, () => dialog.getByRole('button', { name: 'Save as one image' }).click());
+
+    expect(stacked.name).toBe('Tall fixture.png');
+    expect(pngSize(stacked.bytes)).toEqual({
+      width: Math.round((A4_PNG.width * 32_767) / (count * A4_PNG.height)),
+      height: 32_767,
+    });
   });
 });
 
