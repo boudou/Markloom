@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { renderMermaid } from '../utils/mermaidConfig';
+import { currentTheme, onThemeChange } from '@/lib/appearance';
 import { fillDiagram } from '../utils/errors';
 import { cn } from '@/lib/utils';
 
@@ -12,13 +13,14 @@ interface MermaidRendererProps {
 
 export function MermaidRenderer({ code, className }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // Until the first result only; later edits swap the diagram in place, as the preview does
+  // Until the first result only; later edits and theme changes swap the diagram in place, as the preview does
   const [ready, setReady] = useState(false);
+  const theme = useSyncExternalStore(onThemeChange, currentTheme);
 
   useEffect(() => {
     let cancelled = false;
 
-    void renderMermaid(code, 'preview').then((result) => {
+    void renderMermaid(code, theme).then((result) => {
       const container = containerRef.current;
 
       if (cancelled || !container) return;
@@ -30,7 +32,7 @@ export function MermaidRenderer({ code, className }: MermaidRendererProps) {
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, theme]);
 
   return (
     <div className={cn('relative', className)}>

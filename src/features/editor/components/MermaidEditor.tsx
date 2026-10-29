@@ -90,9 +90,9 @@ export function MermaidEditor() {
     return () => clearTimeout(timer);
   }, [content]);
 
-  // Results are cached (errors too), so drop this one or the remount gets it back unchanged
+  // Results are cached (errors too), so drop them (both themes) or the remount gets one back unchanged
   const handleRefresh = useCallback(() => {
-    forgetDiagram(debouncedContent, 'preview');
+    forgetDiagram(debouncedContent);
     setRenderKey((k) => k + 1);
   }, [debouncedContent]);
 

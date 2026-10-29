@@ -2,6 +2,8 @@
 // follows the OS live, the default stays light, and exports stay light whatever the app shows.
 // Dialogs, menus and toasts take their edges, backdrops and status colours from the theme (#229).
 // The source editors, the preview and rich text follow it too, without losing undo history (#230).
+// Mermaid diagrams are drawn in a dark palette and redraw on a switch; exports keep light ones (#231).
+import JSZip from 'jszip';
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, downloadOf, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
 
@@ -21,6 +23,15 @@ declare global {
 const DARK_CANVAS = 'rgb(23, 25, 28)';
 
 const WHITE = 'rgb(255, 255, 255)';
+
+/** Mermaid writes its palette into each SVG's <style>: the text colour tells the palettes apart */
+const LIGHT_DIAGRAM_TEXT = '#1E293B';
+
+const DARK_DIAGRAM_TEXT = '#E8EAED';
+
+function hasColour(css: string, colour: string): boolean {
+  return css.toUpperCase().includes(colour);
+}
 
 /** Stores `appearance` in markloom-settings and reloads, so the app starts with it */
 async function startWith(page: Page, appearance: Appearance): Promise<void> {
@@ -175,7 +186,38 @@ test('a Web page exported in dark mode stays light @appearance @export', async (
   await viewer.emulateMedia({ colorScheme: 'dark' });
   await viewer.setContent(file.bytes.toString('utf8'));
   expect(await bodyBackground(viewer)).toBe(WHITE);
+
+  // The diagram is the light one (#231)
+  const styles = await viewer.locator('svg > style').allTextContents();
+
+  expect(styles.some((style) => hasColour(style, LIGHT_DIAGRAM_TEXT))).toBe(true);
+  expect(styles.some((style) => hasColour(style, DARK_DIAGRAM_TEXT))).toBe(false);
   await viewer.close();
+});
+
+test('a Word document exported in dark mode keeps the light diagram (#231) @appearance @export @diagrams', async ({ app }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.openFile('fixture.md');
+  expect(await isDark(page)).toBe(true);
+
+  await page.keyboard.press('ControlOrMeta+e');
+
+  const dialog = page.getByRole('dialog', { name: 'Export' });
+
+  await dialog.getByRole('radio', { name: 'Word' }).click();
+
+  const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Word' }).click());
+  const zip = await JSZip.loadAsync(file.bytes);
+
+  const svgs = await Promise.all(
+    Object.keys(zip.files).flatMap((name) => (/^word\/media\/.*\.svg$/.test(name) ? [zip.file(name)?.async('string') ?? ''] : []))
+  );
+
+  expect(svgs.some((svg) => hasColour(svg, LIGHT_DIAGRAM_TEXT))).toBe(true);
+  expect(svgs.some((svg) => hasColour(svg, DARK_DIAGRAM_TEXT))).toBe(false);
 });
 
 /** What covers the window's top-left corner: a dialog's backdrop while one is open */
@@ -442,4 +484,223 @@ test('a Web page exported in dark mode keeps light callouts and formula errors (
   expect(await color(viewer.locator('.katex-error'))).toBe('rgb(185, 28, 28)');
   expect(await viewer.locator('blockquote.callout').evaluate((quote) => getComputedStyle(quote).borderLeftColor)).toBe('rgb(9, 105, 218)');
   await viewer.close();
+});
+
+/** The drawn diagrams (an error card has no role="img"), in the preview or rich text */
+function diagrams(app: MarkloomApp): Locator {
+  return app.rendered().locator('[role="img"] > svg');
+}
+
+const NIGHT_DIAGRAMS = 8;
+
+async function diagramIds(app: MarkloomApp): Promise<string[]> {
+  return diagrams(app).evaluateAll((svgs) => svgs.map((svg) => svg.id));
+}
+
+async function diagramStyles(app: MarkloomApp): Promise<string[]> {
+  return diagrams(app).evaluateAll((svgs) => svgs.map((svg) => svg.querySelector('style')?.textContent ?? ''));
+}
+
+/** [diagram's first label, label, ratio] for every diagram label under 4.5:1 against what it sits on */
+type ContrastFailure = [string, string, number];
+
+/**
+ * Measures every leaf label of each diagram (a <tspan>, a <text> without one, the innermost <span>
+ * of an HTML label) against the first painted shape under its centre, both composited over the
+ * panel the diagram sits on. Sequence actor <text> elements are filled with the actor colour and
+ * only their <tspan>s carry text colour, hence leaves only.
+ */
+async function contrastFailures(app: MarkloomApp): Promise<ContrastFailure[]> {
+  return diagrams(app).evaluateAll((svgs) => {
+    const canvas = document.createElement('canvas');
+
+    canvas.width = 1;
+    canvas.height = 1;
+
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+
+    /** Any CSS colour as [r, g, b, alpha 0-1] */
+    const rgba = (css: string): [number, number, number, number] => {
+      if (!context || css === 'none' || css.startsWith('url(')) return [0, 0, 0, 0];
+
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = css;
+      context.fillRect(0, 0, 1, 1);
+
+      const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+
+      return [r, g, b, a / 255];
+    };
+
+    const over = (top: [number, number, number, number], base: [number, number, number]): [number, number, number] => {
+      const [r, g, b, a] = top;
+
+      return [r * a + base[0] * (1 - a), g * a + base[1] * (1 - a), b * a + base[2] * (1 - a)];
+    };
+
+    const luminance = ([r, g, b]: [number, number, number]): number => {
+      const channel = (value: number) => {
+        const c = value / 255;
+
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      };
+
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    };
+
+    const ratio = (a: [number, number, number], b: [number, number, number]): number => {
+      const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+
+      return (light + 0.05) / (dark + 0.05);
+    };
+
+    /** The opacity of `element` and its ancestors up to the diagram */
+    const opacityOf = (element: Element, svg: Element): number => {
+      let value = 1;
+
+      for (let node: Element | null = element; node && node !== svg.parentElement; node = node.parentElement) {
+        value *= Number(getComputedStyle(node).opacity);
+      }
+
+      return value;
+    };
+
+    const withAlpha = (colour: [number, number, number, number], alpha: number): [number, number, number, number] => [
+      colour[0],
+      colour[1],
+      colour[2],
+      colour[3] * alpha,
+    ];
+
+    const SVG_TEXT = new Set(['text', 'tspan', 'g', 'foreignObject', 'svg', 'marker', 'defs', 'style']);
+
+    const failures: [string, string, number][] = [];
+
+    for (const svg of svgs) {
+      let panelElement: Element | null = svg.parentElement;
+
+      while (panelElement && rgba(getComputedStyle(panelElement).backgroundColor)[3] === 0) panelElement = panelElement.parentElement;
+
+      const panelColour = rgba(panelElement ? getComputedStyle(panelElement).backgroundColor : 'white');
+      const panel: [number, number, number] = [panelColour[0], panelColour[1], panelColour[2]];
+      const labels = Array.from(svg.querySelectorAll('text:not(:has(tspan)), tspan:not(:has(tspan)), foreignObject span:not(:has(span))'));
+      const name = (labels.find((label) => label.textContent?.trim())?.textContent ?? '').trim();
+
+      for (const label of labels) {
+        const text = label.textContent?.trim() ?? '';
+
+        if (!text) continue;
+
+        label.scrollIntoView({ block: 'center', inline: 'center' });
+
+        const box = label.getBoundingClientRect();
+
+        if (box.width === 0 || box.height === 0) continue;
+
+        const style = getComputedStyle(label);
+        const isSvg = label instanceof SVGElement;
+        const foreground = over(withAlpha(rgba(isSvg ? style.fill : style.color), opacityOf(label, svg)), panel);
+        let background = panel;
+
+        for (const hit of document.elementsFromPoint(box.left + box.width / 2, box.top + box.height / 2)) {
+          if (!svg.contains(hit)) break;
+
+          const hitStyle = getComputedStyle(hit);
+
+          if (hit instanceof SVGElement) {
+            if (SVG_TEXT.has(hit.tagName)) continue;
+
+            const fill = rgba(hitStyle.fill);
+
+            if (fill[3] === 0) continue;
+
+            background = over(withAlpha(fill, opacityOf(hit, svg) * Number(hitStyle.fillOpacity)), panel);
+            break;
+          }
+
+          const fill = rgba(hitStyle.backgroundColor);
+
+          if (fill[3] === 0) continue;
+
+          background = over(withAlpha(fill, opacityOf(hit, svg)), panel);
+          break;
+        }
+
+        const value = ratio(foreground, background);
+
+        if (value < 4.5) failures.push([name, text, Math.round(value * 100) / 100]);
+      }
+    }
+
+    return failures;
+  });
+}
+
+test('diagrams are drawn in the dark palette in dark mode (#231) @appearance @diagrams @rich-text', async ({ app }) => {
+  const { page } = app;
+
+  await startWith(page, 'dark');
+  await app.openFolder();
+  await app.openFile('night-diagrams.md');
+  await expect(diagrams(app)).toHaveCount(NIGHT_DIAGRAMS, { timeout: 30_000 });
+
+  for (const style of await diagramStyles(app)) {
+    expect(hasColour(style, DARK_DIAGRAM_TEXT)).toBe(true);
+    expect(hasColour(style, LIGHT_DIAGRAM_TEXT)).toBe(false);
+  }
+
+  expect(await contrastFailures(app)).toEqual([]);
+});
+
+test('diagrams redraw when the appearance changes and come from the cache when it changes back (#231) @appearance @diagrams @rich-text', async ({ app }) => {
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await startWith(page, 'system');
+  await app.openFolder();
+  await app.openFile('night-diagrams.md');
+  await expect(diagrams(app)).toHaveCount(NIGHT_DIAGRAMS, { timeout: 30_000 });
+
+  for (const style of await diagramStyles(app)) expect(hasColour(style, LIGHT_DIAGRAM_TEXT)).toBe(true);
+
+  // Each render gets a new Mermaid-N id, so a cached result keeps its id and a fresh one doesn't
+  const light = await diagramIds(app);
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect
+    .poll(async () => {
+      const ids = await diagramIds(app);
+
+      return ids.length === NIGHT_DIAGRAMS && ids.every((id, index) => id !== light[index]);
+    }, { timeout: 30_000 })
+    .toBe(true);
+
+  for (const style of await diagramStyles(app)) expect(hasColour(style, DARK_DIAGRAM_TEXT)).toBe(true);
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect.poll(() => diagramIds(app)).toEqual(light);
+});
+
+test('the .mmd editor redraws its diagram when the appearance changes (#231) @appearance @diagrams', async ({ app }) => {
+  test.skip(app.editorMode !== 'split', 'A .mmd file opens in its own diagram editor, whatever the mode');
+
+  const { page } = app;
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await startWith(page, 'system');
+  await app.openFolder();
+  await app.treeItem('flow.mmd').click();
+
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('flowchart TD\n  A --> B');
+
+  const diagram = page.locator('.mermaid-diagram > svg');
+  const style = () => diagram.evaluate((svg) => svg.querySelector('style')?.textContent ?? '');
+
+  await expect(diagram).toBeVisible({ timeout: 15_000 });
+  expect(hasColour(await style(), LIGHT_DIAGRAM_TEXT)).toBe(true);
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(async () => hasColour(await style(), DARK_DIAGRAM_TEXT)).toBe(true);
 });

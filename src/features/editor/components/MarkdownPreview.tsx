@@ -6,6 +6,7 @@ import { fillMath, isMathReady, loadMath, onMathReady } from '@/features/math';
 import { cn } from '@/lib/utils';
 import { selectSmartTypography, useSettingsStore } from '@/stores/settingsStore';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { currentTheme, onThemeChange } from '@/lib/appearance';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { fillDiagram } from '@/features/mermaid/utils/errors';
@@ -36,6 +37,8 @@ export function MarkdownPreview({
   const debouncedContent = useDebouncedValue(content, 120);
   // Code renders plain until the highlighter chunk arrives, then once more with colour
   const highlighterReady = useSyncExternalStore(onHighlighterReady, isHighlighterReady);
+  // Mermaid bakes its palette into each SVG, so diagrams redraw when the page's theme changes
+  const theme = useSyncExternalStore(onThemeChange, currentTheme);
   // The parser follows the setting (see main.tsx); depending on it re-renders at once when it changes
   const smartTypography = useSettingsStore(selectSmartTypography);
 
@@ -123,7 +126,7 @@ export function MarkdownPreview({
 
         if (!code) return null;
 
-        const result = await renderMermaid(code, 'preview');
+        const result = await renderMermaid(code, theme);
 
         if (cancelled) return null;
 
@@ -144,7 +147,7 @@ export function MarkdownPreview({
     return () => {
       cancelled = true;
     };
-  }, [html, surfaceRef, onDiagramErrors]);
+  }, [html, theme, surfaceRef, onDiagramErrors]);
 
   return (
     <m.div
