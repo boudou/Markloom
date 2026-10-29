@@ -4,7 +4,26 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-10-23
+## [0.9.0] - 2026-10-29
+
+### Added
+
+- Dark mode. Markloom follows your system by default, or pick Light or Dark in Settings → Appearance or with the *Theme* command in the command palette (#1, #228, #233).
+  - It covers the app, both editors, the preview, code highlighting, callouts, math errors, find matches, version history, the export dialog and the desktop window with its title bar, which opens dark with no white flash (#229, #230, #232, #236–#238).
+  - Mermaid diagrams get their own dark palette and redraw when the theme changes (#231). Labels on shapes you colour yourself (`style X fill:…`) switch to dark or white text so they stay readable, in both themes and in exports (#235).
+  - Images show as authored, the logo turns white, and every export stays light.
+- Export → Image → **Save as one image** puts every page into one tall PNG, scaled down if it would pass the 32,767-pixel limit for an image (#222).
+- Front matter: a YAML `---` block at the top of a document shows as one collapsed block listing its keys, in the preview and in rich text (read-only there, saved byte for byte). Exports leave it out, and the export title skips it (#3).
+
+### Changed
+
+- The styles moved to Tailwind CSS 4. The web version now needs Chrome 111, Safari 16.4 or Firefox 128 or later (#59).
+- Primary buttons, danger text and focus rings use the theme's colours (#237).
+
+### Fixed
+
+- In rich text, a key pressed right after clicking a block (a link definition, front matter, a formula or an image) could act at the top of the document instead: Delete did nothing, or the caret jumped up (#234).
+
 
 ### Added
 
@@ -200,7 +219,8 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/boudou/Markloom/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/boudou/Markloom/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/boudou/Markloom/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/boudou/Markloom/compare/v0.5.0...v0.6.0

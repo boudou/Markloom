@@ -25,12 +25,12 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 
 - **Two editors**: split view (CodeMirror source plus live preview) or rich text (Milkdown) that keeps untouched Markdown byte-for-byte
 - **Mermaid diagrams**: rendered live, with errors reported as "Line N: …" against your document
-- **Math**: `$…$` and `$$…$$` typeset with KaTeX in the split-view preview and in PDF and HTML exports
+- **Math**: `$…$` and `$$…$$` typeset with KaTeX in the preview, in rich text and in PDF and HTML exports, and as images in Word
 - **Callouts**: GitHub-style `> [!NOTE]`, `[!TIP]`, `[!WARNING]` and friends render as coloured boxes, in the preview and in exports
 - **Footnotes**: `[^1]` references become numbered superscripts that link to the notes at the end, in the preview, PDF, HTML and Copy as rich text; rich text shows them styled in place. Inline `^[…]` notes work in the preview and exports only
 - **Front matter**: a YAML `---` block at the top shows as a collapsed block listing its keys, in the preview and in rich text (read-only there, saved byte for byte); exports leave it out
-- **Dark mode**: follows your system, or pick Light or Dark in Settings → Appearance or the command palette; images show as authored, and exports stay light
-- **Export**: Word (.docx), PDF, standalone HTML and portable Markdown, with diagrams and images embedded
+- **Dark mode**: follows your system, or pick Light or Dark in Settings → Appearance or the command palette. Both editors, the preview, Mermaid diagrams and the desktop window follow it; images show as authored, and exports stay light
+- **Export**: Word (.docx), PDF, standalone HTML, portable Markdown and page images (PNG: one page, every page as a .zip, or all pages as one long image), with diagrams and images embedded
 - **Copy as rich text**: paste a document, or just the selection, formatted into email, Google Docs or Confluence, diagrams included
 - **Multi-tab editing**, folder tree, document outline, recent files and session restore
 - **Quick open** (`Ctrl+P`) to jump to any file in the open folder, and **search across files** (`Ctrl+Shift+F`) with results grouped by file and line
@@ -77,7 +77,7 @@ The installers are not code-signed yet ([#30](https://github.com/boudou/Markloom
 
 4. **Add images** by dropping or pasting them. They are saved to an `assets/` folder next to the document.
 5. **Find your way around**: `Ctrl+P` opens any file in the folder by name, `Ctrl+Shift+F` searches every file in it, `Ctrl+F` finds and `Ctrl+H` replaces in the current document, `Ctrl+Shift+L` shows the outline, and `Ctrl+Shift+H` opens version history.
-6. **Export** (`Ctrl+E`) to Word, PDF, a standalone web page, portable Markdown or page images (PNG), or **Copy as rich text** (title bar or command palette) to paste it formatted into an email or another editor.
+6. **Export** (`Ctrl+E`) to Word, PDF, a standalone web page, portable Markdown or page images (PNG, including the whole document as one long image), or **Copy as rich text** (title bar or command palette) to paste it formatted into an email or another editor.
 7. **Do anything from the keyboard**: `Ctrl+Shift+P` opens the command palette, and `Ctrl+/` lists every shortcut. On macOS, use `⌘` instead of `Ctrl`.
 
 In the browser, new document and close tab are `Alt+N` and `Alt+W`, because the browser keeps `Ctrl+N` and `Ctrl+W` for itself.
@@ -140,13 +140,26 @@ What the tests cover, one file per area:
 | --- | --- |
 | `documents.spec.ts` | New document, open from the file tree, edit and save, closing with unsaved changes, tabs, Quick open, folder search, a file tree of documents only, recent files and folders on the start screen, session restore |
 | `editing.spec.ts` | Toolbar formatting and its pressed state, find and replace, the command palette, focus mode, page width, smart typography |
-| `rich-text.spec.ts` | Raw HTML in rich text (no Tab stops inside, its source survives the window losing focus); saving keeps untouched Markdown byte for byte |
+| `focus.spec.ts` | The focus ring on the writing surface; a new document from a template takes the focus |
+| `insert.spec.ts` | Insert menu blocks land after the current block (tables, code, dividers), one undo per insert, the Link button and `Ctrl+K` |
+| `typography.spec.ts` | Smart typography on by default; turned off, the preview and every export show the text as typed |
+| `rich-text.spec.ts` | Raw HTML in rich text (no Tab stops inside, its source survives the window losing focus); saving keeps untouched Markdown byte for byte; a key after clicking a block (definition, front matter, formula) acts on that block; the missing-image box |
+| `references.spec.ts` | Reference-style links and images survive rich-text edits; deleting a definition turns its references into inline links |
 | `parity.spec.ts` | Every construct renders in both editors: images, diagrams, tables, task lists, strikethrough, callouts, highlighted code, math, footnotes |
+| `callouts.spec.ts` | Callouts: each type's colour, icon and title, what is not a callout, editing and retyping the marker in rich text, saved byte for byte |
+| `math.spec.ts` | Math: typesetting, prices and escapes stay text, editing a formula in rich text, typing `$…$` or `$$` to make math |
 | `footnotes.spec.ts` | Footnotes: numbering, links and back-links, unique ids, scroll sync past a mid-document definition, exports, Copy as rich text, rich-text styling |
 | `front-matter.spec.ts` | Front matter: one collapsed block with its keys in both editors, the Contents panel, saved byte for byte from rich text, left out of Web page and Word exports |
 | `diagrams.spec.ts` | Mermaid renders and follows edits; an error names its document line and Show line goes there |
-| `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page or a .zip), the preflight warnings, Copy as rich text |
+| `appearance.spec.ts` | Dark mode: applied before first paint, System follows the OS live, Settings and the palette command, dark colours in both editors and the preview, Mermaid in dark with readable labels (including author fills), redraw from the cache, the white logo, the desktop window told the theme, exports stay light |
+| `status-colours.spec.ts` | Word-goal, version-history diff and export preflight colours in dark and light |
+| `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page, a .zip, or one long image), the preflight warnings, Copy as rich text |
 | `settings.spec.ts` | The Settings window and each editor preference |
+| `history.spec.ts` | The version history limit, trimming every file when it is lowered, Clear all |
+| `whats-new.spec.ts` | What's new shows the release notes once after an update |
+| `updates.spec.ts` | Check for updates (desktop only): a newer version with its link, up to date, a failed check |
+| `window-settings.spec.ts` | Desktop window settings: tray toggles, and the Windows Explorer menu (installed and portable) |
+| `desktop-folder.spec.ts` | A folder opened by the desktop app: the tree, open and save through the bridge, Quick open, search, the session |
 | `offline.spec.ts` | The service worker: the web version opens offline, and loads when its cache can't be written |
 | `web.spec.ts` | Nothing loads from Google before the visitor allows usage statistics |
 
