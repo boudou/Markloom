@@ -61,7 +61,7 @@
     "diff": "^8.0.2",
     "docx": "^9.15.0",
     "dompurify": "3.4.17",
-    "electron": "^44.9.1",
+    "electron": "^45.1.0",
     "electron-builder": "^26.18.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^14.7.1",
