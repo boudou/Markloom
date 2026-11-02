@@ -750,6 +750,42 @@ test('the .mmd editor redraws its diagram when the appearance changes (#231) @ap
   await expect.poll(async () => hasColour(await style(), DARK_DIAGRAM_TEXT)).toBe(true);
 });
 
+/** The app's find bar on the theme's panel colour, and the source's current match (as in the Markdown source, #230) */
+const FIND_COLOURS = {
+  dark: { panel: 'rgb(30, 32, 36)', currentMatch: 'rgb(69, 53, 8)' },
+  light: { panel: 'rgb(248, 249, 250)', currentMatch: 'rgb(253, 230, 138)' },
+} as const;
+
+for (const appearance of ['dark', 'light'] as const) {
+  // No skip in rich text: a .mmd file opens in the diagram editor in both modes, and the bar needs nothing the preview loads
+  test(`Ctrl+F in a .mmd file opens the app's find bar in ${appearance} (#245) @appearance @diagrams @editing`, async ({ app }) => {
+    const { page } = app;
+    const source = page.locator('.cm-content');
+
+    await startWith(page, appearance);
+    await app.openFolder();
+    await app.treeItem('flow.mmd').click();
+    await source.click();
+
+    await find(page, 'unclosed');
+
+    const bar = page.getByRole('search', { name: 'Find in document' });
+    const input = bar.getByRole('textbox', { name: 'Find' });
+
+    await expect(bar).toContainText('1 of 1');
+    await expect(page.locator('.cm-panels')).toHaveCount(0);
+    expect(await background(bar)).toBe(FIND_COLOURS[appearance].panel);
+    expect(contrastRatio(await color(input), await paintedBehind(input))).toBeGreaterThanOrEqual(4.5);
+    expect(await background(page.locator('.cm-searchMatch-selected').first())).toBe(FIND_COLOURS[appearance].currentMatch);
+
+    await input.press('Escape');
+    await expect(bar).toBeHidden();
+    await expect(source).toBeFocused();
+
+    await expectNoPreviewInRichText(app);
+  });
+}
+
 const DARK_LABEL = 'rgb(26, 26, 26)';
 
 /** painted-diagrams.md: each label's colour on its author fill, in both themes and in exports (#235) */
