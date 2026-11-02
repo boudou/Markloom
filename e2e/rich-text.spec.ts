@@ -158,6 +158,15 @@ async function browserJumpsToTop(page: Page) {
   );
 }
 
+// Ctrl held a moment before the key, as a person presses it: Chrome moves its hidden selection on
+// the Ctrl keydown already
+async function pressWithCtrlHeld(page: Page, key: string) {
+  await page.keyboard.down('Control');
+  await page.waitForTimeout(120);
+  await page.keyboard.press(key);
+  await page.keyboard.up('Control');
+}
+
 test.describe('keys after the editor selects a node (#234)', () => {
   test.beforeEach(async ({ app }) => {
     test.skip(app.editorMode !== 'wysiwyg', 'Only rich text selects a block as a whole');
@@ -253,6 +262,41 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await page.keyboard.up('Shift');
     await page.keyboard.press('Delete');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('Ctrl+Home from a clicked definition moves the caret to the top (#246) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await pressWithCtrlHeld(page, 'Home');
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveCount(0);
+    await page.keyboard.type('X');
+    await expect(app.rendered().locator('h1')).toHaveText('XReferences');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(5);
+  });
+
+  test('Ctrl+End from a clicked definition moves the caret to the end (#246) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await pressWithCtrlHeld(page, 'End');
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveCount(0);
+    await page.keyboard.type('X');
+    // The document ends with a definition, followed by the empty paragraph rich text keeps last
+    await expect(app.rendered().locator(':scope > :last-child')).toHaveText('X');
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(5);
+  });
+
+  test('Ctrl+C keeps a clicked definition selected for Delete (#246) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await page.keyboard.press('ControlOrMeta+c');
+    await browserJumpsToTop(page);
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
     await expect(app.rendered().locator('h1')).toHaveText('References');
   });
 
