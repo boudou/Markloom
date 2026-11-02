@@ -167,6 +167,34 @@ async function pressWithCtrlHeld(page: Page, key: string) {
   await page.keyboard.up('Control');
 }
 
+// What a busy page can leave for the next key: ProseMirror refused a read of the jumped selection
+// and put the browser's selection back around the selected node, and Chrome has not moved it again
+// before the key acts. Chrome then sends Cut and Copy to the page body, not to the editor (#252).
+async function browserKeepsNodeRangeForNextKey(page: Page) {
+  await page.evaluate(() => {
+    window.addEventListener(
+      'keydown',
+      () => {
+        const node = document.querySelector('[data-doc-surface] .ProseMirror-selectednode');
+
+        if (!node) throw new Error('No node is selected');
+
+        const range = document.createRange();
+
+        range.selectNode(node);
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(range);
+      },
+      { capture: true, once: true }
+    );
+  });
+}
+
+/** The plain text on the clipboard */
+async function clipboardText(page: Page): Promise<string> {
+  return page.evaluate(() => navigator.clipboard.readText());
+}
+
 test.describe('keys after the editor selects a node (#234)', () => {
   test.beforeEach(async ({ app }) => {
     test.skip(app.editorMode !== 'wysiwyg', 'Only rich text selects a block as a whole');
@@ -244,14 +272,30 @@ test.describe('keys after the editor selects a node (#234)', () => {
   });
 
   test('Ctrl held a moment before X cuts a clicked definition @rich-text @editing', async ({ app, page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await app.openFile('references.md');
     await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await pressWithCtrlHeld(page, 'x');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+    expect(await clipboardText(page)).toContain('https://example.com/docs');
+  });
+
+  test('Ctrl+X cuts a clicked definition when the browser keeps its selection around it (#252) @rich-text @editing', async ({ app, page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
     await page.keyboard.down('Control');
-    await page.waitForTimeout(120);
+    await browserKeepsNodeRangeForNextKey(page);
     await page.keyboard.press('x');
     await page.keyboard.up('Control');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
     await expect(app.rendered().locator('h1')).toHaveText('References');
+    expect(await clipboardText(page)).toContain('https://example.com/docs');
   });
 
   test('a modifier pressed and released alone keeps a clicked definition selected @rich-text @editing', async ({ app, page }) => {

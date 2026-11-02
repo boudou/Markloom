@@ -101,7 +101,38 @@ export const caretSync = $prose(() => {
         if (!event.defaultPrevented && guard === 'armed') guard = 'idle';
       };
 
+      // When the browser's selection is still the range ProseMirror put around a selected node
+      // (it does so after refusing a read), Chrome sends Cut and Copy to the page body, not to the
+      // editor, so ProseMirror's own handler never runs and Ctrl+X cut nothing (#252). This does
+      // what that handler does
+      const onClipboard = (event: ClipboardEvent) => {
+        const { selection } = view.state;
+        const target = event.target;
+        const data = event.clipboardData;
+        const cut = event.type === 'cut';
+
+        // An event inside the editor reaches ProseMirror's own handler; a read-only editor cuts nothing
+        const reachesEditor = target instanceof Node && view.dom.contains(target);
+
+        if (reachesEditor || (cut && !view.editable)) return;
+
+        if (event.defaultPrevented || !data || !(selection instanceof NodeSelection) || !view.hasFocus()) return;
+
+        const { dom, text } = view.serializeForClipboard(selection.content());
+
+        event.preventDefault();
+        data.clearData();
+        data.setData('text/html', dom.innerHTML);
+        data.setData('text/plain', text);
+
+        if (cut) view.dispatch(view.state.tr.deleteSelection().scrollIntoView().setMeta('uiEvent', 'cut'));
+      };
+
+      const page = view.dom.ownerDocument;
+
       view.dom.addEventListener('keydown', onKeyDown);
+      page.addEventListener('cut', onClipboard);
+      page.addEventListener('copy', onClipboard);
 
       return {
         update: (updated, prev) => {
@@ -111,6 +142,8 @@ export const caretSync = $prose(() => {
         },
         destroy: () => {
           view.dom.removeEventListener('keydown', onKeyDown);
+          page.removeEventListener('cut', onClipboard);
+          page.removeEventListener('copy', onClipboard);
           editorView = null;
           disarm();
         },
