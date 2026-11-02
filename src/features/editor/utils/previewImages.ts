@@ -1,6 +1,7 @@
 // Images from the open folder, shown in the preview and in rich text through object URLs. Re-renders
 // reuse the cached URL without touching the file; after the window regains focus, each cached image is
-// checked once on its next use (refreshImages checks the ones on screen right away).
+// checked once on its next use (refreshImages checks the ones on screen right away). An image that
+// couldn't be read stays in the page, hidden beside a `.missing-image` box, so a focus re-checks it too.
 import { fileVersion, readChangedFile, readFileBlob } from '@/features/file-tree/api/fileSystem';
 
 interface CachedImage {
@@ -74,8 +75,10 @@ export async function documentFileUrl(path: string): Promise<string> {
 }
 
 /**
- * Points `img` at the image file at `path`, or calls `onMissing` when the file can't be read.
- * Neither happens if a later render has pointed `img` at another file meanwhile.
+ * Points `img` at the image file at `path`, or calls `onMissing` when the file can't be read (or is
+ * the same file already shown missing: it read but wouldn't decode, and loading it again would only
+ * flash the broken-image icon). Neither happens if a later render has pointed `img` at another file
+ * meanwhile.
  */
 export async function showImage(img: HTMLImageElement, path: string, onMissing: () => void): Promise<void> {
   img.dataset.imagePath = path;
@@ -83,14 +86,31 @@ export async function showImage(img: HTMLImageElement, path: string, onMissing: 
   try {
     const { url } = await imageFor(path);
 
-    if (img.dataset.imagePath === path) img.src = url;
+    if (img.dataset.imagePath !== path) return;
+
+    // A file that can't be read leaves no src behind, so a box with this URL means it wouldn't decode
+    if (img.src === url && isImageMarkedMissing(img)) {
+      onMissing();
+
+      return;
+    }
+
+    clearImageMissing(img);
+    img.src = url;
   } catch {
-    if (img.dataset.imagePath === path) onMissing();
+    if (img.dataset.imagePath !== path) return;
+
+    // Drops the last file's URL, so an img with a box keeps a URL only when that URL wouldn't decode
+    img.removeAttribute('src');
+    onMissing();
   }
 }
 
+/** Why a relative image can't be shown in a document that wasn't opened from a folder */
+export const NO_FOLDER_HINT = 'open the document from its folder to show it';
+
 /**
- * The box shown in place of an image that couldn't be found, naming `name` (and `hint`, when given).
+ * The box shown beside an image that couldn't be found, naming `name` (and `hint`, when given).
  * Drawn by the `.missing-image` CSS, so it follows the theme in the preview and in rich text.
  */
 export function createMissingImage(name: string, hint?: string): HTMLSpanElement {
@@ -104,7 +124,52 @@ export function createMissingImage(name: string, hint?: string): HTMLSpanElement
   return box;
 }
 
-/** Re-reads the images shown in `container` whose files changed. */
+// The box shown for each img marked missing; only these imgs are ever unhidden, so an author's
+// `<img hidden>` stays hidden
+const missingBoxes = new WeakMap<HTMLImageElement, HTMLSpanElement>();
+
+/**
+ * Hides `img` and shows a box naming `name` beside it (beside a raw-HTML `<picture>`, not inside it).
+ * A box already shown is replaced in place, so a label change never flashes the alt text. An img
+ * the author hid gets no box, and the img needs a parent. It stays in the page, so its file is
+ * re-checked on focus.
+ */
+export function markImageMissing(img: HTMLImageElement, name: string, hint?: string): void {
+  const shownBox = missingBoxes.get(img);
+
+  if (!shownBox && (img.hidden || !img.parentElement)) return;
+
+  const box = createMissingImage(name, hint);
+  missingBoxes.set(img, box);
+
+  if (shownBox) {
+    shownBox.replaceWith(box);
+
+    return;
+  }
+
+  img.hidden = true;
+  const anchor = img.parentElement instanceof HTMLPictureElement ? img.parentElement : img;
+  anchor.after(box);
+}
+
+/** Whether `img` is hidden beside a box from `markImageMissing` */
+export function isImageMarkedMissing(img: HTMLImageElement): boolean {
+  return missingBoxes.has(img);
+}
+
+/** Takes down the box `markImageMissing` showed for `img` and shows the img again. */
+export function clearImageMissing(img: HTMLImageElement): void {
+  const box = missingBoxes.get(img);
+
+  if (!box) return;
+
+  box.remove();
+  missingBoxes.delete(img);
+  img.hidden = false;
+}
+
+/** Re-reads the images shown in `container` whose files changed, and the missing ones. */
 export function refreshImages(container: HTMLElement): void {
   container.querySelectorAll<HTMLImageElement>('img[data-image-path]').forEach((img) => {
     const path = img.dataset.imagePath;
@@ -113,7 +178,11 @@ export function refreshImages(container: HTMLElement): void {
 
     imageFor(path).then(
       ({ url }) => {
-        if (img.dataset.imagePath === path && img.src !== url) img.src = url;
+        // Same URL: the file is unchanged, so an img that wouldn't decode keeps its box
+        if (img.dataset.imagePath !== path || img.src === url) return;
+
+        clearImageMissing(img);
+        img.src = url;
       },
       () => {}
     );

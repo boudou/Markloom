@@ -4,7 +4,7 @@
 // addresses (https:, data:, blob:, //host) stay as written.
 import { canResolveRelative } from '@/features/file-tree/api/fileSystem';
 import { isAbsoluteUrl, resolveSourcePath } from '@/lib/documentPath';
-import { documentFileUrl } from './previewImages';
+import { documentFileUrl, markImageMissing } from './previewImages';
 
 interface MediaCandidate {
   url: string;
@@ -193,4 +193,32 @@ export function showDocumentMedia(root: ParentNode, docPath: string | null): voi
 /** Whether `element`'s media addresses are still being read from the folder */
 export function isMediaPending(element: Element): boolean {
   return element.hasAttribute(PENDING);
+}
+
+// Imgs that already listen for a failed load
+const watchedImages = new WeakSet<HTMLImageElement>();
+
+/**
+ * Shows the `.missing-image` box naming `label()` whenever a load of `img` fails, once its src is the
+ * one meant to show. Listens once per img, so calling it again on each render is free.
+ */
+export function markMissingOnFailedLoad(img: HTMLImageElement, label: () => string): void {
+  if (watchedImages.has(img)) return;
+
+  watchedImages.add(img);
+  img.addEventListener('error', () => {
+    if (!img.isConnected) return;
+
+    // Hidden: the author's, or its box (which may carry a hint) is shown already
+    if (img.hidden) return;
+
+    // A relative src fails against the app's own address until showImage swaps in its object URL
+    // (or reports the file missing); a missing img keeps its path, so this holds after a box too
+    if (img.dataset.imagePath && !img.src.startsWith('blob:')) return;
+
+    // A relative srcset candidate is still being read; its failure says nothing yet
+    if (isMediaPending(img)) return;
+
+    markImageMissing(img, label());
+  });
 }
