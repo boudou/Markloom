@@ -8,13 +8,14 @@ import { usePreservedEditorState } from '../codemirror/documentStates';
 import { useLineRequest } from '../codemirror/useLineRequest';
 import { useActiveContent, useSetActiveContent, useTabsStore } from '@/features/tabs';
 import { useUiStore } from '@/stores/uiStore';
+import { codemirrorSearchEngine, findHighlights, useFindReplaceStore, type SearchEngine } from '@/features/find-replace';
 import { MermaidRenderer } from '@/features/mermaid/components/MermaidRenderer';
 import { forgetDiagram } from '@/features/mermaid/utils/mermaidConfig';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
 
 // Stable references: @uiw/react-codemirror reconfigures the editor whenever these change
-const sourceExtensions = [markloomEditorTheme, markloomHighlight, EditorView.lineWrapping];
+const sourceExtensions = [markloomEditorTheme, markloomHighlight, EditorView.lineWrapping, findHighlights];
 
 const basicSetup = {
   lineNumbers: true,
@@ -30,22 +31,34 @@ const basicSetup = {
   rectangularSelection: true,
   crosshairCursor: false,
   highlightSelectionMatches: true,
+  // The app's find bar searches the source; CodeMirror's own panel would open instead of it (#245)
+  searchKeymap: false,
   lintKeymap: false,
 };
 
 interface MermaidSourceProps {
   content: string;
   onChange: (value: string) => void;
+  onSearchEngine: (engine: SearchEngine | null) => void;
 }
 
 // Its own component so each mount (tab switch, or back from "Diagram only") reopens with the
 // state the source had when it was last shown, undo history included
-function MermaidSource({ content, onChange }: MermaidSourceProps) {
+function MermaidSource({ content, onChange, onSearchEngine }: MermaidSourceProps) {
   const [view, setView] = useState<EditorView | null>(null);
   const initialState = usePreservedEditorState(content, view);
 
   // Search results and other line requests land here as they do in the Markdown source
   useLineRequest(view);
+
+  // One engine per view, so the find bar keeps its subscription between renders
+  useEffect(() => {
+    if (!view) return;
+
+    onSearchEngine(codemirrorSearchEngine(view));
+
+    return () => onSearchEngine(null);
+  }, [view, onSearchEngine]);
 
   return (
     <CodeMirror
@@ -63,7 +76,12 @@ function MermaidSource({ content, onChange }: MermaidSourceProps) {
   );
 }
 
-export function MermaidEditor() {
+interface MermaidEditorProps {
+  /** The source's search engine for the shared find bar; null while the source is not shown */
+  onSearchEngine: (engine: SearchEngine | null) => void;
+}
+
+export function MermaidEditor({ onSearchEngine }: MermaidEditorProps) {
   const content = useActiveContent();
   const setContent = useSetActiveContent();
   const activeTabId = useTabsStore((s) => s.activeTabId);
@@ -79,7 +97,10 @@ export function MermaidEditor() {
   // A line request for this document needs the source, so "Diagram only" gives way to it
   const lineRequested = useUiStore((s) => s.lineRequest !== null && s.lineRequest.tabId === activeTabId);
 
-  if (lineRequested && viewMode === 'preview') setViewMode('split');
+  // The find bar searches the source, so "Diagram only" gives way to it too
+  const findOpen = useFindReplaceStore((s) => s.isOpen);
+
+  if ((lineRequested || findOpen) && viewMode === 'preview') setViewMode('split');
 
   // Update debounced content with delay for live preview
   useEffect(() => {
@@ -109,10 +130,12 @@ export function MermaidEditor() {
     setZoom(100);
   }, []);
 
-  // View mode toggle
+  // "Diagram only" hides the source the find bar searches, so it closes the bar
   const toggleViewMode = useCallback(() => {
-    setViewMode((mode) => (mode === 'split' ? 'preview' : 'split'));
-  }, []);
+    if (viewMode === 'split') useFindReplaceStore.getState().close();
+
+    setViewMode(viewMode === 'split' ? 'preview' : 'split');
+  }, [viewMode]);
 
   const handleContentChange = useCallback(
     (value: string) => {
@@ -172,7 +195,7 @@ export function MermaidEditor() {
             <span className="text-sm text-text-muted font-medium">Mermaid source</span>
           </div>
           <div className="flex-1 overflow-hidden">
-            <MermaidSource content={content} onChange={handleContentChange} />
+            <MermaidSource content={content} onChange={handleContentChange} onSearchEngine={onSearchEngine} />
           </div>
         </div>
       </div>

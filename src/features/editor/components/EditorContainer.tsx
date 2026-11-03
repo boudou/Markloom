@@ -3,7 +3,7 @@ import { ArrowDownUp, MoveHorizontal } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { PAGE_WIDTHS, useSettingsStore } from '@/stores/settingsStore';
 import { selectActiveTab, useTabsStore } from '@/features/tabs';
-import { FindReplaceBar, IDLE_SEARCH_ENGINE } from '@/features/find-replace';
+import { FindReplaceBar, IDLE_SEARCH_ENGINE, type SearchEngine } from '@/features/find-replace';
 import { useUiStore } from '@/stores/uiStore';
 import { IconButton, Tooltip } from '@/components/ui';
 import { SplitViewEditor } from './SplitViewEditor';
@@ -63,6 +63,9 @@ export function EditorContainer() {
 
   const [formatState, setFormatState] = useState<FormatState>(EMPTY_FORMAT_STATE);
 
+  // A .mmd source publishes only its search engine: no editor commands (no format rows, no Copy as rich text)
+  const [mermaidSearch, setMermaidSearch] = useState<SearchEngine | null>(null);
+
   // The document the Rich text editor last showed. It stays mounted, hidden, while that
   // document is open in Markdown mode; another document in Markdown mode drops it.
   const [richLoadId, setRichLoadId] = useState<string | undefined>(undefined);
@@ -76,8 +79,11 @@ export function EditorContainer() {
   // .mmd files get the dedicated diagram editor
   if (activePath && isMermaidFile(activePath)) {
     return (
-      <div className="h-full bg-canvas">
-        <MermaidEditor key={loadId} />
+      <div className="h-full flex flex-col bg-canvas">
+        <FindReplaceBar engine={mermaidSearch ?? IDLE_SEARCH_ENGINE} />
+        <div className="flex-1 min-h-0">
+          <MermaidEditor key={loadId} onSearchEngine={setMermaidSearch} />
+        </div>
       </div>
     );
   }

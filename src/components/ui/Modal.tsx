@@ -140,7 +140,8 @@ export function Modal({
               />
             </Dialog.Overlay>
 
-            {/* Centres the panel; clicks on it fall through to the overlay, which closes the dialog */}
+            {/* Centres the panel; clicks on it fall through to the overlay, which closes the dialog.
+                The panel is capped to the window (less this padding) and scrolls when taller. */}
             <div className="fixed inset-0 z-50 grid place-items-center p-4 pointer-events-none">
             <Dialog.Content asChild onOpenAutoFocus={focusPreferred} onCloseAutoFocus={onCloseAutoFocus}>
               <m.div
@@ -149,7 +150,7 @@ export function Modal({
                 animate="open"
                 exit="gone"
                 className={cn(
-                  'relative w-full p-6 rounded-[14px] bg-canvas pointer-events-auto',
+                  'relative w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 rounded-[14px] bg-canvas pointer-events-auto',
                   'shadow-[0_0_0_1px_rgb(var(--edge-rgb)/0.12),0_2px_4px_rgb(var(--shadow-rgb)/0.06),0_12px_32px_-8px_rgb(var(--shadow-rgb)/0.14)]',
                   'focus:outline-hidden',
                   sizeClasses[size],

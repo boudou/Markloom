@@ -4,8 +4,8 @@ import { canResolveRelative, documentName, readFileBlob } from '@/features/file-
 import { openPath } from '@/lib/documentActions';
 import { notify } from '@/stores/uiStore';
 import { errorMessage } from '@/lib/utils';
-import { createMissingImage, refreshImages, showImage } from '../utils/previewImages';
-import { isMediaPending, showDocumentMedia } from '../utils/documentMedia';
+import { markImageMissing, NO_FOLDER_HINT, refreshImages, showImage } from '../utils/previewImages';
+import { markMissingOnFailedLoad, showDocumentMedia } from '../utils/documentMedia';
 import { isAbsoluteUrl, resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
 
 // Linked files that open in a window, by extension, with the type they open as. The type never
@@ -30,9 +30,10 @@ const VIEWABLE_TYPES = new Map<string, string>([
   ['yml', 'text/plain;charset=utf-8'],
 ]);
 
+// The img stays (hidden, keeping its path), so a focus refresh shows it once its file turns up
 function showMissingImage(img: HTMLImageElement, src: string, hint?: string) {
   if (!img.isConnected) return;
-  img.replaceWith(createMissingImage(img.alt || src, hint));
+  markImageMissing(img, img.alt || src, hint);
 }
 
 function scrollToAnchor(container: HTMLElement, id: string): void {
@@ -133,21 +134,14 @@ export function useDocumentLinks(
     container.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
       const src = img.getAttribute('src') ?? '';
 
-      // Any image that fails to load (remote 404, bad data URL) gets a readable placeholder. A relative
-      // address first fails against the app's own server; until its file is read (showImage swaps in
-      // an object URL, or reports it missing), that failure says nothing about the image.
-      img.addEventListener('error', () => {
-        if (img.dataset.imagePath && !img.src.startsWith('blob:')) return;
-
-        if (isMediaPending(img)) return;
-
-        showMissingImage(img, src);
-      });
+      // Any image that fails to load (remote 404, bad data URL, a file that won't decode) gets a
+      // readable placeholder
+      markMissingOnFailedLoad(img, () => img.alt || src);
 
       if (!src || isAbsoluteUrl(src) || src.startsWith('#')) return;
 
       if (!canResolveRelative(activeFilePath)) {
-        showMissingImage(img, src, 'open the document from its folder to show it');
+        showMissingImage(img, src, NO_FOLDER_HINT);
 
         return;
       }

@@ -1,6 +1,6 @@
 // Rich-text specifics: rendered raw HTML (#183, #184) and minimal-diff saving. Callouts (#211),
 // code highlighting (#212), math (#200) and footnotes (#203) render in parity.spec.ts, in both editors.
-import { test, expect, expectNoPreviewInRichText, seedText } from './fixtures';
+import { test, expect, expectNoPreviewInRichText, seedText, FOLDER_NAME, WEB_IMAGE_ORIGIN } from './fixtures';
 import type { Page } from '@playwright/test';
 
 test.beforeEach(async ({ app }) => {
@@ -158,6 +158,43 @@ async function browserJumpsToTop(page: Page) {
   );
 }
 
+// Ctrl held a moment before the key, as a person presses it: Chrome moves its hidden selection on
+// the Ctrl keydown already
+async function pressWithCtrlHeld(page: Page, key: string) {
+  await page.keyboard.down('Control');
+  await page.waitForTimeout(120);
+  await page.keyboard.press(key);
+  await page.keyboard.up('Control');
+}
+
+// What a busy page can leave for the next key: ProseMirror refused a read of the jumped selection
+// and put the browser's selection back around the selected node, and Chrome has not moved it again
+// before the key acts. Chrome then sends Cut and Copy to the page body, not to the editor (#252).
+async function browserKeepsNodeRangeForNextKey(page: Page) {
+  await page.evaluate(() => {
+    window.addEventListener(
+      'keydown',
+      () => {
+        const node = document.querySelector('[data-doc-surface] .ProseMirror-selectednode');
+
+        if (!node) throw new Error('No node is selected');
+
+        const range = document.createRange();
+
+        range.selectNode(node);
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(range);
+      },
+      { capture: true, once: true }
+    );
+  });
+}
+
+/** The plain text on the clipboard */
+async function clipboardText(page: Page): Promise<string> {
+  return page.evaluate(() => navigator.clipboard.readText());
+}
+
 test.describe('keys after the editor selects a node (#234)', () => {
   test.beforeEach(async ({ app }) => {
     test.skip(app.editorMode !== 'wysiwyg', 'Only rich text selects a block as a whole');
@@ -235,14 +272,30 @@ test.describe('keys after the editor selects a node (#234)', () => {
   });
 
   test('Ctrl held a moment before X cuts a clicked definition @rich-text @editing', async ({ app, page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await app.openFile('references.md');
     await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await pressWithCtrlHeld(page, 'x');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+    expect(await clipboardText(page)).toContain('https://example.com/docs');
+  });
+
+  test('Ctrl+X cuts a clicked definition when the browser keeps its selection around it (#252) @rich-text @editing', async ({ app, page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
     await page.keyboard.down('Control');
-    await page.waitForTimeout(120);
+    await browserKeepsNodeRangeForNextKey(page);
     await page.keyboard.press('x');
     await page.keyboard.up('Control');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
     await expect(app.rendered().locator('h1')).toHaveText('References');
+    expect(await clipboardText(page)).toContain('https://example.com/docs');
   });
 
   test('a modifier pressed and released alone keeps a clicked definition selected @rich-text @editing', async ({ app, page }) => {
@@ -253,6 +306,41 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await page.keyboard.up('Shift');
     await page.keyboard.press('Delete');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('Ctrl+Home from a clicked definition moves the caret to the top (#246) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await pressWithCtrlHeld(page, 'Home');
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveCount(0);
+    await page.keyboard.type('X');
+    await expect(app.rendered().locator('h1')).toHaveText('XReferences');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(5);
+  });
+
+  test('Ctrl+End from a clicked definition moves the caret to the end (#246) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await pressWithCtrlHeld(page, 'End');
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveCount(0);
+    await page.keyboard.type('X');
+    // The document ends with a definition, followed by the empty paragraph rich text keeps last
+    await expect(app.rendered().locator(':scope > :last-child')).toHaveText('X');
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(5);
+  });
+
+  test('Ctrl+C keeps a clicked definition selected for Delete (#246) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await page.keyboard.press('ControlOrMeta+c');
+    await browserJumpsToTop(page);
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
     await expect(app.rendered().locator('h1')).toHaveText('References');
   });
 
@@ -301,7 +389,7 @@ test.describe('keys after the editor selects a node (#234)', () => {
   });
 });
 
-test.describe('missing images (#236)', () => {
+test.describe('missing images (#236, #250)', () => {
   test.beforeEach(async ({ app }) => {
     await app.openFile('missing-image.md');
   });
@@ -361,4 +449,177 @@ test.describe('missing images (#236)', () => {
     await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
     await expect(document.getByRole('img', { name: 'Image not found: Gone lantern', exact: true })).toHaveCount(0);
   });
+
+  test('an image edited to a missing path and back shows again @rich-text @images', async ({ app, page }) => {
+    // Markdown mode only: switching shows the preview, which rich text alone must never mount
+    test.skip(app.editorMode !== 'split', 'starts in Markdown mode');
+
+    const document = page.locator('[data-doc-surface] .rt-document');
+    const image = document.getByRole('img', { name: 'Gone lantern', exact: true });
+    const box = document.getByRole('img', { name: 'Image not found: Gone lantern', exact: true });
+
+    for (const [from, to] of [
+      ['assets/gone-lantern.png', 'assets/pic.png'],
+      ['assets/pic.png', 'assets/pic-typo.png'],
+      ['assets/pic-typo.png', 'assets/pic.png'],
+    ] as const) {
+      await test.step(`${from} to ${to}`, async () => {
+        await app.selectLine(`![Gone lantern](${from})`);
+        await page.keyboard.type(`![Gone lantern](${to})`);
+        await page.keyboard.press('ControlOrMeta+Shift+M');
+
+        if (to === 'assets/pic-typo.png') await expect(box).toBeVisible();
+        else await expect(image).toBeVisible();
+
+        await page.keyboard.press('ControlOrMeta+Shift+M');
+      });
+    }
+
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(box).toHaveCount(0);
+  });
+
+  test('a missing image shows once its file is added and the window regains focus @rich-text @images', async ({ app, page }) => {
+    const rendered = app.rendered();
+
+    for (const [alt, fileName] of [
+      ['Gone lantern', 'gone-lantern.png'],
+      ['Gone HTML lantern', 'gone-html.png'],
+    ] as const) {
+      await expect(rendered.getByRole('img', { name: `Image not found: ${alt}`, exact: true })).toBeVisible();
+      await copyFolderFile(page, 'assets/pic.png', `assets/${fileName}`);
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+
+      const image = rendered.getByRole('img', { name: alt, exact: true });
+
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+      await expect(rendered.getByRole('img', { name: `Image not found: ${alt}`, exact: true })).toHaveCount(0);
+    }
+  });
+
+  test('an image file that will not decode keeps its box when the window regains focus @rich-text @images', async ({ app, page }) => {
+    const rendered = app.rendered();
+    const box = rendered.getByRole('img', { name: 'Image not found: Gone lantern', exact: true });
+    const image = rendered.locator('img[alt="Gone lantern"]');
+
+    await expect(box).toBeVisible();
+    // A text file saved as .png: it reads, but won't decode
+    await copyFolderFile(page, 'missing-image.md', 'assets/gone-lantern.png');
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.src.startsWith('blob:'))).toBe(true);
+    await expect(box).toBeVisible();
+    await expect(image).not.toBeVisible();
+
+    // Flags any moment the box is gone or the img (its broken-image icon) shows
+    await page.evaluate(() => {
+      const surface = document.querySelector<HTMLElement>('[data-doc-surface]');
+
+      if (!surface) throw new Error('no document surface');
+
+      new MutationObserver(() => {
+        const img = surface.querySelector<HTMLImageElement>('img[alt="Gone lantern"]');
+
+        if (!surface.querySelector('.missing-image') || (img && !img.hidden)) document.documentElement.dataset.e2eBoxGone = '';
+      }).observe(surface, { subtree: true, childList: true, attributes: true });
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    // The unchanged file's check settles within a few frames
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
+
+    await expect(box).toBeVisible();
+    await expect(image).not.toBeVisible();
+    expect(await page.evaluate(() => 'e2eBoxGone' in document.documentElement.dataset)).toBe(false);
+  });
+
+  test('a web image that fails to load shows the Image not found box @rich-text @images', async ({ app, page }) => {
+    // Registered after the fixture's catch-all, so it wins for this address
+    await page.route(`${WEB_IMAGE_ORIGIN}/web.png`, (route) => route.fulfill({ status: 404 }));
+    await app.openFile('fixture.md');
+
+    const rendered = app.rendered();
+
+    await expect(rendered.getByRole('img', { name: 'Image not found: Web image', exact: true })).toBeVisible();
+    await expect(rendered.locator('img[alt="Web image"]')).not.toBeVisible();
+  });
+
+  test('editing a missing image to another missing path keeps its box @rich-text @images', async ({ app, page }) => {
+    // Markdown mode only: switching shows the preview, which rich text alone must never mount
+    test.skip(app.editorMode !== 'split', 'starts in Markdown mode');
+
+    const richText = page.locator('[data-doc-surface] .rt-document');
+
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+    await expect(richText.getByRole('img', { name: 'Image not found: Gone lantern', exact: true })).toBeVisible();
+
+    // Flags any moment the box is gone or the img shows its alt text instead
+    await page.evaluate(() => {
+      const surface = document.querySelector<HTMLElement>('[data-doc-surface] .rt-document');
+
+      if (!surface) throw new Error('no rich-text document');
+
+      surface.dataset.e2eWatched = '';
+
+      new MutationObserver(() => {
+        const img = surface.querySelector<HTMLImageElement>('img[alt="Gone lantern"]');
+
+        if (!surface.querySelector('.missing-image') || (img && !img.hidden)) document.documentElement.dataset.e2eBoxGone = '';
+      }).observe(surface, { subtree: true, childList: true, attributes: true });
+    });
+
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+    await app.selectLine('![Gone lantern](assets/gone-lantern.png)');
+    await page.keyboard.type('![Gone lantern](assets/still-gone.png)');
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+
+    await expect(richText.getByRole('img', { name: 'Image not found: Gone lantern', exact: true })).toBeVisible();
+    // The watched surface is the one on screen (rich text stays mounted while Markdown mode shows)
+    await expect(richText).toHaveAttribute('data-e2e-watched', '');
+    expect(await page.evaluate(() => 'e2eBoxGone' in document.documentElement.dataset)).toBe(false);
+  });
+
+  test('a relative image in an unsaved document shows the box with the folder hint @rich-text @images', async ({ app, page }) => {
+    // Markdown mode only: the image is typed in the source, then the document switches to rich text
+    test.skip(app.editorMode !== 'split', 'starts in Markdown mode');
+
+    await page.keyboard.press('Alt+n');
+    await expect(page.getByRole('tablist', { name: 'Open documents' }).getByRole('tab', { selected: true })).toHaveText(/^Untitled/);
+    await page.getByLabel('Markdown source').click();
+    await page.keyboard.type('![Loose](assets/pic.png)');
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+
+    const document = page.locator('[data-doc-surface] .rt-document');
+
+    await expect(document.getByRole('img', { name: /^Image not found: Loose\. open the document from its folder/ })).toBeVisible();
+    await expect(document.locator('img[alt="Loose"]')).not.toBeVisible();
+  });
 });
+
+/** Copies a file of the test folder to another path in it, as another app would */
+async function copyFolderFile(page: Page, from: string, to: string): Promise<void> {
+  await page.evaluate(
+    async ([folderName, fromPath, toPath]) => {
+      const folder = await (await navigator.storage.getDirectory()).getDirectoryHandle(folderName);
+
+      const directoryOf = async (parts: string[]) => {
+        let directory = folder;
+
+        for (const part of parts) directory = await directory.getDirectoryHandle(part);
+
+        return directory;
+      };
+
+      const fromParts = fromPath.split('/');
+      const toParts = toPath.split('/');
+      const file = await (await (await directoryOf(fromParts.slice(0, -1))).getFileHandle(fromParts.at(-1) ?? '')).getFile();
+      const target = await (await directoryOf(toParts.slice(0, -1))).getFileHandle(toParts.at(-1) ?? '', { create: true });
+      const writable = await target.createWritable();
+
+      await writable.write(await file.arrayBuffer());
+      await writable.close();
+    },
+    [FOLDER_NAME, from, to] as const
+  );
+}

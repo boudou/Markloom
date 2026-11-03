@@ -21,7 +21,8 @@ import {
   leadingBlankLines,
   mermaidFences,
 } from '@/lib/markdown';
-import { createMissingImage, showImage } from '../utils/previewImages';
+import { clearImageMissing, isImageMarkedMissing, markImageMissing, NO_FOLDER_HINT, showImage } from '../utils/previewImages';
+import { markMissingOnFailedLoad } from '../utils/documentMedia';
 import type { ResolvedReference } from './references';
 
 export function activeDocumentPath(): string | null {
@@ -470,51 +471,52 @@ export const imageSchemaFix = imageSchema.extendSchema((prev) => (ctx) => {
 
 export const linkSchemaFix = linkSchema.extendSchema((prev) => (ctx) => ({ ...prev(ctx), inclusive: false, excludes: 'link linkReference' }));
 
-// Images: keep the markdown src untouched, display a resolved one. A missing file hides the img
-// and shows the preview's `.missing-image` box beside it; the node and the Markdown are untouched.
+// Images: keep the markdown src untouched, display a resolved one. An image that can't be shown
+// (a missing file, a web address that fails) hides the img and shows the preview's `.missing-image`
+// box beside it (previewImages.ts); the node and the Markdown are untouched. A missing file keeps
+// its path on the img, so a focus refresh shows it once the file turns up.
 
-// The box shown for each img whose file is missing; only these imgs are ever unhidden, so an
-// author's `<img hidden>` stays hidden
-const missingImages = new WeakMap<HTMLImageElement, HTMLSpanElement>();
+// The label each img's box names, as of its latest showDocumentImage call
+const imageLabels = new WeakMap<HTMLImageElement, string>();
 
 /**
  * Shows a document image in an img: a relative src loads from the open folder (through the
- * preview's image cache), anything else as written. A missing file hides the img and inserts a
- * sibling box that names `label`. The img needs a parent.
+ * preview's image cache), anything else as written. An image that can't be shown is hidden beside
+ * a box that names `label`. The img needs a parent.
  */
 export function showDocumentImage(img: HTMLImageElement, src: string, label: string): void {
-  const shownBox = missingImages.get(img);
+  imageLabels.set(img, label);
+  markMissingOnFailedLoad(img, () => imageLabels.get(img) ?? img.alt);
 
-  if (shownBox) {
-    shownBox.remove();
-    missingImages.delete(img);
-    img.hidden = false;
-  }
-
-  const docPath = activeDocumentPath();
-
-  if (!src || isAbsoluteUrl(src) || !canResolveRelative(docPath)) {
+  if (!src || isAbsoluteUrl(src)) {
     // Takes the img out of any folder read still in flight and out of focus refreshes
     delete img.dataset.imagePath;
-    img.src = src;
+
+    if (img.getAttribute('src') !== src) {
+      // The error listener puts the box back if the new address fails too
+      clearImageMissing(img);
+      img.src = src;
+    } else if (isImageMarkedMissing(img)) {
+      // Only the label changed: setting the same src again would not load it again
+      markImageMissing(img, label);
+    }
 
     return;
   }
 
-  void showImage(img, resolveSourcePath(docPath, src), () => {
-    // Keeps a focus refresh from painting over the placeholder
+  const docPath = activeDocumentPath();
+
+  if (!canResolveRelative(docPath)) {
+    // Never loaded from the app's own address; the box says why it isn't shown
     delete img.dataset.imagePath;
+    img.removeAttribute('src');
+    markImageMissing(img, label, NO_FOLDER_HINT);
 
-    // An author-hidden image, or one whose box is already shown, gets no box
-    if (img.hidden) return;
+    return;
+  }
 
-    const box = createMissingImage(label);
-    img.hidden = true;
-    // Beside a raw-HTML <picture>, not inside it
-    const anchor = img.parentElement instanceof HTMLPictureElement ? img.parentElement : img;
-    anchor.after(box);
-    missingImages.set(img, box);
-  });
+  // A box already shown stays until the read settles, so a missing-to-missing edit never flashes
+  void showImage(img, resolveSourcePath(docPath, src), () => markImageMissing(img, label));
 }
 
 // A wrapper, so a missing image's box sits inside the node view (selected, deleted and dragged with it)

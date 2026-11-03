@@ -145,6 +145,44 @@ test('find and replace @editing', async ({ app, page }) => {
   await expect(bar).toBeHidden();
 });
 
+// A .mmd file opens in the diagram editor in both modes, so this runs in both projects
+test('find and replace in a .mmd file use the app\'s find bar (#245) @editing @diagrams', async ({ app, page }) => {
+  const bar = page.getByRole('search', { name: 'Find in document' });
+  const source = page.locator('.cm-content');
+
+  await app.treeItem('flow.mmd').click();
+  await expect(source).toBeVisible();
+
+  // From outside the source the bar shows too
+  await app.treeItem('flow.mmd').focus();
+  await page.keyboard.press('ControlOrMeta+f');
+  await page.keyboard.type('unclosed');
+  await expect(bar).toContainText('1 of 1');
+
+  // "Diagram only" hides the source, so it closes the bar; Ctrl+F brings the source back
+  await page.getByRole('button', { name: 'Diagram only' }).click();
+  await expect(bar).toBeHidden();
+  await expect(source).toBeHidden();
+  await page.keyboard.press('ControlOrMeta+f');
+  await expect(source).toBeVisible();
+  await expect(bar).toContainText('1 of 1');
+  await bar.getByRole('textbox', { name: 'Find' }).press('Escape');
+
+  await source.click();
+  await page.keyboard.press('ControlOrMeta+h');
+  await expect(bar.getByRole('textbox', { name: 'Replace with' })).toBeVisible();
+  await bar.getByRole('textbox', { name: 'Replace with' }).fill('closed]');
+  await bar.getByRole('button', { name: 'Replace all' }).click();
+  await expect(source).toContainText('C[closed]');
+  await expect(page.locator('.cm-panels')).toHaveCount(0);
+
+  await bar.getByRole('textbox', { name: 'Find' }).press('Escape');
+  await expect(source).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(source).toContainText('C[unclosed');
+  await expect(source).not.toContainText('closed]');
+});
+
 test('the command palette runs a command @editing @palette', async ({ page }) => {
   await runCommand(page, 'Show contents');
 

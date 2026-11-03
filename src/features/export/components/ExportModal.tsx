@@ -336,8 +336,11 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
       onOpenChange={(next) => !exporting && onOpenChange(next)}
       title="Export"
       size={showPages ? '3xl' : 'lg'}
+      className="flex flex-col"
     >
-      <div className="space-y-5">
+      {/* In a short window the body scrolls and the footer stays in view. The 4px inset keeps
+          focus rings inside the scroll area; flex margins don't collapse, so spacing is unchanged. */}
+      <div className="space-y-5 min-h-0 overflow-y-auto -m-1 p-1">
         <div role="radiogroup" aria-label="Format" className="grid grid-cols-5 gap-2">
           {FORMATS.map(({ id, label, icon: Icon }) => (
             <button
@@ -422,7 +425,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
         </div>
       </div>
 
-      <ModalFooter className="flex-wrap">
+      <ModalFooter className="flex-wrap shrink-0">
         <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={exporting}>
           Cancel
         </Button>

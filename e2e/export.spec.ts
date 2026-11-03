@@ -282,6 +282,30 @@ test.describe('pages.md', () => {
     expect(pngSize(stacked.bytes)).toEqual({ width: A4_PNG.width, height: A4_PNG.height * count });
   });
 
+  test('every footer button stays reachable in a short window (#244) @export', async ({ page }) => {
+    for (const size of [{ width: 600, height: 800 }, { width: 800, height: 500 }]) {
+      await page.setViewportSize(size);
+
+      const dialog = await openExport(page, 'Image');
+
+      await pageCount(page);
+
+      for (const name of ['Cancel', 'Save this page', 'Save as one image', 'Save all pages']) {
+        const button = dialog.getByRole('button', { name });
+
+        await expect(button).toBeInViewport({ ratio: 1 });
+        // A trial click fails if anything covers the button
+        await button.click({ trial: true });
+      }
+
+      expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
+      await expect(dialog).toBeHidden();
+    }
+  });
+
   test('Browser PDF names the print job after the File name field and says what to pick (#165) @export', async ({ page }) => {
     // Chrome and Edge suggest the tab's title as the PDF's name: keep what the app shows when print() runs
     await page.addInitScript(() => {

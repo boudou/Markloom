@@ -15,17 +15,46 @@
 // selects a node until the user moves the selection on purpose (a pointer down, a key the editor
 // leaves to the browser, the editor losing focus), a read of the browser's selection that would
 // turn into a bare caret is refused, and ProseMirror puts the browser's selection back itself.
-// A modifier pressed on its own (Ctrl before X) is not such a move: Chrome jumps on it too.
+// A modifier pressed on its own (Ctrl before X) is not such a move: Chrome jumps on it too, and
+// neither is Copy, which leaves the node selected for the next key (#246).
+// The browser cannot move a caret it does not show, so the keys that go to the start or end of the
+// document (Ctrl+Home, Ctrl+End) are handled here while a node is selected (#246).
 // RichTextEditor registers this plugin first so that both orderings hold.
 import { $prose } from '@milkdown/kit/utils';
-import { NodeSelection, Plugin, TextSelection, type Selection, type Transaction } from '@milkdown/kit/prose/state';
+import { NodeSelection, Plugin, Selection, TextSelection, type Transaction } from '@milkdown/kit/prose/state';
 import type { EditorView } from '@milkdown/kit/prose/view';
+import { isMac, matchesCombo } from '@/lib/shortcuts';
 
 /** keyCode of the keydown events an IME sends while composing, which ProseMirror leaves alone */
 const COMPOSING_KEY_CODE = 229;
 
 /** Keys that only modify the next one; pressed alone they do not move the selection on purpose */
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock']);
+
+/**
+ * Whether a read of the browser's selection may turn a selected node into a bare caret: `idle`
+ * lets every read through; `armed` refuses one unless a key's own command scrolled it; after a
+ * modifier alone or Copy, which neither moves nor scrolls, `armed-after-modifier` refuses that too
+ */
+type NodeGuard = 'idle' | 'armed' | 'armed-after-modifier';
+
+/** Copy, which leaves the selection where it is: Ctrl+C (Cmd+C), or Ctrl+Insert */
+function isCopyKey(event: KeyboardEvent): boolean {
+  return matchesCombo(event, 'Mod-c') || (!isMac && matchesCombo(event, 'Mod-Insert'));
+}
+
+/** The key that goes to the start of the document: Ctrl+Home, Cmd+Up on macOS */
+const DOCUMENT_START_COMBO = isMac ? 'Mod-ArrowUp' : 'Mod-Home';
+
+/** The key that goes to the end of the document: Ctrl+End, Cmd+Down on macOS */
+const DOCUMENT_END_COMBO = isMac ? 'Mod-ArrowDown' : 'Mod-End';
+
+/** -1 for the key that goes to the start of the document, 1 for the end, 0 for any other key */
+function documentEdgeKey(event: KeyboardEvent): -1 | 0 | 1 {
+  if (matchesCombo(event, DOCUMENT_START_COMBO)) return -1;
+
+  return matchesCombo(event, DOCUMENT_END_COMBO) ? 1 : 0;
+}
 
 /** Whether a selection-only transaction moves a collapsed caret to where the browser's selection is */
 function readsBrowserCaret(view: EditorView, tr: Transaction): boolean {
@@ -44,26 +73,23 @@ function readsBrowserCaret(view: EditorView, tr: Transaction): boolean {
 export const caretSync = $prose(() => {
   // The editor's selection when the last click began, until the next key
   let beforeClick: Selection | null = null;
-  // Set when the editor selects a node, until the user moves the selection on purpose
-  let nodeGuard = false;
-  // Whether the last key pressed was a modifier alone, until the next key, pointer down or blur
-  let modifierAlone = false;
+  // Armed when the editor selects a node, until the user moves the selection on purpose
+  let guard: NodeGuard = 'idle';
   let editorView: EditorView | null = null;
 
   const disarm = () => {
-    nodeGuard = false;
-    modifierAlone = false;
+    guard = 'idle';
 
     return false;
   };
 
   return new Plugin({
     filterTransaction: (tr, state) => {
-      if (!nodeGuard || !editorView || !tr.selectionSet || tr.docChanged || tr.selection.eq(state.selection)) return true;
+      if (guard === 'idle' || !editorView || !tr.selectionSet || tr.docChanged || tr.selection.eq(state.selection)) return true;
 
       // A key's own command scrolls, and so does ProseMirror's read of the browser's selection
-      // right after a key it left alone; after a modifier alone, only that read can arrive
-      if (tr.scrolledIntoView && !modifierAlone) return true;
+      // right after a key it left alone; after a modifier alone or Copy, only that read can arrive
+      if (tr.scrolledIntoView && guard === 'armed') return true;
 
       return !readsBrowserCaret(editorView, tr);
     },
@@ -72,19 +98,52 @@ export const caretSync = $prose(() => {
 
       // Added after ProseMirror's own listener, so it knows whether the editor handled the key
       const onKeyDown = (event: KeyboardEvent) => {
-        if (!event.defaultPrevented && !modifierAlone) nodeGuard = false;
+        if (!event.defaultPrevented && guard === 'armed') guard = 'idle';
       };
 
+      // When the browser's selection is still the range ProseMirror put around a selected node
+      // (it does so after refusing a read), Chrome sends Cut and Copy to the page body, not to the
+      // editor, so ProseMirror's own handler never runs and Ctrl+X cut nothing (#252). This does
+      // what that handler does
+      const onClipboard = (event: ClipboardEvent) => {
+        const { selection } = view.state;
+        const target = event.target;
+        const data = event.clipboardData;
+        const cut = event.type === 'cut';
+
+        // An event inside the editor reaches ProseMirror's own handler; a read-only editor cuts nothing
+        const reachesEditor = target instanceof Node && view.dom.contains(target);
+
+        if (reachesEditor || (cut && !view.editable)) return;
+
+        if (event.defaultPrevented || !data || !(selection instanceof NodeSelection) || !view.hasFocus()) return;
+
+        const { dom, text } = view.serializeForClipboard(selection.content());
+
+        event.preventDefault();
+        data.clearData();
+        data.setData('text/html', dom.innerHTML);
+        data.setData('text/plain', text);
+
+        if (cut) view.dispatch(view.state.tr.deleteSelection().scrollIntoView().setMeta('uiEvent', 'cut'));
+      };
+
+      const page = view.dom.ownerDocument;
+
       view.dom.addEventListener('keydown', onKeyDown);
+      page.addEventListener('cut', onClipboard);
+      page.addEventListener('copy', onClipboard);
 
       return {
         update: (updated, prev) => {
           const { selection } = updated.state;
 
-          if (selection instanceof NodeSelection && !selection.eq(prev.selection)) nodeGuard = true;
+          if (selection instanceof NodeSelection && !selection.eq(prev.selection)) guard = 'armed';
         },
         destroy: () => {
           view.dom.removeEventListener('keydown', onKeyDown);
+          page.removeEventListener('cut', onClipboard);
+          page.removeEventListener('copy', onClipboard);
           editorView = null;
           disarm();
         },
@@ -97,16 +156,18 @@ export const caretSync = $prose(() => {
           const target = event.target;
 
           beforeClick = selection;
-          modifierAlone = false;
+
           // The one arming `update` cannot see: a click inside a selected atom leaves it selected
           // without a transaction (ProseMirror skips an unchanged selection), and the browser still
           // moves its own selection away. A click inside a selected paragraph or code block places
           // a caret there on purpose, so it disarms
-          nodeGuard =
+          const insideSelectedAtom =
             selection instanceof NodeSelection &&
             selection.node.isAtom &&
             target instanceof Node &&
             !!view.nodeDOM(selection.from)?.contains(target);
+
+          guard = insideSelectedAtom ? 'armed' : 'idle';
 
           return false;
         },
@@ -114,11 +175,27 @@ export const caretSync = $prose(() => {
         blur: disarm,
         keydown: (view, event) => {
           // Runs before the editor's own key handling, so its commands see the new value
-          modifierAlone = MODIFIER_KEYS.has(event.key);
+          if (guard !== 'idle') guard = MODIFIER_KEYS.has(event.key) || isCopyKey(event) ? 'armed-after-modifier' : 'armed';
 
           if (event.isComposing || event.keyCode === COMPOSING_KEY_CODE) return false;
 
           const { selection } = view.state;
+          const edge = documentEdgeKey(event);
+
+          if (edge !== 0 && selection instanceof NodeSelection) {
+            const { doc } = view.state;
+            // The first or last caret position in text: the document can start or end with a block
+            const caret = Selection.findFrom(doc.resolve(edge < 0 ? 0 : doc.content.size), -edge, true);
+
+            beforeClick = null;
+            guard = 'idle';
+            event.preventDefault();
+
+            if (caret) view.dispatch(view.state.tr.setSelection(caret).scrollIntoView());
+
+            return true;
+          }
+
           const clickUnread = beforeClick !== null && selection.eq(beforeClick);
 
           beforeClick = null;
