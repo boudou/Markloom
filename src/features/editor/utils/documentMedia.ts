@@ -195,17 +195,24 @@ export function isMediaPending(element: Element): boolean {
   return element.hasAttribute(PENDING);
 }
 
-// Imgs that already listen for a failed load
-const watchedImages = new WeakSet<HTMLImageElement>();
+// The label each img that listens for a failed load names, as of the latest call
+const failedLoadLabels = new WeakMap<HTMLImageElement, { current: () => string }>();
 
 /**
  * Shows the `.missing-image` box naming `label()` whenever a load of `img` fails, once its src is the
- * one meant to show. Listens once per img, so calling it again on each render is free.
+ * one meant to show. Listens once per img; calling it again on each render only replaces the label.
  */
 export function markMissingOnFailedLoad(img: HTMLImageElement, label: () => string): void {
-  if (watchedImages.has(img)) return;
+  const watched = failedLoadLabels.get(img);
 
-  watchedImages.add(img);
+  if (watched) {
+    watched.current = label;
+
+    return;
+  }
+
+  const latest = { current: label };
+  failedLoadLabels.set(img, latest);
   img.addEventListener('error', () => {
     if (!img.isConnected) return;
 
@@ -213,12 +220,13 @@ export function markMissingOnFailedLoad(img: HTMLImageElement, label: () => stri
     if (img.hidden) return;
 
     // A relative src fails against the app's own address until showImage swaps in its object URL
-    // (or reports the file missing); a missing img keeps its path, so this holds after a box too
+    // (or reports the file missing); a missing img keeps its path, so this holds after a box too.
+    // A blob src that fails is a file that read but wouldn't decode (see markImageMissing).
     if (img.dataset.imagePath && !img.src.startsWith('blob:')) return;
 
     // A relative srcset candidate is still being read; its failure says nothing yet
     if (isMediaPending(img)) return;
 
-    markImageMissing(img, label());
+    markImageMissing(img, latest.current());
   });
 }

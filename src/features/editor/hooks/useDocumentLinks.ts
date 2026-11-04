@@ -135,7 +135,7 @@ export function useDocumentLinks(
       const src = img.getAttribute('src') ?? '';
 
       // Any image that fails to load (remote 404, bad data URL, a file that won't decode) gets a
-      // readable placeholder
+      // readable placeholder; one that won't decode follows the rule beside markImageMissing
       markMissingOnFailedLoad(img, () => img.alt || src);
 
       if (!src || isAbsoluteUrl(src) || src.startsWith('#')) return;

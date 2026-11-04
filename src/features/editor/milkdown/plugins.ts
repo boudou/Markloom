@@ -474,10 +474,8 @@ export const linkSchemaFix = linkSchema.extendSchema((prev) => (ctx) => ({ ...pr
 // Images: keep the markdown src untouched, display a resolved one. An image that can't be shown
 // (a missing file, a web address that fails) hides the img and shows the preview's `.missing-image`
 // box beside it (previewImages.ts); the node and the Markdown are untouched. A missing file keeps
-// its path on the img, so a focus refresh shows it once the file turns up.
-
-// The label each img's box names, as of its latest showDocumentImage call
-const imageLabels = new WeakMap<HTMLImageElement, string>();
+// its path on the img, so a focus refresh shows it once the file turns up. A file that read but
+// wouldn't decode follows the rule beside markImageMissing (previewImages.ts).
 
 /**
  * Shows a document image in an img: a relative src loads from the open folder (through the
@@ -485,8 +483,8 @@ const imageLabels = new WeakMap<HTMLImageElement, string>();
  * a box that names `label`. The img needs a parent.
  */
 export function showDocumentImage(img: HTMLImageElement, src: string, label: string): void {
-  imageLabels.set(img, label);
-  markMissingOnFailedLoad(img, () => imageLabels.get(img) ?? img.alt);
+  // The latest call's label wins, so a failed load names the label of the last render
+  markMissingOnFailedLoad(img, () => label);
 
   if (!src || isAbsoluteUrl(src)) {
     // Takes the img out of any folder read still in flight and out of focus refreshes
