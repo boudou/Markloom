@@ -431,6 +431,35 @@ export const useSettingsStore = create<SettingsState>()(
   )
 );
 
+// Whether a raw save was written with this version; a removed or unparsable save never is
+function isSaveOfVersion(raw: string | null, version: number): boolean {
+  if (raw === null) return false;
+
+  try {
+    // A non-object save has no version, and the strict comparison below rejects any other type
+    const saved: { version?: number } | null = JSON.parse(raw);
+
+    return saved?.version === version;
+  } catch {
+    return false;
+  }
+}
+
+// Another tab or window saved settings: load them here too, so a change shows everywhere without a
+// reload. Only a save of this build's version is loaded: rehydrating one from another version
+// migrates it and writes it back, so a tab left open on an older release and a tab on a newer one
+// would rewrite each other's save forever (and the older one would drop keys it doesn't know).
+// Rehydrating a same-version save sets state without saving it back, so tabs don't ping-pong.
+window.addEventListener('storage', (event) => {
+  const options = useSettingsStore.persist.getOptions();
+
+  if (event.storageArea !== localStorage || event.key !== options.name) return;
+
+  if (!isSaveOfVersion(event.newValue, SETTINGS_VERSION)) return;
+
+  void useSettingsStore.persist.rehydrate();
+});
+
 // A hand-edited save can hold any value; an unknown one reads as the default (A4 portrait)
 
 export const selectExportPageSize = (s: SettingsState): PageSize => (s.exportPageSize === 'Letter' ? 'Letter' : 'A4');
