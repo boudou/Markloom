@@ -406,11 +406,11 @@ test('the editors and the preview use dark colours in dark mode (#230) @appearan
 
   expect(await taskTick(app)).toContain('%2317191C');
 
-  if (app.editorMode === 'split') {
-    // Grammars load when the browser is idle; the preview redraws then
-    await expect(rendered.locator('pre .hljs-keyword')).toHaveText('const');
-    expect(await color(rendered.locator('pre .hljs-keyword'))).toBe('rgb(197, 134, 192)');
+  // Grammars load when the browser is idle or a code block asks; both editors redraw then
+  await expect(rendered.locator('pre .hljs-keyword')).toHaveText('const');
+  expect(await color(rendered.locator('pre .hljs-keyword'))).toBe('rgb(197, 134, 192)');
 
+  if (app.editorMode === 'split') {
     await find(page, 'nightowl');
     expect(await background(page.locator('.cm-searchMatch:not(.cm-searchMatch-selected)').first())).toBe('rgb(58, 45, 8)');
     expect(await background(page.locator('.cm-searchMatch-selected').first())).toBe('rgb(69, 53, 8)');

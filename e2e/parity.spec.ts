@@ -2,7 +2,7 @@
 // text opened on its own. A known gap is marked with knownGap(), so the test is expected to fail in
 // that project; once the gap is fixed the test passes, which turns it red until the marker goes.
 import type { Locator } from '@playwright/test';
-import { test, expect, expectNoPreviewInRichText, knownGap } from './fixtures';
+import { test, expect, expectNoPreviewInRichText } from './fixtures';
 
 async function expectImageShown(image: Locator): Promise<void> {
   await expect(image).toBeVisible();
@@ -94,8 +94,6 @@ test('callout @parity', async ({ app }) => {
 });
 
 test('highlighted code @parity @code', async ({ app }) => {
-  knownGap(app, 'wysiwyg', 212, 'rich text code blocks have no syntax highlighting');
-
   await expect(app.rendered().locator('pre .hljs-keyword')).toHaveText('const');
 });
 
