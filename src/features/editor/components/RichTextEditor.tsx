@@ -48,6 +48,7 @@ import { applyOutsideEdit } from '../milkdown/outsideEdit';
 import { applyLineRequest } from '../milkdown/lineRequest';
 import { richFormatState } from '../milkdown/formatState';
 import { focusPlugin } from '../milkdown/focus';
+import { codeHighlight } from '../milkdown/codeHighlight';
 import { caretSync } from '../milkdown/caretSync';
 import { nodeClipboard } from '../milkdown/nodeClipboard';
 import { callouts } from '../milkdown/callouts';
@@ -190,6 +191,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         .use(trailing)
         .use(codeBlockView)
         .use(diagramErrorMarks)
+        .use(codeHighlight)
         .use(callouts)
         .use(inlineCodeSpellcheck)
         .use(imageView)

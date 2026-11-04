@@ -1,1 +1,1 @@
-export { highlightCode, loadHighlighter, onHighlighterReady, isHighlighterReady } from './highlightPlugin';
+export { highlightCode, highlightTokens, loadHighlighter, onHighlighterReady, isHighlighterReady, type HighlightToken } from './highlightPlugin';

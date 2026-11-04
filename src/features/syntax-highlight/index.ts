@@ -1,1 +1,1 @@
-export { highlightCode, loadHighlighter, onHighlighterReady, isHighlighterReady } from './utils';
+export { highlightCode, highlightTokens, loadHighlighter, onHighlighterReady, isHighlighterReady, type HighlightToken } from './utils';
