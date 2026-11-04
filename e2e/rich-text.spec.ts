@@ -3,6 +3,12 @@
 import { test, expect, expectNoPreviewInRichText, seedText, FOLDER_NAME, WEB_IMAGE_ORIGIN } from './fixtures';
 import type { Page } from '@playwright/test';
 
+declare global {
+  interface Window {
+    __e2eSelectionMoved?: Promise<void>;
+  }
+}
+
 test.beforeEach(async ({ app }) => {
   await app.openFolder();
 });
@@ -158,14 +164,26 @@ async function browserJumpsToTop(page: Page) {
   );
 }
 
-// Ctrl held a moment before the key, as a person presses it: Chrome moves its hidden selection on
-// the Ctrl keydown already
-async function pressWithCtrlHeld(page: Page, key: string) {
-  await page.keyboard.down('Control');
-  await page.waitForTimeout(120);
+// Ctrl (Cmd on macOS) held a moment before the key, as a person presses it: Chrome moves its hidden
+// selection on the modifier's keydown already. Waits for the selectionchange of that move (the
+// listener is added after ProseMirror's, so ProseMirror has read it), or a second when none comes.
+async function pressWithModHeld(page: Page, key: string) {
+  await page.evaluate(() => {
+    window.__e2eSelectionMoved = new Promise<void>((resolve) => {
+      document.addEventListener('selectionchange', () => setTimeout(resolve), { once: true });
+      setTimeout(resolve, 1000);
+    });
+  });
+  await page.keyboard.down('ControlOrMeta');
+  await page.evaluate(() => window.__e2eSelectionMoved);
   await page.keyboard.press(key);
-  await page.keyboard.up('Control');
+  await page.keyboard.up('ControlOrMeta');
 }
+
+/** With Ctrl (Cmd on macOS), the keys that go to the start and the end of the document */
+const DOCUMENT_START_KEY = process.platform === 'darwin' ? 'ArrowUp' : 'Home';
+
+const DOCUMENT_END_KEY = process.platform === 'darwin' ? 'ArrowDown' : 'End';
 
 // What a busy page can leave for the next key: ProseMirror refused a read of the jumped selection
 // and put the browser's selection back around the selected node, and Chrome has not moved it again
@@ -276,7 +294,7 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await app.openFile('references.md');
     await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
-    await pressWithCtrlHeld(page, 'x');
+    await pressWithModHeld(page, 'x');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
     await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
     await expect(app.rendered().locator('h1')).toHaveText('References');
@@ -288,10 +306,10 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await app.openFile('references.md');
     await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
-    await page.keyboard.down('Control');
+    await page.keyboard.down('ControlOrMeta');
     await browserKeepsNodeRangeForNextKey(page);
     await page.keyboard.press('x');
-    await page.keyboard.up('Control');
+    await page.keyboard.up('ControlOrMeta');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
     await expect(app.rendered().locator('.rt-definition', { hasText: '[d]:' })).toHaveCount(0);
     await expect(app.rendered().locator('h1')).toHaveText('References');
@@ -313,7 +331,7 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await app.openFile('references.md');
     await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
-    await pressWithCtrlHeld(page, 'Home');
+    await pressWithModHeld(page, DOCUMENT_START_KEY);
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveCount(0);
     await page.keyboard.type('X');
     await expect(app.rendered().locator('h1')).toHaveText('XReferences');
@@ -324,13 +342,102 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await app.openFile('references.md');
     await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
-    await pressWithCtrlHeld(page, 'End');
+    await pressWithModHeld(page, DOCUMENT_END_KEY);
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveCount(0);
     await page.keyboard.type('X');
     // The document ends with a definition, followed by the empty paragraph rich text keeps last
     await expect(app.rendered().locator(':scope > :last-child')).toHaveText('X');
     await expect(app.rendered().locator('h1')).toHaveText('References');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(5);
+  });
+
+  test('Shift+Ctrl+End from a clicked definition selects to the end (#267) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[js]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[js\]:/);
+    await pressWithModHeld(page, `Shift+${DOCUMENT_END_KEY}`);
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[js]:' })).toHaveCount(0);
+    await expect(app.rendered().locator('p', { hasText: 'Last paragraph.' })).toHaveText('Last paragraph.');
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('Shift+Ctrl+Home from a clicked definition selects to the start (#267) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[img]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[img\]:/);
+    await pressWithModHeld(page, `Shift+${DOCUMENT_START_KEY}`);
+    await page.keyboard.press('Delete');
+    // One end of the selection stays in text: the start of "A bad link.", the first text after the
+    // definition, so the definitions before it go too
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(1);
+    await expect(app.rendered().locator('.rt-definition')).toHaveText(/^\[js\]:/);
+    await expect(app.rendered().locator(':scope > :first-child')).toHaveText(/^A bad/);
+  });
+
+  test('Shift+Ctrl+End from front matter selects the whole document (#267) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('front-matter.md');
+
+    const block = app.rendered().locator('details.front-matter');
+
+    await block.locator('summary').click();
+    await block.locator('pre').click();
+    // No text before the front matter to anchor a text selection: the whole document is selected
+    await pressWithModHeld(page, `Shift+${DOCUMENT_END_KEY}`);
+    await page.keyboard.press('Delete');
+    await expect(block).toHaveCount(0);
+    await expect(app.rendered().locator('h1')).toHaveCount(0);
+    await expect(app.rendered()).not.toContainText('A paragraph after the front matter.');
+  });
+
+  test('Ctrl+X keeps the next definition selected when the browser jumps to the top (#267) @rich-text @editing', async ({ app, page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    await pressWithModHeld(page, 'x');
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[guide\]:/);
+    await browserJumpsToTop(page);
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(3);
+    await expect(app.rendered().locator('.rt-definition', { hasText: '[guide]:' })).toHaveCount(0);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
+  });
+
+  test('a browser jump right after a modifier and a handled key is refused (#267) @rich-text @editing', async ({ app, page }) => {
+    await app.openFile('references.md');
+    await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
+    // All in one evaluate: ProseMirror takes a read within 50 ms of a key it left alone (Shift) as
+    // that key's own, and separate round trips would take longer
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const editor = document.querySelector('[data-doc-surface] .ProseMirror');
+          const heading = document.querySelector('[data-doc-surface] .rt-document h1')?.firstChild;
+
+          if (!editor || !heading) throw new Error('The editor has no heading text');
+
+          const send = (type: string, init: KeyboardEventInit, keyCode: number) => {
+            const event = new KeyboardEvent(type, { ...init, bubbles: true, cancelable: true });
+
+            // ProseMirror reads keyCode, which the constructor does not take
+            Object.defineProperty(event, 'keyCode', { value: keyCode });
+            editor.dispatchEvent(event);
+          };
+
+          send('keydown', { key: 'Shift', code: 'ShiftLeft', shiftKey: true }, 16);
+          send('keyup', { key: 'Shift', code: 'ShiftLeft' }, 16);
+          send('keydown', { key: 'ArrowDown', code: 'ArrowDown' }, 40);
+          document.addEventListener('selectionchange', () => setTimeout(resolve), { once: true });
+          getSelection()?.collapse(heading, 0);
+        })
+    );
+    await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[guide\]:/);
+    await page.keyboard.press('Delete');
+    await expect(app.rendered().locator('.rt-definition')).toHaveCount(4);
+    await expect(app.rendered().locator('h1')).toHaveText('References');
   });
 
   test('Ctrl+C keeps a clicked definition selected for Delete (#246) @rich-text @editing', async ({ app, page }) => {
@@ -349,7 +456,7 @@ test.describe('keys after the editor selects a node (#234)', () => {
     await app.rendered().locator('.rt-definition', { hasText: '[d]:' }).click();
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText(/^\[d\]:/);
     await app.placeCursorAfter('Last paragraph.');
-    await page.keyboard.press('Control+Home');
+    await page.keyboard.press(`ControlOrMeta+${DOCUMENT_START_KEY}`);
     await page.keyboard.type('X');
     await expect(app.rendered().locator('h1')).toHaveText('XReferences');
     await expect(app.rendered().locator('.rt-definition')).toHaveCount(5);
@@ -360,8 +467,8 @@ test.describe('keys after the editor selects a node (#234)', () => {
 
     const paragraph = app.rendered().locator('p', { hasText: 'Last paragraph.' });
 
-    // Ctrl+click selects the whole paragraph as a node
-    await paragraph.click({ modifiers: ['Control'] });
+    // Ctrl+click (Cmd+click on macOS) selects the whole paragraph as a node
+    await paragraph.click({ modifiers: ['ControlOrMeta'] });
     await expect(app.rendered().locator('.ProseMirror-selectednode')).toHaveText('Last paragraph.');
 
     const box = await paragraph.boundingBox();
