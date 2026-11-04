@@ -16,12 +16,19 @@
 // leaves to the browser, the editor losing focus), a read of the browser's selection that would
 // turn into a bare caret is refused, and ProseMirror puts the browser's selection back itself.
 // A modifier pressed on its own (Ctrl before X) is not such a move: Chrome jumps on it too, and
-// neither is Copy, which leaves the node selected for the next key (#246).
+// neither is Copy, which leaves the node selected for the next key (#246). A cut or Delete that
+// selects the next node arms the guard again, and only a key's own command may turn the node into
+// a caret with a scroll: a read of the browser's selection never may, even right after a key (#267).
+//
 // The browser cannot move a caret it does not show, so the keys that go to the start or end of the
-// document (Ctrl+Home, Ctrl+End) are handled here while a node is selected (#246).
+// document (Ctrl+Home, Ctrl+End) are handled here while a node is selected, and with Shift they
+// extend the selection to that edge (#246, #267).
+//
+// The copy/cut redirect for a node range Chrome sends to the page body is `nodeClipboard.ts` (#252).
 // RichTextEditor registers this plugin first so that both orderings hold.
 import { $prose } from '@milkdown/kit/utils';
-import { NodeSelection, Plugin, Selection, TextSelection, type Transaction } from '@milkdown/kit/prose/state';
+import { AllSelection, NodeSelection, Plugin, Selection, TextSelection, type Transaction } from '@milkdown/kit/prose/state';
+import type { Node as ProseNode } from '@milkdown/kit/prose/model';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import { isMac, matchesCombo } from '@/lib/shortcuts';
 
@@ -49,11 +56,45 @@ const DOCUMENT_START_COMBO = isMac ? 'Mod-ArrowUp' : 'Mod-Home';
 /** The key that goes to the end of the document: Ctrl+End, Cmd+Down on macOS */
 const DOCUMENT_END_COMBO = isMac ? 'Mod-ArrowDown' : 'Mod-End';
 
-/** -1 for the key that goes to the start of the document, 1 for the end, 0 for any other key */
-function documentEdgeKey(event: KeyboardEvent): -1 | 0 | 1 {
-  if (matchesCombo(event, DOCUMENT_START_COMBO)) return -1;
+/** The key that selects to the start of the document: Shift+Ctrl+Home, Shift+Cmd+Up on macOS */
+const DOCUMENT_START_SELECT_COMBO = isMac ? 'Mod-Shift-ArrowUp' : 'Mod-Shift-Home';
 
-  return matchesCombo(event, DOCUMENT_END_COMBO) ? 1 : 0;
+/** The key that selects to the end of the document: Shift+Ctrl+End, Shift+Cmd+Down on macOS */
+const DOCUMENT_END_SELECT_COMBO = isMac ? 'Mod-Shift-ArrowDown' : 'Mod-Shift-End';
+
+/** A key that goes to the start (-1) or end (1) of the document, extending the selection or not */
+interface DocumentEdgeKey {
+  edge: -1 | 1;
+  extend: boolean;
+}
+
+/** Which document edge a key goes to, if any */
+function documentEdgeKey(event: KeyboardEvent): DocumentEdgeKey | null {
+  if (matchesCombo(event, DOCUMENT_START_COMBO)) return { edge: -1, extend: false };
+
+  if (matchesCombo(event, DOCUMENT_END_COMBO)) return { edge: 1, extend: false };
+
+  if (matchesCombo(event, DOCUMENT_START_SELECT_COMBO)) return { edge: -1, extend: true };
+
+  return matchesCombo(event, DOCUMENT_END_SELECT_COMBO) ? { edge: 1, extend: true } : null;
+}
+
+/**
+ * The selection from a selected node to the start (-1) or end (1) of the document. Both ends of a
+ * text selection must sit in text, so its fixed end is the nearest text on the far side of the node
+ * (any non-text blocks between are selected too); with no text there, the whole document. Null when
+ * there is no text between the node and that edge.
+ */
+function selectionToDocumentEdge(doc: ProseNode, selection: NodeSelection, edge: -1 | 1): Selection | null {
+  const head = Selection.findFrom(doc.resolve(edge < 0 ? 0 : doc.content.size), -edge, true);
+
+  if (!head || (edge < 0 ? head.head >= selection.to : head.head <= selection.from)) return null;
+
+  const anchor = Selection.findFrom(doc.resolve(edge < 0 ? selection.to : selection.from), -edge, true);
+
+  if (!anchor) return new AllSelection(doc);
+
+  return TextSelection.create(doc, anchor.head, head.head);
 }
 
 /** Whether a selection-only transaction moves a collapsed caret to where the browser's selection is */
@@ -75,6 +116,8 @@ export const caretSync = $prose(() => {
   let beforeClick: Selection | null = null;
   // Armed when the editor selects a node, until the user moves the selection on purpose
   let guard: NodeGuard = 'idle';
+  // While ProseMirror handles a keydown after this plugin's handler: a key's own command runs then
+  let handlingKey = false;
   let editorView: EditorView | null = null;
 
   const disarm = () => {
@@ -87,9 +130,10 @@ export const caretSync = $prose(() => {
     filterTransaction: (tr, state) => {
       if (guard === 'idle' || !editorView || !tr.selectionSet || tr.docChanged || tr.selection.eq(state.selection)) return true;
 
-      // A key's own command scrolls, and so does ProseMirror's read of the browser's selection
-      // right after a key it left alone; after a modifier alone or Copy, only that read can arrive
-      if (tr.scrolledIntoView && guard === 'armed') return true;
+      // Only a key's own command, dispatched while ProseMirror handles the keydown, may turn the
+      // node into a caret with a scroll. ProseMirror also scrolls a read of the browser's selection
+      // within 50 ms of a key it left alone (a modifier), which may come later and is refused (#267)
+      if (tr.scrolledIntoView && guard === 'armed' && handlingKey) return true;
 
       return !readsBrowserCaret(editorView, tr);
     },
@@ -98,53 +142,30 @@ export const caretSync = $prose(() => {
 
       // Added after ProseMirror's own listener, so it knows whether the editor handled the key
       const onKeyDown = (event: KeyboardEvent) => {
+        handlingKey = false;
+
         if (!event.defaultPrevented && guard === 'armed') guard = 'idle';
       };
 
-      // When the browser's selection is still the range ProseMirror put around a selected node
-      // (it does so after refusing a read), Chrome sends Cut and Copy to the page body, not to the
-      // editor, so ProseMirror's own handler never runs and Ctrl+X cut nothing (#252). This does
-      // what that handler does
-      const onClipboard = (event: ClipboardEvent) => {
-        const { selection } = view.state;
-        const target = event.target;
-        const data = event.clipboardData;
-        const cut = event.type === 'cut';
-
-        // An event inside the editor reaches ProseMirror's own handler; a read-only editor cuts nothing
-        const reachesEditor = target instanceof Node && view.dom.contains(target);
-
-        if (reachesEditor || (cut && !view.editable)) return;
-
-        if (event.defaultPrevented || !data || !(selection instanceof NodeSelection) || !view.hasFocus()) return;
-
-        const { dom, text } = view.serializeForClipboard(selection.content());
-
-        event.preventDefault();
-        data.clearData();
-        data.setData('text/html', dom.innerHTML);
-        data.setData('text/plain', text);
-
-        if (cut) view.dispatch(view.state.tr.deleteSelection().scrollIntoView().setMeta('uiEvent', 'cut'));
-      };
-
-      const page = view.dom.ownerDocument;
-
       view.dom.addEventListener('keydown', onKeyDown);
-      page.addEventListener('cut', onClipboard);
-      page.addEventListener('copy', onClipboard);
 
       return {
         update: (updated, prev) => {
           const { selection } = updated.state;
+          const before = prev.selection;
 
-          if (selection instanceof NodeSelection && !selection.eq(prev.selection)) guard = 'armed';
+          if (!(selection instanceof NodeSelection)) return;
+
+          // NodeSelection.eq compares positions only: after a cut, the next node sits where the
+          // cut one was and must arm the guard too (#267)
+          const sameNode = before instanceof NodeSelection && before.from === selection.from && before.node === selection.node;
+
+          if (!sameNode) guard = 'armed';
         },
         destroy: () => {
           view.dom.removeEventListener('keydown', onKeyDown);
-          page.removeEventListener('cut', onClipboard);
-          page.removeEventListener('copy', onClipboard);
           editorView = null;
+          handlingKey = false;
           disarm();
         },
       };
@@ -177,21 +198,30 @@ export const caretSync = $prose(() => {
           // Runs before the editor's own key handling, so its commands see the new value
           if (guard !== 'idle') guard = MODIFIER_KEYS.has(event.key) || isCopyKey(event) ? 'armed-after-modifier' : 'armed';
 
-          if (event.isComposing || event.keyCode === COMPOSING_KEY_CODE) return false;
+          if (event.isComposing || event.keyCode === COMPOSING_KEY_CODE) {
+            handlingKey = true;
+
+            return false;
+          }
 
           const { selection } = view.state;
-          const edge = documentEdgeKey(event);
+          const edgeKey = documentEdgeKey(event);
 
-          if (edge !== 0 && selection instanceof NodeSelection) {
+          if (edgeKey && selection instanceof NodeSelection) {
             const { doc } = view.state;
-            // The first or last caret position in text: the document can start or end with a block
-            const caret = Selection.findFrom(doc.resolve(edge < 0 ? 0 : doc.content.size), -edge, true);
+            const { edge, extend } = edgeKey;
+
+            // With Shift, from the node to that edge; without, the first or last caret position in
+            // text (the document can start or end with a block)
+            const target = extend
+              ? selectionToDocumentEdge(doc, selection, edge)
+              : Selection.findFrom(doc.resolve(edge < 0 ? 0 : doc.content.size), -edge, true);
 
             beforeClick = null;
             guard = 'idle';
             event.preventDefault();
 
-            if (caret) view.dispatch(view.state.tr.setSelection(caret).scrollIntoView());
+            if (target) view.dispatch(view.state.tr.setSelection(target).scrollIntoView());
 
             return true;
           }
@@ -202,9 +232,12 @@ export const caretSync = $prose(() => {
 
           // A node or cell the editor selected itself (a click on a definition, an arrow onto an
           // image) shows no caret of its own, so the browser's selection would lose it
-          if (!view.hasFocus() || (!(selection instanceof TextSelection) && !clickUnread)) return false;
+          if (view.hasFocus() && (selection instanceof TextSelection || clickUnread)) {
+            view.dom.ownerDocument.dispatchEvent(new Event('selectionchange'));
+          }
 
-          view.dom.ownerDocument.dispatchEvent(new Event('selectionchange'));
+          // After the replay, so the read it makes is no key's own command
+          handlingKey = true;
 
           return false;
         },

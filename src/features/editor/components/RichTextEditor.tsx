@@ -49,6 +49,7 @@ import { applyLineRequest } from '../milkdown/lineRequest';
 import { richFormatState } from '../milkdown/formatState';
 import { focusPlugin } from '../milkdown/focus';
 import { caretSync } from '../milkdown/caretSync';
+import { nodeClipboard } from '../milkdown/nodeClipboard';
 import { callouts } from '../milkdown/callouts';
 import { frontMatter } from '../milkdown/frontMatter';
 import { keepCalloutMarkers } from '../milkdown/calloutMarkdown';
@@ -165,6 +166,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         // First: ProseMirror runs DOM event handlers in plugin order, and every plugin with its own
         // keydown or mousedown handler (math, callouts, HTML) must see the selection caretSync updates
         .use(caretSync)
+        .use(nodeClipboard)
         // Our headingIds numbers repeated headings like the preview; Milkdown's own sync would not.
         // Without the empty-line plugin an empty paragraph writes as a blank line, as in Markdown
         // mode, instead of `<br />`. Without the inline-links plugin reference links and their
