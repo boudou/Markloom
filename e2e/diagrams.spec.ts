@@ -93,3 +93,30 @@ test('Show line in a .mmd diagram moves the source cursor (#218) @diagrams', asy
   await card.getByRole('button', { name: 'Show line 4' }).click({ timeout: 3_000 });
   await expect.poll(() => caretLine(app)).toBe(BROKEN_LINE);
 });
+
+interface FlowchartEdges {
+  count: number;
+  /** Edges drawn without a curve command (dagre with `curve: 'basis'` draws Béziers; ELK draws straight segments with rounded Q corners, never C) */
+  straight: number;
+}
+
+// The "yes" edge runs through the Observatory title: dagre enters a subgraph at its top centre,
+// where the title sits, and mermaid 11.17 drew it the same way. So only the curves are checked.
+test('flowcharts keep the curved dagre layout on mermaid 12 (#271) @diagrams', async ({ app }) => {
+  await app.openFile('night-diagrams.md');
+
+  const flowchart = app.rendered().getByRole('img', { name: 'Diagram: flowchart TD' }).locator('svg');
+
+  await expect(flowchart).toContainText('Write the log', { timeout: 30_000 });
+
+  const edges = await flowchart.evaluate((svg): FlowchartEdges => {
+    const paths = [...svg.querySelectorAll('path[data-edge="true"]')];
+
+    return {
+      count: paths.length,
+      straight: paths.filter((path) => !/C/i.test(path.getAttribute('d') ?? '')).length,
+    };
+  });
+
+  expect(edges).toEqual({ count: 4, straight: 0 });
+});

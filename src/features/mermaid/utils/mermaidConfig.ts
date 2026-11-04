@@ -25,14 +25,6 @@ function loadMermaid(): Promise<typeof MermaidAPI> {
   return loading;
 }
 
-// Extended mermaid config type to include newer diagram configs
-type ExtendedMermaidConfig = MermaidConfig & {
-  stateDiagram?: { useMaxWidth?: boolean };
-  er?: { useMaxWidth?: boolean };
-  pie?: { useMaxWidth?: boolean };
-  mindmap?: { useMaxWidth?: boolean; padding?: number };
-};
-
 // Light palette, shared by the light preview and exports
 const LIGHT_THEME_VARIABLES = {
   darkMode: false,
@@ -284,18 +276,28 @@ const DARK_THEME_VARIABLES = {
   },
 };
 
-function buildConfig(theme: Theme): ExtendedMermaidConfig {
+// Mermaid 12 defaults to a new look and, for every diagram on its shared renderer, the ELK layout
+// (straight edges with rounded corners). The classic look and dagre keep diagrams as they were.
+// The layout is set per diagram type, not globally: a global `layout` breaks the mindmap.
+function buildConfig(theme: Theme): MermaidConfig {
   return {
     startOnLoad: false,
     theme: 'base',
+    look: 'classic',
     // Strict: diagram text can't inject HTML or click handlers (documents may be untrusted)
     securityLevel: 'strict',
     themeVariables: theme === 'dark' ? DARK_THEME_VARIABLES : LIGHT_THEME_VARIABLES,
     flowchart: {
+      layout: 'dagre',
+      // Mermaid 12 widens short labels to a uniform width; 0 sizes each node to its text
+      minNodeWidth: 0,
       htmlLabels: true,
       curve: 'basis',
       padding: 15,
       useMaxWidth: true,
+    },
+    class: {
+      layout: 'dagre',
     },
     sequence: {
       diagramMarginX: 50,
@@ -320,10 +322,17 @@ function buildConfig(theme: Theme): ExtendedMermaidConfig {
       fontSize: 11,
       useMaxWidth: true,
     },
-    stateDiagram: {
+    state: {
+      layout: 'dagre',
+      minNodeWidth: 0,
       useMaxWidth: true,
     },
     er: {
+      layout: 'dagre',
+      useMaxWidth: true,
+    },
+    requirement: {
+      layout: 'dagre',
       useMaxWidth: true,
     },
     pie: {
@@ -339,7 +348,7 @@ function buildConfig(theme: Theme): ExtendedMermaidConfig {
 // Exports need self-contained SVG: plain <text> labels (no HTML inside foreignObject, which
 // Word and canvas can't draw) and real pixel sizes instead of width="100%". Always light,
 // whatever the page's theme: an exported document is read on paper or a light page.
-function buildExportConfig(): ExtendedMermaidConfig {
+function buildExportConfig(): MermaidConfig {
   const config = buildConfig('light');
   const fixed = { useMaxWidth: false };
 
@@ -349,14 +358,16 @@ function buildExportConfig(): ExtendedMermaidConfig {
     flowchart: { ...config.flowchart, ...fixed, htmlLabels: false },
     sequence: { ...config.sequence, ...fixed },
     gantt: { ...config.gantt, ...fixed },
-    stateDiagram: { ...fixed },
-    er: { ...fixed },
-    pie: { ...fixed },
+    class: { ...config.class, ...fixed },
+    state: { ...config.state, ...fixed },
+    er: { ...config.er, ...fixed },
+    requirement: { ...config.requirement, ...fixed },
+    pie: { ...config.pie, ...fixed },
     mindmap: { ...config.mindmap, ...fixed },
   };
 }
 
-function configFor(mode: DiagramMode): ExtendedMermaidConfig {
+function configFor(mode: DiagramMode): MermaidConfig {
   return mode === 'export' ? buildExportConfig() : buildConfig(mode);
 }
 
