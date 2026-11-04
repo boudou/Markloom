@@ -990,6 +990,42 @@ test('Settings > Appearance switches the theme at once and keeps it @appearance 
   expect(await isDark(page)).toBe(false);
 });
 
+// #239: another tab of the same app picks up a settings change without a reload
+test('a theme or page width chosen in one tab reaches the other tabs at once @appearance @settings', async ({ app, context }) => {
+  const { page } = app;
+  const other = await context.newPage();
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await other.emulateMedia({ colorScheme: 'light' });
+  await other.goto('/');
+
+  for (const tab of [page, other]) {
+    await tab.keyboard.press('Alt+N');
+    await expect(tab.locator('[data-page-width]')).toBeVisible();
+  }
+
+  expect(await isDark(other)).toBe(false);
+
+  await (await openAppearance(page)).selectOption({ label: 'Dark' });
+  await expect.poll(() => isDark(page)).toBe(true);
+  await expect.poll(() => isDark(other)).toBe(true);
+  expect(await bodyBackground(other)).toBe(DARK_CANVAS);
+
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+
+  await dialog.getByRole('tab', { name: 'Editor' }).click();
+  await dialog.getByRole('combobox', { name: 'Page width' }).selectOption({ label: 'Wide' });
+  await expect(other.locator('[data-page-width="wide"]')).toBeVisible();
+
+  // The other tab's own change comes back the same way, and the first tab keeps it
+  await (await openAppearance(other)).selectOption({ label: 'Light' });
+  await expect.poll(() => isDark(page)).toBe(false);
+  await expect.poll(() => storedAppearance(page)).toBe('light');
+  expect(await isDark(other)).toBe(false);
+
+  await other.close();
+});
+
 async function storedAppearance(page: Page): Promise<string | undefined> {
   return page.evaluate(() => JSON.parse(localStorage.getItem('markloom-settings') ?? '{}').state?.appearance);
 }
