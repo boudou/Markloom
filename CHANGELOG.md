@@ -4,6 +4,27 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-04
+
+### Added
+
+- Rich text colours code blocks the same way the preview does, and keeps colouring as you type (#212).
+- Settings changed in one tab or window, such as the theme, reach the others straight away, without a reload (#239).
+
+### Changed
+
+- Mermaid 12. Diagrams keep their familiar look and curved edges. Mindmaps, decision diamonds and wrapped labels in left-to-right flowcharts follow Mermaid 12's new style (#271).
+- The desktop app runs on Electron 45.
+
+### Fixed
+
+- The Export dialog's buttons can be reached in a short window (#244).
+- In a `.mmd` diagram file, `Ctrl+F` opens Markloom's find bar instead of a light search panel that ignored dark mode (#245).
+- In rich text, with a block selected (a link definition, front matter, a formula or an image):
+  - `Ctrl+Home` and `Ctrl+End` go to the start and end of the document, and with `Shift` they select up to there (#246, #267).
+  - `Ctrl+X` and `Ctrl+C` cut and copy the block every time, even on a busy machine (#252).
+- A missing image appears once its file turns up, when the window gets focus back, in both editors. In rich text, a broken web image shows the missing-image box instead of the browser's broken icon (#250).
+
 ## [0.9.0] - 2026-10-29
 
 ### Added
@@ -24,6 +45,7 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 - In rich text, a key pressed right after clicking a block (a link definition, front matter, a formula or an image) could act at the top of the document instead: Delete did nothing, or the caret jumped up (#234).
 
+## [0.8.0] - 2026-10-23
 
 ### Added
 
@@ -219,7 +241,8 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/boudou/Markloom/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/boudou/Markloom/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/boudou/Markloom/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/boudou/Markloom/compare/v0.6.0...v0.7.0

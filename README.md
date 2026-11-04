@@ -36,7 +36,7 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 - **Quick open** (`Ctrl+P`) to jump to any file in the open folder, and **search across files** (`Ctrl+Shift+F`) with results grouped by file and line
 - **Find & replace** that works in both editors, plus a command palette (`Ctrl+Shift+P`)
 - **Image drop and paste**: images are saved to `assets/` beside the document
-- **Syntax highlighting** with a copy button on every code block, templates, version history, native spell check
+- **Syntax highlighting** in both editors, with a copy button on every code block, templates, version history, native spell check
 - **Synced scrolling** between source and preview
 - **Private by design**: no accounts, no uploads; Markdown is sanitized and Mermaid runs in strict mode
 
@@ -145,13 +145,14 @@ What the tests cover, one file per area:
 | `typography.spec.ts` | Smart typography on by default; turned off, the preview and every export show the text as typed |
 | `rich-text.spec.ts` | Raw HTML in rich text (no Tab stops inside, its source survives the window losing focus); saving keeps untouched Markdown byte for byte; a key after clicking a block (definition, front matter, formula) acts on that block; the missing-image box |
 | `references.spec.ts` | Reference-style links and images survive rich-text edits; deleting a definition turns its references into inline links |
+| `code.spec.ts` | Code colours in rich text on its own: the preview's languages, colouring while you type, unlabelled and unknown languages left plain |
 | `parity.spec.ts` | Every construct renders in both editors: images, diagrams, tables, task lists, strikethrough, callouts, highlighted code, math, footnotes |
 | `callouts.spec.ts` | Callouts: each type's colour, icon and title, what is not a callout, editing and retyping the marker in rich text, saved byte for byte |
 | `math.spec.ts` | Math: typesetting, prices and escapes stay text, editing a formula in rich text, typing `$…$` or `$$` to make math |
 | `footnotes.spec.ts` | Footnotes: numbering, links and back-links, unique ids, scroll sync past a mid-document definition, exports, Copy as rich text, rich-text styling |
 | `front-matter.spec.ts` | Front matter: one collapsed block with its keys in both editors, the Contents panel, saved byte for byte from rich text, left out of Web page and Word exports |
 | `diagrams.spec.ts` | Mermaid renders and follows edits; an error names its document line and Show line goes there |
-| `appearance.spec.ts` | Dark mode: applied before first paint, System follows the OS live, Settings and the palette command, dark colours in both editors and the preview, Mermaid in dark with readable labels (including author fills), redraw from the cache, the white logo, the desktop window told the theme, exports stay light |
+| `appearance.spec.ts` | Dark mode: applied before first paint, System follows the OS live, Settings and the palette command, dark colours in both editors and the preview, Mermaid in dark with readable labels (including author fills), redraw from the cache, the white logo, the desktop window told the theme, exports stay light, settings changed in another tab |
 | `status-colours.spec.ts` | Word-goal, version-history diff and export preflight colours in dark and light |
 | `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page, a .zip, or one long image), the preflight warnings, Copy as rich text |
 | `settings.spec.ts` | The Settings window and each editor preference |
