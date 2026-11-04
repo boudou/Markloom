@@ -88,7 +88,7 @@ export async function showImage(img: HTMLImageElement, path: string, onMissing: 
 
     if (img.dataset.imagePath !== path) return;
 
-    // A file that can't be read leaves no src behind, so a box with this URL means it wouldn't decode
+    // A box with this URL: the file wouldn't decode (the rule beside markImageMissing)
     if (img.src === url && isImageMarkedMissing(img)) {
       onMissing();
 
@@ -100,7 +100,8 @@ export async function showImage(img: HTMLImageElement, path: string, onMissing: 
   } catch {
     if (img.dataset.imagePath !== path) return;
 
-    // Drops the last file's URL, so an img with a box keeps a URL only when that URL wouldn't decode
+    // Drops the last file's URL (or the preview's relative src, hidden behind the box anyway), which
+    // keeps the rule beside markImageMissing true
     img.removeAttribute('src');
     onMissing();
   }
@@ -133,6 +134,13 @@ const missingBoxes = new WeakMap<HTMLImageElement, HTMLSpanElement>();
  * A box already shown is replaced in place, so a label change never flashes the alt text. An img
  * the author hid gets no box, and the img needs a parent. It stays in the page, so its file is
  * re-checked on focus.
+ *
+ * The undecodable-image rule, which `showImage`, `refreshImages`, `markMissingOnFailedLoad`
+ * (documentMedia.ts) and their callers in the preview (useDocumentLinks.ts) and rich text
+ * (milkdown/plugins.ts) rely on: a boxed img whose src is still the cached blob URL of its file is
+ * a file that was read but wouldn't decode. A file that can't be read leaves no src (`showImage`
+ * removes it, in the preview and in rich text alike), so it never matches that URL. Loading the
+ * same URL again would only flash the broken-image icon; a changed file gets a new URL and is tried.
  */
 export function markImageMissing(img: HTMLImageElement, name: string, hint?: string): void {
   const shownBox = missingBoxes.get(img);
@@ -178,7 +186,8 @@ export function refreshImages(container: HTMLElement): void {
 
     imageFor(path).then(
       ({ url }) => {
-        // Same URL: the file is unchanged, so an img that wouldn't decode keeps its box
+        // Same URL: the file is unchanged, so an img that wouldn't decode keeps its box (the rule
+        // beside markImageMissing)
         if (img.dataset.imagePath !== path || img.src === url) return;
 
         clearImageMissing(img);

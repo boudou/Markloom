@@ -545,6 +545,29 @@ test.describe('missing images (#236, #250)', () => {
     await expect(rendered.locator('img[alt="Web image"]')).not.toBeVisible();
   });
 
+  test('a failed web image edited to another failing address names its new alt text (#269) @rich-text @images', async ({ app, page }) => {
+    // Markdown mode only: the image is edited in the source, then the document switches to rich text
+    test.skip(app.editorMode !== 'split', 'starts in Markdown mode');
+
+    await page.route(`${WEB_IMAGE_ORIGIN}/web.png`, (route) => route.fulfill({ status: 404 }));
+    await page.route(`${WEB_IMAGE_ORIGIN}/other.png`, (route) => route.fulfill({ status: 404 }));
+    await app.openFile('fixture.md');
+
+    const richText = page.locator('[data-doc-surface] .rt-document');
+
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+    await expect(richText.getByRole('img', { name: 'Image not found: Web image', exact: true })).toBeVisible();
+
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+    await app.selectLine('![Web image](https://images.e2e.test/web.png)');
+    await page.keyboard.type('![Other web image](https://images.e2e.test/other.png)');
+    await page.keyboard.press('ControlOrMeta+Shift+M');
+
+    // The failed load names the label of the latest render, not the first one
+    await expect(richText.getByRole('img', { name: 'Image not found: Other web image', exact: true })).toBeVisible();
+    await expect(richText.getByRole('img', { name: 'Image not found: Web image', exact: true })).toHaveCount(0);
+  });
+
   test('editing a missing image to another missing path keeps its box @rich-text @images', async ({ app, page }) => {
     // Markdown mode only: switching shows the preview, which rich text alone must never mount
     test.skip(app.editorMode !== 'split', 'starts in Markdown mode');
