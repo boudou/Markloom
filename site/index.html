@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {{head}}
+    <script type="application/ld+json">{{jsonld}}</script>
+    <script>
+      // Installed before the editor moved to /app/: a window opened from such an install goes to the editor
+      if (matchMedia('(display-mode: standalone)').matches) location.replace('./app/');
+    </script>
+  </head>
+  <body>
+    {{header}}
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-tabs" aria-hidden="true"><span class="hero-tab">markloom.md</span></div>
+        <div class="hero-panes">
+          <div class="source" aria-hidden="true">
+            <ol>
+              <li class="s-title"><span class="m"># </span><b>Write in Markdown. Send it as Word, diagrams included.</b></li>
+              <li></li>
+              <li class="s-lede">Markloom is a free, open-source editor with live Mermaid diagrams and clean export to Word, PDF and HTML. Your documents stay on your computer.</li>
+              <li></li>
+              <li class="s-chart"><span class="m">```</span>mermaid</li>
+              <li class="s-chart">flowchart LR</li>
+              <li class="s-chart">  A[Markdown] --&gt; B[Live preview]</li>
+              <li class="s-chart">  B --&gt; C[Word]</li>
+              <li class="s-chart">  B --&gt; D[PDF]</li>
+              <li class="s-chart">  B --&gt; E[Web page]</li>
+              <li class="s-chart"><span class="m">```</span></li>
+              <li></li>
+              <li class="s-actions"><span class="m">[</span>Try it in your browser<span class="m">](</span><span class="u">app/?sample</span><span class="m">)</span></li>
+              <li class="s-actions"><span class="m">[</span>Download the desktop app<span class="m">](</span><span class="u">#download</span><span class="m">)</span><span class="caret"></span></li>
+            </ol>
+          </div>
+          <div class="rendered">
+            <h1 id="hero-title" class="r-title">Write in Markdown. Send it as Word, diagrams included.</h1>
+            <p class="r-lede">Markloom is a free, open-source editor with live Mermaid diagrams and clean export to Word, PDF and HTML. Your documents stay on your computer.</p>
+            <svg class="r-chart" viewBox="0 0 560 150" role="img" aria-label="Flowchart: Markdown goes to a live preview, and from there to Word, PDF or a web page.">
+              <defs>
+                <marker id="tip" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 8 4 0 8z" class="tip" /></marker>
+              </defs>
+              <g class="edges">
+                <path d="M122 75H182" marker-end="url(#tip)" />
+                <path d="M306 75C340 75 340 22 396 22" marker-end="url(#tip)" />
+                <path d="M306 75H396" marker-end="url(#tip)" />
+                <path d="M306 75C340 75 340 128 396 128" marker-end="url(#tip)" />
+              </g>
+              <g class="nodes">
+                <rect x="2" y="53" width="120" height="44" rx="3" />
+                <rect x="182" y="53" width="124" height="44" rx="3" />
+                <rect x="396" y="2" width="160" height="40" rx="3" />
+                <rect x="396" y="55" width="160" height="40" rx="3" />
+                <rect x="396" y="108" width="160" height="40" rx="3" />
+              </g>
+              <g class="labels">
+                <text x="62" y="75">Markdown</text>
+                <text x="244" y="75">Live preview</text>
+                <text x="476" y="22">Word</text>
+                <text x="476" y="75">PDF</text>
+                <text x="476" y="128">Web page</text>
+              </g>
+            </svg>
+            <p class="r-actions">
+              <a class="button primary" href="app/?sample">Try it in your browser</a>
+              <a class="button" href="#download">Download the desktop app</a>
+            </p>
+            <p class="r-note">No account, nothing to install. Windows, macOS, Linux and the web. MIT licence.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="showcase" aria-label="The editor">
+        {{shot split-view | Markloom's split view: a Markdown document on the left, and on the right its live preview with a callout and a Mermaid flowchart}}
+        <p>This is the document you get when you press <a href="app/?sample">Try it</a>. Change it, break the diagram, export it.</p>
+      </section>
+
+      <section class="story">
+        <div class="story-text">
+          <h2>Diagrams are part of the document</h2>
+          <p>Write a fenced <code>mermaid</code> block and the drawing appears beside it as you type. Flowcharts, sequence diagrams, Gantt charts, class diagrams, mind maps: if Mermaid can draw it, it is in your preview, in rich text and in every export.</p>
+          <p>When the syntax is wrong, the message gives the line in your document, not a line inside the diagram, and a button takes you there.</p>
+        </div>
+        <figure class="story-media">{{gif demo | Typing a Mermaid flowchart in Markloom: the preview draws the diagram as the text goes in, then the Export dialog opens}}</figure>
+      </section>
+
+      <section class="story flip">
+        <div class="story-text">
+          <h2>Export for people who don't use Markdown</h2>
+          <p>Your reviewer wants Word. Your manager wants a PDF. One key, <kbd>Ctrl</kbd> <kbd>E</kbd>, gives them a file with the diagrams, images and tables already in it, and you keep the Markdown.</p>
+          <dl class="formats">
+            <div><dt>Word (.docx)</dt><dd>Editable, with real headings, lists and tables. Diagrams are embedded as images.</dd></div>
+            <div><dt>PDF</dt><dd>Diagrams stay as vector graphics.</dd></div>
+            <div><dt>Web page</dt><dd>One standalone HTML file with everything inside it.</dd></div>
+            <div><dt>Image</dt><dd>PNG pages, a .zip of them, or one long image.</dd></div>
+            <div><dt>Portable Markdown</dt><dd>A single .md file with its images embedded.</dd></div>
+          </dl>
+          <p>Before it writes anything, Markloom checks for diagrams that won't draw and images it can't find, and lists them by line. <a href="guides/markdown-to-word-with-mermaid/">How the Word export works</a>.</p>
+        </div>
+        <figure class="story-media">{{shot export | The Export dialog with Word, PDF, Web page, Markdown and Image, in front of a document}}</figure>
+      </section>
+
+      <section class="story wide">
+        <div class="story-text">
+          <h2>Rich text that leaves your file alone</h2>
+          <p>Visual Markdown editors often reformat a file when they save. Markloom's rich-text mode rewrites only the blocks you touched, so your list markers, line wraps and tables stay as you typed them, and a one-word fix is a one-line commit.</p>
+          <pre class="diff" aria-label="A Git diff after changing one word in rich text: one line removed, one line added"><code><span class="d-at">@@ release-plan.md @@</span><span> The order we ship in, and who signs off.</span><span>&nbsp;</span><span class="d-del">-Publish the draft on Friday.</span><span class="d-add">+Publish the final PDF on Friday.</span><span>&nbsp;</span><span> * Write the notes</span><span> * Add the diagram</span></code></pre>
+        </div>
+        <figure class="story-media">{{shot rich-text | Rich text mode: a formatted document with a sequence diagram and a checklist, with no Markdown on screen}}</figure>
+      </section>
+
+      <section class="story flip">
+        <div class="story-text">
+          <h2>Your folder, on your disk</h2>
+          <p>Open a folder and work on the files in it. There are no accounts, no uploads and no database to import into, so Git, Dropbox and your other editors keep working. <kbd>Ctrl</kbd> <kbd>P</kbd> opens a file by name and <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>F</kbd> searches all of them.</p>
+          <p>Need it somewhere Markdown doesn't reach? <a href="guides/paste-markdown-into-confluence-google-docs-email/">Copy as rich text</a> pastes the document, formatted and with its diagrams, into an email, Google Docs or Confluence.</p>
+        </div>
+        <figure class="story-media">{{shot folder-search | Searching a folder for the word diagram: results grouped by file and line in the sidebar}}</figure>
+      </section>
+
+      <section class="more">
+        <h2>Also in there</h2>
+        <ul>
+          <li><b>Math</b> typeset with KaTeX</li>
+          <li><b>Callouts</b> in GitHub's <code>[!NOTE]</code> syntax</li>
+          <li><b>Footnotes</b>, real ones in Word</li>
+          <li><b>Front matter</b> kept byte for byte</li>
+          <li><b>Code colours</b> in both editors</li>
+          <li><b>Find and replace</b> in both editors</li>
+          <li><b>Command palette</b> for every command</li>
+          <li><b>Tabs</b>, outline and session restore</li>
+          <li><b>Version history</b> for each file</li>
+          <li><b>Templates</b> for notes, specs and READMEs</li>
+          <li><b>Images</b> saved to <code>assets/</code> when you drop or paste them</li>
+          <li><b>Dark mode</b> that includes the diagrams</li>
+          <li><b>Synced scrolling</b> by line</li>
+          <li><b>Spell check</b> from your system</li>
+          <li><b>Works offline</b> after the first visit</li>
+        </ul>
+        <p><a href="docs/whats-supported/">Everything Markloom supports</a></p>
+      </section>
+
+      <section class="get" id="download">
+        <h2>Get Markloom</h2>
+        <table>
+          <thead>
+            <tr><th scope="col">Where</th><th scope="col">What you get</th><th scope="col">Good to know</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row"><a href="app/">Web</a></th>
+              <td>The full editor, nothing to install. Can be installed as an app.</td>
+              <td>Opening and saving files needs Chrome or Edge. Firefox and Safari can write and export only.</td>
+            </tr>
+            <tr>
+              <th scope="row"><a href="https://github.com/boudou/Markloom/releases/latest">Windows</a></th>
+              <td>Installer or portable <code>.exe</code></td>
+              <td rowspan="3">Version {{version}}. The builds aren't code-signed yet, so your system will warn you the first time. <a href="docs/installation/">What to do about the warning</a>.</td>
+            </tr>
+            <tr>
+              <th scope="row"><a href="https://github.com/boudou/Markloom/releases/latest">macOS</a></th>
+              <td>Apple silicon <code>.dmg</code></td>
+            </tr>
+            <tr>
+              <th scope="row"><a href="https://github.com/boudou/Markloom/releases/latest">Linux</a></th>
+              <td><code>.AppImage</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="faq">
+        <h2>Questions</h2>
+        <details>
+          <summary>Is it really free?</summary>
+          <p>Yes. It is MIT licensed, with no paid tier, no account and no trial.</p>
+        </details>
+        <details>
+          <summary>Where do my documents go?</summary>
+          <p>Nowhere. The web version is a static page that runs in your browser, and files are read and written on your computer. If you allow it, the web version counts page views with Google Analytics. It asks first, and the desktop app has no analytics.</p>
+        </details>
+        <details>
+          <summary>Which browsers work?</summary>
+          <p>Chrome, Edge and other Chromium browsers do everything. Firefox and Safari don't offer the file access Markloom uses, so there you can write and export but not open or save files. The desktop app has no such limit.</p>
+        </details>
+        <details>
+          <summary>Why does Windows or macOS warn me about the installer?</summary>
+          <p>The installers aren't code-signed yet. You can read the code, build it yourself, or follow the <a href="docs/installation/">steps for the first run</a>. Windows 11's Smart App Control has no override, so there the web version is the easy way in.</p>
+        </details>
+        <details>
+          <summary>What doesn't it do?</summary>
+          <p>Markloom is built around one document going to other people: diagrams, review copies, exports. It has no plugins, graph view or sync.</p>
+        </details>
+      </section>
+
+      <section class="guides">
+        <h2>Guides</h2>
+        <ul>
+          {{guides}}
+        </ul>
+        <p><a href="docs/user-manual/">Read the user manual</a></p>
+      </section>
+
+      <section class="close">
+        <h2>Help decide what gets built next</h2>
+        <p>Markloom is young, and one person makes most of it. If something is missing or wrong, an issue changes what gets built next. If you want to fix it yourself, the contributing guide gets you running in three commands.</p>
+        <p class="close-actions">
+          <a class="button inverse" href="https://github.com/boudou/Markloom">Star it on GitHub</a>
+          <a href="https://github.com/boudou/Markloom/issues/new?template=feature_request.md">Suggest a feature</a>
+          <a href="https://github.com/boudou/Markloom/blob/main/CONTRIBUTING.md">Contribute</a>
+        </p>
+      </section>
+    </main>
+    {{footer}}
+  </body>
+</html>

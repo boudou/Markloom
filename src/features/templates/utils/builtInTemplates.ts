@@ -20,6 +20,12 @@ const BODIES = import.meta.glob('./templates/*.md', { query: '?raw', import: 'de
 // The list order is the order shown in the dialog.
 const TEMPLATE_INFO: Omit<Template, 'content'>[] = [
   {
+    id: 'tour',
+    name: 'A tour of Markloom',
+    description: 'A sample document: diagrams, tables, math and what exports do',
+    category: 'general',
+  },
+  {
     id: 'meeting-notes',
     name: 'Meeting notes',
     description: 'Template for capturing meeting notes and action items',

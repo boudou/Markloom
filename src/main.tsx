@@ -7,6 +7,7 @@ import './styles/fonts';
 import './styles/globals.css';
 import { setSmartTypography } from './lib/markdown';
 import { applyAppearance } from './lib/appearance';
+import { openSampleFromAddress } from './features/templates/sample';
 import { selectAppearance, selectSmartTypography, useSettingsStore } from './stores/settingsStore';
 
 // Enable Immer plugin for Map and Set support
@@ -31,6 +32,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </TooltipProvider>
   </React.StrictMode>
 );
+
+openSampleFromAddress();
 
 // The web version works offline and can be installed; the desktop app ships its files and needs neither
 if (import.meta.env.PROD && !window.markloomDesktop && 'serviceWorker' in navigator) {

@@ -1,5 +1,6 @@
-import { FileText, Folder, FolderOpen, LayoutTemplate, History } from 'lucide-react';
+import { BookOpen, FileText, Folder, FolderOpen, LayoutTemplate, History } from 'lucide-react';
 import { openFile, openFolder, openPath, reopenFolder } from '@/lib/documentActions';
+import { openSample } from '@/features/templates/sample';
 import type { ShortcutId } from '@/lib/shortcuts';
 import { ProjectLinks } from '@/components/layout/ProjectLinks';
 import { Kbd } from '@/components/ui';
@@ -83,6 +84,7 @@ export function StartPanel({ writeHint, className }: StartPanelProps) {
     : '';
 
   const actions: StartAction[] = [
+    { icon: BookOpen, label: 'Try a sample document', run: openSample },
     { icon: FileText, label: 'Open a file', shortcut: 'openFile', run: openFile },
     { icon: FolderOpen, label: 'Open a folder', shortcut: 'openFolder', run: openFolder },
     { icon: LayoutTemplate, label: 'Start from a template', run: () => openDialog('templates') },

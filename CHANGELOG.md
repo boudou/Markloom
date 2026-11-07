@@ -4,6 +4,16 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Added
+
+- A sample document, "A tour of Markloom": on the start screen and at `?sample` in the address, it shows diagrams, callouts, math and exports in a file you can edit
+- A website: a landing page, guides and the user manual as pages search engines can read
+
+### Changed
+
+- The web version moved to [boudou.github.io/Markloom/app/](https://boudou.github.io/Markloom/app/). An app installed from the old address still opens and sends you to the new one; install it again to get offline use and "Open with" back
+- The User manual link now opens the website's copy of the manual
+
 ## [0.10.0] - 2026-11-04
 
 ### Added

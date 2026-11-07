@@ -352,6 +352,26 @@ test('a template opens under its own name (#171) @documents', async ({ app, page
   await expect(app.tab('Meeting notes')).toHaveAttribute('aria-selected', 'true');
 });
 
+test('the start screen opens the sample in place of the blank tab @documents', async ({ app, page }) => {
+  await page.getByRole('button', { name: 'Try a sample document' }).click();
+
+  await expect(app.tab('A tour of Markloom')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tablist', { name: 'Open documents' }).getByRole('tab')).toHaveCount(1);
+  await expect(app.rendered()).toContainText('Diagrams that render as you type');
+  await expect(app.rendered().locator('svg').first()).toBeVisible();
+  await expect(app.rendered().locator('.katex').first()).toBeVisible();
+});
+
+test('?sample on the address opens the sample once @documents', async ({ app, page }) => {
+  await page.goto('/?sample');
+
+  await expect(app.tab('A tour of Markloom')).toHaveAttribute('aria-selected', 'true');
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.reload();
+  await expect(app.tab('A tour of Markloom')).toHaveCount(0);
+});
+
 test('Export and Copy as rich text read the command table (#171) @documents @export @palette', async ({ app, page }) => {
   await expect(titleBar(page).getByRole('button', { name: /^Export to Word, PDF, Web page, Markdown or images \(.+E\)$/ })).toBeVisible();
 
