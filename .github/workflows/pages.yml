@@ -1,7 +1,8 @@
 name: Web app
 
-# Publishing a release (or a manual run) builds the web version and serves it with
-# GitHub Pages at https://boudou.github.io/Markloom/, so the site matches the latest release.
+# Publishing a release (or a manual run) builds the website and serves it with GitHub Pages:
+# the landing page and guides at https://boudou.github.io/Markloom/, the manual (from the wiki)
+# at docs/ and the editor at app/, so the site matches the latest release.
 on:
   release:
     types: [published]
@@ -25,6 +26,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: boudou/Markloom.wiki
+          path: wiki
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -32,13 +37,16 @@ jobs:
       - id: pages
         uses: actions/configure-pages@v6
       - run: npm ci
-      # The site lives under /Markloom/; the desktop build keeps the default base.
+      # The editor lives under /Markloom/app/; the desktop build keeps the default base.
       # Only this build has the Google Analytics ID, offered to visitors as opt-in usage statistics (#210)
-      - run: npm run build -- --base=${{ steps.pages.outputs.base_path }}/
+      - run: npm run build -- --base=${{ steps.pages.outputs.base_path }}/app/
         env:
           VITE_GA_ID: G-C300N5SNN4
+      - run: node scripts/build-site.mjs --wiki wiki
+        env:
+          GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: dist
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v5

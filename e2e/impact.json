@@ -102,6 +102,10 @@
 
     "build/**": [],
     "docs/**": [],
+    "site/**": [],
+    "scripts/build-site.mjs": [],
+    "scripts/screenshots.mjs": [],
+    "scripts/frames-to-gif.py": [],
     "tools/**": [],
     "*.md": [],
     "LICENSE": [],

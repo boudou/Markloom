@@ -15,11 +15,21 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 [![Last commit](https://img.shields.io/github/last-commit/boudou/Markloom)](https://github.com/boudou/Markloom/commits/main)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Open in your browser](https://boudou.github.io/Markloom/) · [Download](#download) · [User manual](https://github.com/boudou/Markloom/wiki/User-Manual) · [Run from source](#run-from-source) · [Contributing](CONTRIBUTING.md)
+[Website](https://boudou.github.io/Markloom/) · [Open in your browser](https://boudou.github.io/Markloom/app/) · [Download](#download) · [User manual](https://boudou.github.io/Markloom/docs/user-manual/) · [Run from source](#run-from-source) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
-![Markloom split view: Markdown source on the left, live preview with a Mermaid diagram on the right](docs/screenshots/split-view.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/split-view-dark.png"><img src="docs/screenshots/split-view.png" alt="Markloom split view: Markdown source on the left, live preview with a Mermaid diagram on the right"></picture>
+
+## Why Markloom
+
+Markdown is a good way to write and a poor way to hand something over. The people reading your design doc want Word or a PDF, with the diagrams drawn, and pasting Markdown into an email gives them asterisks. Markloom keeps the plain `.md` file as the source and makes the copy other people need: `Ctrl+E` exports it with its diagrams, and Copy as rich text pastes it into email, Google Docs or Confluence.
+
+Its rich-text mode rewrites only the blocks you touch, so a visual edit still makes a small Git diff.
+
+It has no plugins, sync or graph view.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/demo-dark.gif"><img src="docs/screenshots/demo.gif" alt="Typing a Mermaid flowchart in Markloom: the preview draws the diagram as the text goes in, then the Export dialog opens"></picture>
 
 ## Features
 
@@ -42,11 +52,11 @@ Runs in the browser or as a desktop app. Your documents never leave your machine
 
 | Rich text editing | Export | Command palette |
 | :---: | :---: | :---: |
-| ![Rich text editor](docs/screenshots/rich-text.png) | ![Export dialog](docs/screenshots/export.png) | ![Command palette](docs/screenshots/command-palette.png) |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/rich-text-dark.png"><img src="docs/screenshots/rich-text.png" alt="Rich text editor"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/export-dark.png"><img src="docs/screenshots/export.png" alt="Export dialog"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/command-palette-dark.png"><img src="docs/screenshots/command-palette.png" alt="Command palette"></picture> |
 
 ## Download
 
-**No install:** open the web version at **[boudou.github.io/Markloom](https://boudou.github.io/Markloom/)**. Your documents stay on your computer; if you allow it, the web version counts page views with Google Analytics (nothing else is tracked). Use Chrome or Edge to open and save files and folders. They can also install it as an app (the install icon in the address bar), and it opens offline after your first visit.
+**No install:** open the web version at **[boudou.github.io/Markloom/app](https://boudou.github.io/Markloom/app/)**. Your documents stay on your computer; if you allow it, the web version counts page views with Google Analytics (nothing else is tracked). Use Chrome or Edge to open and save files and folders. They can also install it as an app (the install icon in the address bar), and it opens offline after your first visit.
 
 Or get the desktop app for your system from the [latest release](https://github.com/boudou/Markloom/releases/latest):
 
@@ -58,7 +68,7 @@ Or get the desktop app for your system from the [latest release](https://github.
 
 The installers are not code-signed yet ([#30](https://github.com/boudou/Markloom/issues/30)), so your system may warn you the first time:
 
-- **Windows**: on the SmartScreen prompt, choose **More info → Run anyway**. If the message says **Smart App Control** blocked Markloom, there is no Run anyway: Windows 11 only runs unsigned apps it already knows, and it can't make an exception for one app. Until the builds are signed, use the [web version](https://boudou.github.io/Markloom/), turn Smart App Control off (**Windows Security → App & browser control → Smart App Control**), or [run Markloom from source](#run-from-source).
+- **Windows**: on the SmartScreen prompt, choose **More info → Run anyway**. If the message says **Smart App Control** blocked Markloom, there is no Run anyway: Windows 11 only runs unsigned apps it already knows, and it can't make an exception for one app. Until the builds are signed, use the [web version](https://boudou.github.io/Markloom/app/), turn Smart App Control off (**Windows Security → App & browser control → Smart App Control**), or [run Markloom from source](#run-from-source).
 - **macOS**: open Markloom once; when macOS says it can't verify the developer, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to Markloom. If macOS says Markloom is *damaged* (builds up to 0.5.0), run `xattr -cr /Applications/Markloom.app` once.
 - **Linux**: make the AppImage executable (`chmod +x Markloom-*.AppImage`), then run it.
 
@@ -82,7 +92,7 @@ The installers are not code-signed yet ([#30](https://github.com/boudou/Markloom
 
 In the browser, new document and close tab are `Alt+N` and `Alt+W`, because the browser keeps `Ctrl+N` and `Ctrl+W` for itself.
 
-The [user manual](https://github.com/boudou/Markloom/wiki/User-Manual) covers everything in more detail, and the [shortcut reference](https://github.com/boudou/Markloom/wiki/Keyboard-Shortcuts) lists every key.
+The [user manual](https://boudou.github.io/Markloom/docs/user-manual/) covers everything in more detail, and the [shortcut reference](https://boudou.github.io/Markloom/docs/keyboard-shortcuts/) lists every key.
 
 ## Run from source
 
@@ -111,7 +121,7 @@ npm run build           # type-check and build into dist/
 npm run preview         # serve dist/ on http://localhost:4173
 ```
 
-`dist/` is a static site, so you can host it on any static web server. The [hosted web version](https://boudou.github.io/Markloom/) is built this way by `.github/workflows/pages.yml` each time a release is published.
+`dist/` is a static site, so you can host it on any static web server. The [hosted web version](https://boudou.github.io/Markloom/app/) is built this way, under the [website](https://boudou.github.io/Markloom/), by `.github/workflows/pages.yml` each time a release is published.
 
 ### Desktop app
 
@@ -123,60 +133,7 @@ npm run electron:build  # build installers for your OS into release/
 
 `electron:build` produces the installer for the system you run it on (an `.exe` on Windows, a `.dmg` on macOS, an `.AppImage` on Linux). On Windows, `start-desktop.bat` launches the packaged app, and `start-desktop.bat rebuild` rebuilds it first.
 
-### End-to-end tests
-
-The end-to-end tests in `e2e/` use [Playwright](https://playwright.dev/) and drive your installed Google Chrome, so there is no browser to download. They build the app, serve the build and run every test twice: in Markdown mode, and with the document opened straight into Rich text.
-
-```bash
-npm run test:e2e            # build, serve and run all tests headless
-npm run test:e2e -- --ui    # pick and watch tests in Playwright's UI
-```
-
-The build is served on port 4173, and a second build with a test Google Analytics ID on port 5173; set `E2E_PORT` to move both (the second one is `E2E_PORT` + 1000). A test for a known gap is marked with the issue that tracks it and is expected to fail until that issue is fixed.
-
-What the tests cover, one file per area:
-
-| File | Area |
-| --- | --- |
-| `documents.spec.ts` | New document, open from the file tree, edit and save, closing with unsaved changes, tabs, Quick open, folder search, a file tree of documents only, recent files and folders on the start screen, session restore |
-| `editing.spec.ts` | Toolbar formatting and its pressed state, find and replace, the command palette, focus mode, page width, smart typography |
-| `focus.spec.ts` | The focus ring on the writing surface; a new document from a template takes the focus |
-| `insert.spec.ts` | Insert menu blocks land after the current block (tables, code, dividers), one undo per insert, the Link button and `Ctrl+K` |
-| `typography.spec.ts` | Smart typography on by default; turned off, the preview and every export show the text as typed |
-| `rich-text.spec.ts` | Raw HTML in rich text (no Tab stops inside, its source survives the window losing focus); saving keeps untouched Markdown byte for byte; a key after clicking a block (definition, front matter, formula) acts on that block; the missing-image box |
-| `references.spec.ts` | Reference-style links and images survive rich-text edits; deleting a definition turns its references into inline links |
-| `code.spec.ts` | Code colours in rich text on its own: the preview's languages, colouring while you type, unlabelled and unknown languages left plain |
-| `parity.spec.ts` | Every construct renders in both editors: images, diagrams, tables, task lists, strikethrough, callouts, highlighted code, math, footnotes |
-| `callouts.spec.ts` | Callouts: each type's colour, icon and title, what is not a callout, editing and retyping the marker in rich text, saved byte for byte |
-| `math.spec.ts` | Math: typesetting, prices and escapes stay text, editing a formula in rich text, typing `$…$` or `$$` to make math |
-| `footnotes.spec.ts` | Footnotes: numbering, links and back-links, unique ids, scroll sync past a mid-document definition, exports, Copy as rich text, rich-text styling |
-| `front-matter.spec.ts` | Front matter: one collapsed block with its keys in both editors, the Contents panel, saved byte for byte from rich text, left out of Web page and Word exports |
-| `diagrams.spec.ts` | Mermaid renders and follows edits; an error names its document line and Show line goes there |
-| `appearance.spec.ts` | Dark mode: applied before first paint, System follows the OS live, Settings and the palette command, dark colours in both editors and the preview, Mermaid in dark with readable labels (including author fills), redraw from the cache, the white logo, the desktop window told the theme, exports stay light, settings changed in another tab |
-| `status-colours.spec.ts` | Word-goal, version-history diff and export preflight colours in dark and light |
-| `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page, a .zip, or one long image), the preflight warnings, Copy as rich text |
-| `settings.spec.ts` | The Settings window and each editor preference |
-| `history.spec.ts` | The version history limit, trimming every file when it is lowered, Clear all |
-| `whats-new.spec.ts` | What's new shows the release notes once after an update |
-| `updates.spec.ts` | Check for updates (desktop only): a newer version with its link, up to date, a failed check |
-| `window-settings.spec.ts` | Desktop window settings: tray toggles, and the Windows Explorer menu (installed and portable) |
-| `desktop-folder.spec.ts` | A folder opened by the desktop app: the tree, open and save through the bridge, Quick open, search, the session |
-| `offline.spec.ts` | The service worker: the web version opens offline, and loads when its cache can't be written |
-| `web.spec.ts` | Nothing loads from Google before the visitor allows usage statistics |
-
-#### The pull request gate
-
-Every pull request to `main` runs the tests its changed files can affect (`.github/workflows/e2e.yml`); pushes to `main` and release tags run them all. When a test fails, the Playwright report is attached to the run.
-
-```bash
-npm run test:e2e:affected                            # the tests your branch affects, against origin/main
-npm run test:e2e:affected -- --base main --dry-run   # print the selection without running it
-npm run test:e2e:affected -- --check                 # every file under src/ is in the impact map
-```
-
-`e2e/impact.json` maps source globs to test tags, such as `src/features/export/**` to `@export`. The script lists the changed files (`git diff <base>...HEAD`, plus uncommitted and untracked ones), collects their tags and runs the tests whose titles carry one, in both projects. A changed spec runs its own tests. Every test runs instead when a changed file matches nothing in the map, or is a shared foundation listed under `fullSuite` (`src/lib/markdown.ts`, `AppShell.tsx`, the stores, the styles, the build and test configuration).
-
-To add a test, end its title with the tags of the areas it covers: `test('Word keeps footnotes @export', …)`. To add a source file, make sure a glob in `e2e/impact.json` matches it, or `--check` fails the gate and names the file.
+The end-to-end tests and the pull request gate are described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Command reference
 
@@ -202,7 +159,8 @@ src/
   features/        One folder per feature: editor, export, mermaid, tabs, find-replace, …
   lib/             Markdown parser, document actions, shortcut table, session restore
   stores/          App, settings and UI state (Zustand)
-docs/screenshots/  Images used in this README
+docs/screenshots/  Images used in this README, the website and the manual
+site/              The website: landing page and guides (scripts/build-site.mjs assembles it)
 ```
 
 [CONTRIBUTING.md](CONTRIBUTING.md) explains the conventions to follow.

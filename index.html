@@ -8,7 +8,8 @@
       name="description"
       content="Free, open-source Markdown editor with live preview, Mermaid diagrams, a rich-text mode and export to Word, PDF and HTML. Runs in your browser or as a desktop app; your documents stay on your computer."
     />
-    <link rel="canonical" href="https://boudou.github.io/Markloom/" />
+    <!-- The landing page is what search engines should list; the editor is the app behind it -->
+    <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#F8F9FA" />
     <!-- Sets the dark class before first paint; external because the desktop CSP allows no inline scripts -->
     <script src="/appearance.js"></script>
@@ -28,7 +29,7 @@
     <meta property="og:image" content="https://boudou.github.io/Markloom/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Markloom's split view: Markdown source beside a live preview with a Mermaid diagram" />
+    <meta property="og:image:alt" content="Markloom: Markdown source beside the rendered page" />
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body class="bg-canvas text-text-primary font-body antialiased">
