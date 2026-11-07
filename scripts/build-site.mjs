@@ -224,9 +224,9 @@ function wikiPicturesToMacros(source) {
   return source.replace(wikiPicture, (_, file, extension, alt) => `{{${extension === 'gif' ? 'gif' : 'shot'} ${file} | ${alt}}}`);
 }
 
-/** A sidebar link that isn't a wiki page: only the web's own schemes, or it fails the build */
+/** A sidebar link that isn't a wiki page: an absolute web address or it fails the build; browsers ignore tabs and spaces in a scheme, so a denylist won't do */
 function externalHref(target) {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(target) && !/^https?:/i.test(target)) throw new Error(`Sidebar link with a disallowed scheme: ${target}`);
+  if (!/^https?:\/\/\S+$/i.test(target)) throw new Error(`Sidebar link is not a wiki page or a web address: ${target}`);
 
   return escapeHtml(target);
 }
