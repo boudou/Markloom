@@ -217,9 +217,12 @@ function rewriteWikiLinks(html, root, pageNames) {
   });
 }
 
-/** The wiki's themed images, as the macros that expandImages turns into pictures; markdown-it would escape the HTML */
+/**
+ * The wiki's themed images, as the macros that expandImages turns into pictures; markdown-it would escape the HTML.
+ * Home needs an absolute srcset: GitHub serves it at /wiki, where it fixes a relative src but not a relative srcset.
+ */
 function wikiPicturesToMacros(source) {
-  const wikiPicture = /^<picture><source media="\(prefers-color-scheme: dark\)" srcset="images\/([\w-]+)-dark\.(png|gif)"><img src="images\/\1\.\2" alt="([^"{}]+)"><\/picture>$/gm;
+  const wikiPicture = /^<picture><source media="\(prefers-color-scheme: dark\)" srcset="(?:https:\/\/github\.com\/boudou\/Markloom\/wiki\/)?images\/([\w-]+)-dark\.(png|gif)"><img src="images\/\1\.\2" alt="([^"{}]+)"><\/picture>$/gm;
 
   return source.replace(wikiPicture, (_, file, extension, alt) => `{{${extension === 'gif' ? 'gif' : 'shot'} ${file} | ${alt}}}`);
 }
