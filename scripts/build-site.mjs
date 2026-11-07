@@ -68,7 +68,8 @@ function headingIds(md) {
   });
 }
 
-const markdown = new MarkdownIt({ html: true, linkify: true }).use(headingIds);
+// No raw HTML: wiki pages end up on the editor's origin, so a script in one could read what the editor stores
+const markdown = new MarkdownIt({ html: false, linkify: true }).use(headingIds);
 
 /** `path` is the page's folder below the site root: '' for the landing page, 'guides/x/' for a guide */
 function head({ title, description, path, noindex = false, rootPath }) {
@@ -216,6 +217,20 @@ function rewriteWikiLinks(html, root, pageNames) {
   });
 }
 
+/** The wiki's themed images, as the macros that expandImages turns into pictures; markdown-it would escape the HTML */
+function wikiPicturesToMacros(source) {
+  const wikiPicture = /^<picture><source media="\(prefers-color-scheme: dark\)" srcset="images\/([\w-]+)-dark\.(png|gif)"><img src="images\/\1\.\2" alt="([^"{}]+)"><\/picture>$/gm;
+
+  return source.replace(wikiPicture, (_, file, extension, alt) => `{{${extension === 'gif' ? 'gif' : 'shot'} ${file} | ${alt}}}`);
+}
+
+/** A sidebar link that isn't a wiki page: only the web's own schemes, or it fails the build */
+function externalHref(target) {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(target) && !/^https?:/i.test(target)) throw new Error(`Sidebar link with a disallowed scheme: ${target}`);
+
+  return escapeHtml(target);
+}
+
 /** Plain text of the first paragraph, for the page's description */
 function firstParagraph(source) {
   const block = source.split(/\n\s*\n/).find((part) => /^[A-Za-z*[]/.test(part.trim())) ?? '';
@@ -225,7 +240,7 @@ function firstParagraph(source) {
 }
 
 function buildDocs() {
-  const names = readdirSync(WIKI).filter((name) => name.endsWith('.md') && !name.startsWith('_')).map((name) => name.replace(/\.md$/, ''));
+  const names = readdirSync(WIKI).flatMap((file) => (/^[A-Za-z0-9][\w-]*\.md$/.test(file) ? [file.replace(/\.md$/, '')] : []));
   const pageNames = new Set(names);
   const sidebar = [...readFileSync(join(WIKI, '_Sidebar.md'), 'utf8').matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)].map((link) => ({ title: link[1], name: link[2] }));
   const paths = [];
@@ -235,11 +250,11 @@ function buildDocs() {
     const path = name === 'Home' ? 'docs/' : `docs/${name.toLowerCase()}/`;
     const root = '../'.repeat(path.split('/').length - 1);
     const title = source.match(/^# (.+)$/m)?.[1] ?? name.replace(/-/g, ' ');
-    const body = rewriteWikiLinks(markdown.render(source), root, pageNames);
+    const body = expandImages(rewriteWikiLinks(markdown.render(wikiPicturesToMacros(source)), root, pageNames), root);
 
     const links = sidebar
       .map((item) => {
-        if (!pageNames.has(item.name)) return `<a href="${item.name}">${escapeHtml(item.title)}</a>`;
+        if (!pageNames.has(item.name)) return `<a href="${externalHref(item.name)}">${escapeHtml(item.title)}</a>`;
 
         const current = item.name === name ? ' aria-current="page"' : '';
 
@@ -255,7 +270,10 @@ function buildDocs() {
     paths.push(path);
   }
 
-  if (existsSync(join(WIKI, 'images'))) cpSync(join(WIKI, 'images'), join(OUT, 'docs', 'images'), { recursive: true });
+  // Pictures only: an HTML or SVG file here would run on the editor's origin
+  if (existsSync(join(WIKI, 'images'))) {
+    cpSync(join(WIKI, 'images'), join(OUT, 'docs', 'images'), { recursive: true, filter: (file) => statSync(file).isDirectory() || /\.(png|jpe?g|gif|webp)$/i.test(file) });
+  }
 
   return paths;
 }
