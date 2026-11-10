@@ -32,6 +32,8 @@ import { useAppStore } from '@/stores/appStore';
 import { useUiStore } from '@/stores/uiStore';
 import { slugify } from '@/lib/markdown';
 import { useDocumentLinks } from '../hooks/useDocumentLinks';
+import { reshowDocumentImages } from '../utils/documentImages';
+import { showDocumentMedia } from '../utils/documentMedia';
 import { useEditorFocusRequest } from '../hooks/useEditorFocusRequest';
 import { useImageDrop } from '@/features/image-drop';
 import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, headingIds, imageSchemaFix, imageView, inlineCodeSpellcheck, linkSchemaFix, taskToggle } from '../milkdown/plugins';
@@ -66,7 +68,7 @@ interface RichTextEditorProps {
 
 function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextEditorProps) {
   const content = useTabsStore((s) => selectTabContent(s, tabId));
-  const hasPath = useTabsStore((s) => !!s.tabs.find((t) => t.id === tabId)?.path);
+  const path = useTabsStore((s) => s.tabs.find((t) => t.id === tabId)?.path ?? null);
   const containerRef = useRef<HTMLDivElement>(null);
   // Markdown we last handed to (or received from) the editor; anything else is an outside change
   const knownMarkdown = useRef(content);
@@ -425,7 +427,19 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
   // Ctrl/Cmd+click follows links; a plain click just places the cursor
   useDocumentLinks(containerRef, content, { requireModifier: true, resolveImages: false });
 
-  const isBlank = !hasPath && content === '';
+  // The node views show their images once; a new path (Save As) with the same text shows them again
+  const shownPath = useRef(path);
+  useEffect(() => {
+    const container = containerRef.current;
+
+    if (!container || shownPath.current === path) return;
+
+    shownPath.current = path;
+    showDocumentMedia(container, path);
+    reshowDocumentImages(container, path);
+  }, [path]);
+
+  const isBlank = !path && content === '';
 
   return (
     <div className="h-full flex flex-col">

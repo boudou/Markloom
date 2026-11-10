@@ -136,8 +136,8 @@ const missingBoxes = new WeakMap<HTMLImageElement, HTMLSpanElement>();
  * re-checked on focus.
  *
  * The undecodable-image rule, which `showImage`, `refreshImages`, `markMissingOnFailedLoad`
- * (documentMedia.ts) and their callers in the preview (useDocumentLinks.ts) and rich text
- * (milkdown/plugins.ts) rely on: a boxed img whose src is still the cached blob URL of its file is
+ * (documentMedia.ts) and `showDocumentImage` (documentImages.ts, for the preview and rich text)
+ * rely on: a boxed img whose src is still the cached blob URL of its file is
  * a file that was read but wouldn't decode. A file that can't be read leaves no src (`showImage`
  * removes it, in the preview and in rich text alike), so it never matches that URL. Loading the
  * same URL again would only flash the broken-image icon; a changed file gets a new URL and is tried.

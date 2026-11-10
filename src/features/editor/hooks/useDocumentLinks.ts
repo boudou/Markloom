@@ -4,9 +4,10 @@ import { canResolveRelative, documentName, readFileBlob } from '@/features/file-
 import { openPath } from '@/lib/documentActions';
 import { notify } from '@/stores/uiStore';
 import { errorMessage } from '@/lib/utils';
-import { markImageMissing, NO_FOLDER_HINT, refreshImages, showImage } from '../utils/previewImages';
-import { markMissingOnFailedLoad, showDocumentMedia } from '../utils/documentMedia';
-import { isAbsoluteUrl, resolveRelativePath, resolveSourcePath, splitHash } from '@/lib/documentPath';
+import { refreshImages } from '../utils/previewImages';
+import { showDocumentMedia } from '../utils/documentMedia';
+import { showDocumentImage } from '../utils/documentImages';
+import { isAbsoluteUrl, resolveRelativePath, splitHash } from '@/lib/documentPath';
 
 // Linked files that open in a window, by extension, with the type they open as. The type never
 // comes from the file: a folder's .html would otherwise run as a page of this app's origin.
@@ -29,12 +30,6 @@ const VIEWABLE_TYPES = new Map<string, string>([
   ['yaml', 'text/plain;charset=utf-8'],
   ['yml', 'text/plain;charset=utf-8'],
 ]);
-
-// The img stays (hidden, keeping its path), so a focus refresh shows it once its file turns up
-function showMissingImage(img: HTMLImageElement, src: string, hint?: string) {
-  if (!img.isConnected) return;
-  markImageMissing(img, img.alt || src, hint);
-}
 
 function scrollToAnchor(container: HTMLElement, id: string): void {
   if (!id) {
@@ -131,23 +126,12 @@ export function useDocumentLinks(
     // First, so a relative srcset candidate (which wins over src) is off before any error is handled
     showDocumentMedia(container, activeFilePath);
 
-    container.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
-      const src = img.getAttribute('src') ?? '';
-
-      // Any image that fails to load (remote 404, bad data URL, a file that won't decode) gets a
-      // readable placeholder; one that won't decode follows the rule beside markImageMissing
-      markMissingOnFailedLoad(img, () => img.alt || src);
-
-      if (!src || isAbsoluteUrl(src) || src.startsWith('#')) return;
-
-      if (!canResolveRelative(activeFilePath)) {
-        showMissingImage(img, src, NO_FOLDER_HINT);
-
-        return;
-      }
-
-      const path = resolveSourcePath(activeFilePath, src);
-      void showImage(img, path, () => showMissingImage(img, src));
+    // A new render's imgs carry the address from the HTML. One already shown has an object URL or
+    // no src, so after Save As it resolves again from the address it keeps. Any image that fails
+    // to load (remote 404, bad data URL, a file that won't decode) gets a readable placeholder.
+    container.querySelectorAll<HTMLImageElement>('img[src], img[data-markdown-src]').forEach((img) => {
+      const src = img.dataset.markdownSrc ?? img.getAttribute('src') ?? '';
+      showDocumentImage(img, src, img.alt || src, activeFilePath);
     });
   }, [containerRef, html, activeFilePath, resolveImages]);
 

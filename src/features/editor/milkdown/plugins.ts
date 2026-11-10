@@ -10,8 +10,6 @@ import { Decoration, DecorationSet, type EditorProps, type EditorView, type Node
 import { renderMermaid } from '@/features/mermaid/utils/mermaidConfig';
 import { currentTheme, onThemeChange, type Theme } from '@/lib/appearance';
 import { fillDiagram } from '@/features/mermaid/utils/errors';
-import { canResolveRelative } from '@/features/file-tree/api/fileSystem';
-import { isAbsoluteUrl, resolveSourcePath } from '@/lib/documentPath';
 import { useTabsStore, selectActiveContent, selectActiveTab } from '@/features/tabs';
 import {
   fenceLanguage,
@@ -21,8 +19,7 @@ import {
   leadingBlankLines,
   mermaidFences,
 } from '@/lib/markdown';
-import { clearImageMissing, isImageMarkedMissing, markImageMissing, NO_FOLDER_HINT, showImage } from '../utils/previewImages';
-import { markMissingOnFailedLoad } from '../utils/documentMedia';
+import { showDocumentImage } from '../utils/documentImages';
 import type { ResolvedReference } from './references';
 
 export function activeDocumentPath(): string | null {
@@ -471,51 +468,9 @@ export const imageSchemaFix = imageSchema.extendSchema((prev) => (ctx) => {
 
 export const linkSchemaFix = linkSchema.extendSchema((prev) => (ctx) => ({ ...prev(ctx), inclusive: false, excludes: 'link linkReference' }));
 
-// Images: keep the markdown src untouched, display a resolved one. An image that can't be shown
-// (a missing file, a web address that fails) hides the img and shows the preview's `.missing-image`
-// box beside it (previewImages.ts); the node and the Markdown are untouched. A missing file keeps
-// its path on the img, so a focus refresh shows it once the file turns up. A file that read but
-// wouldn't decode follows the rule beside markImageMissing (previewImages.ts).
-
-/**
- * Shows a document image in an img: a relative src loads from the open folder (through the
- * preview's image cache), anything else as written. An image that can't be shown is hidden beside
- * a box that names `label`. The img needs a parent.
- */
-export function showDocumentImage(img: HTMLImageElement, src: string, label: string): void {
-  // The latest call's label wins, so a failed load names the label of the last render
-  markMissingOnFailedLoad(img, () => label);
-
-  if (!src || isAbsoluteUrl(src)) {
-    // Takes the img out of any folder read still in flight and out of focus refreshes
-    delete img.dataset.imagePath;
-
-    if (img.getAttribute('src') !== src) {
-      // The error listener puts the box back if the new address fails too
-      clearImageMissing(img);
-      img.src = src;
-    } else if (isImageMarkedMissing(img)) {
-      // Only the label changed: setting the same src again would not load it again
-      markImageMissing(img, label);
-    }
-
-    return;
-  }
-
-  const docPath = activeDocumentPath();
-
-  if (!canResolveRelative(docPath)) {
-    // Never loaded from the app's own address; the box says why it isn't shown
-    delete img.dataset.imagePath;
-    img.removeAttribute('src');
-    markImageMissing(img, label, NO_FOLDER_HINT);
-
-    return;
-  }
-
-  // A box already shown stays until the read settles, so a missing-to-missing edit never flashes
-  void showImage(img, resolveSourcePath(docPath, src), () => markImageMissing(img, label));
-}
+// Images: keep the markdown src untouched, display a resolved one (showDocumentImage,
+// documentImages.ts). An image that can't be shown hides the img beside the preview's
+// `.missing-image` box; the node and the Markdown are untouched.
 
 // A wrapper, so a missing image's box sits inside the node view (selected, deleted and dragged with it)
 class ImageView implements NodeView {
@@ -536,7 +491,7 @@ class ImageView implements NodeView {
     this.img.alt = alt ?? '';
 
     if (title) this.img.title = title;
-    showDocumentImage(this.img, src, alt || src);
+    showDocumentImage(this.img, src, alt || src, activeDocumentPath());
   }
 
   update(node: ProseNode) {
