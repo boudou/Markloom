@@ -168,9 +168,11 @@ export function showDocumentMedia(root: ParentNode, docPath: string | null): voi
 
       if (!candidates.some(isRelative)) continue;
 
-      if (seen === null) {
-        element.setAttribute(rule.original, original);
-        // Until the folder has been read, only the absolute addresses
+      if (seen === null) element.setAttribute(rule.original, original);
+
+      // Until the folder has been read, only the absolute addresses; with no folder to read (the
+      // document was saved as a file on its own), no file from the folder it left either
+      if (seen === null || !resolvable) {
         setAttribute(element, rule.attribute, formatCandidates(candidates.filter((candidate) => !isRelative(candidate))));
       }
 

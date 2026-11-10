@@ -12,7 +12,8 @@ import type { Node as ProseNode, NodeType } from '@milkdown/kit/prose/model';
 import { Decoration, type EditorView, type NodeView } from '@milkdown/kit/prose/view';
 import { isUnknownHtmlTag, sanitizeHtml } from '@/lib/markdown';
 import { showDocumentMedia } from '../utils/documentMedia';
-import { activeDocumentPath, documentDecorations, showDocumentImage } from './plugins';
+import { activeDocumentPath, documentDecorations } from './plugins';
+import { showDocumentImage } from '../utils/documentImages';
 
 const COMMENT_ICON =
   '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v6.5H7l-3 2.5V10H3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
@@ -155,7 +156,7 @@ class HtmlView implements NodeView {
 
     display.append(fragment);
 
-    for (const { img, src } of images) showDocumentImage(img, src, img.alt || src);
+    for (const { img, src } of images) showDocumentImage(img, src, img.alt || src, activeDocumentPath());
   }
 
   openSource() {

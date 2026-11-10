@@ -727,6 +727,61 @@ test.describe('missing images (#236, #250)', () => {
   });
 });
 
+test.describe('images after Save As (#273)', () => {
+  test.beforeEach(async ({ page }) => {
+    // Save As picks a file outside the open folder: a document on its own, whose relative images can't be read
+    await page.evaluate(() => {
+      Object.defineProperty(window, 'showSaveFilePicker', {
+        configurable: true,
+        value: async () => (await navigator.storage.getDirectory()).getFileHandle('saved-elsewhere.md', { create: true }),
+      });
+    });
+  });
+
+  /** Saves the active document as saved-elsewhere.md and waits for its tab to take the new name */
+  async function saveElsewhere(page: Page): Promise<void> {
+    await page.keyboard.press('ControlOrMeta+Shift+s');
+    await expect(page.getByRole('tablist', { name: 'Open documents' }).getByRole('tab', { name: 'saved-elsewhere.md', exact: true })).toBeVisible();
+  }
+
+  test('an image shown before Save As outside the folder shows the box with the folder hint @rich-text @images', async ({ app, page }) => {
+    await app.openFile('fixture.md');
+
+    const rendered = app.rendered();
+
+    for (const alt of ['Relative image', 'HTML image']) {
+      const image = rendered.getByRole('img', { name: alt, exact: true });
+
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    }
+
+    await saveElsewhere(page);
+
+    for (const alt of ['Relative image', 'HTML image']) {
+      await expect(rendered.getByRole('img', { name: new RegExp(`^Image not found: ${alt}\\. open the document from its folder`) })).toBeVisible();
+      await expect(rendered.locator(`img[alt="${alt}"]`)).not.toBeVisible();
+    }
+  });
+
+  test('a missing image resolves again after Save As and names the folder hint @rich-text @images', async ({ app, page }) => {
+    await app.openFile('missing-image.md');
+
+    const rendered = app.rendered();
+
+    for (const alt of ['Gone lantern', 'Gone HTML lantern']) {
+      await expect(rendered.getByRole('img', { name: `Image not found: ${alt}`, exact: true })).toBeVisible();
+    }
+
+    await saveElsewhere(page);
+
+    for (const alt of ['Gone lantern', 'Gone HTML lantern']) {
+      await expect(rendered.getByRole('img', { name: new RegExp(`^Image not found: ${alt}\\. open the document from its folder`) })).toBeVisible();
+      await expect(rendered.getByRole('img', { name: `Image not found: ${alt}`, exact: true })).toHaveCount(0);
+    }
+  });
+});
+
 /** Copies a file of the test folder to another path in it, as another app would */
 async function copyFolderFile(page: Page, from: string, to: string): Promise<void> {
   await page.evaluate(
