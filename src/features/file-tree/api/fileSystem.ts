@@ -586,6 +586,86 @@ export function writeFile(path: string, content: string | Blob): Promise<void> {
   return storeFor(path).write(path, content);
 }
 
+// ---------------------------------------------------------------------------
+// New files and folders from the file tree
+
+export type EntryKind = 'file' | 'folder';
+
+const RESERVED_WINDOWS_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+// Characters Windows refuses in a name, besides the path separators and control characters
+const FORBIDDEN_CHARACTERS = /[<>:"|?*]/;
+
+const hasControlCharacter = (name: string) => [...name].some((char) => char.charCodeAt(0) < 0x20);
+
+/**
+ * Why `name` can't be used for a new entry, or null when it can. The Windows rules apply everywhere,
+ * since folders get synced to Windows machines; the dot and node_modules rules keep the new entry
+ * from being one the tree hides.
+ */
+export function entryNameProblem(name: string, kind: EntryKind): string | null {
+  const trimmed = name.trim();
+
+  if (!trimmed) return 'Enter a name';
+
+  if (/[/\\]/.test(trimmed)) return "A name can't contain / or \\";
+
+  if (FORBIDDEN_CHARACTERS.test(trimmed) || hasControlCharacter(trimmed)) return 'A name can\'t contain < > : " | ? *';
+
+  if (trimmed.startsWith('.')) return 'Names starting with a dot are hidden from the file tree';
+
+  if (trimmed.endsWith('.')) return "A name can't end with a dot";
+
+  if (RESERVED_WINDOWS_NAMES.test(trimmed.split('.')[0])) return 'That name is reserved by Windows';
+
+  if (kind === 'folder' && trimmed === 'node_modules') return 'node_modules folders are hidden from the file tree';
+
+  return null;
+}
+
+/** The file name a new document gets: `.md` is added unless the name already ends in a document extension the tree shows */
+export function documentFileName(name: string): string {
+  const trimmed = name.trim();
+
+  return isMarkdownFile(trimmed) || isMermaidFile(trimmed) ? trimmed : `${trimmed}.md`;
+}
+
+/** Creates an empty file or a folder at `path` inside an existing folder. Never overwrites: 'exists' when the name is taken. */
+export async function createEntry(path: string, kind: EntryKind): Promise<'created' | 'exists'> {
+  if (isDesktopPath(path)) {
+    const bridge = desktopBridge();
+
+    return kind === 'file' ? bridge.createFile(osPathOf(path)) : bridge.createFolder(osPathOf(path));
+  }
+
+  const { dirParts, name } = folderPartsOf(path);
+
+  return inFolder(dirParts, { create: false }, async (dir) => {
+    if (await isNameTaken(dir, name)) return 'exists';
+
+    // Neither call empties an entry that appeared meanwhile: an existing file or folder is returned as it is
+    if (kind === 'file') await dir.getFileHandle(name, { create: true });
+    else await dir.getDirectoryHandle(name, { create: true });
+
+    return 'created';
+  });
+}
+
+// A file of that name opens; a folder of that name rejects with a TypeMismatchError
+async function isNameTaken(dir: FileSystemDirectoryHandle, name: string): Promise<boolean> {
+  try {
+    await dir.getFileHandle(name);
+
+    return true;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TypeMismatchError') return true;
+
+    if (error instanceof DOMException && error.name === 'NotFoundError') return false;
+
+    throw error;
+  }
+}
+
 /** Whether the file can be reached; checks its version, so no contents are loaded */
 export async function fileExists(path: string): Promise<boolean> {
   try {

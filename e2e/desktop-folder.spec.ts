@@ -40,6 +40,29 @@ async function installDesktopBridge(page: Page): Promise<void> {
         return file;
       };
 
+      const record = (call: string, target: string) => {
+        const calls = JSON.parse(localStorage.getItem('e2e-creates') ?? '[]');
+        localStorage.setItem('e2e-creates', JSON.stringify([...calls, { call, path: target }]));
+      };
+
+      // Adds a new entry to its folder's listing, as the main process would on disk
+      const addEntry = (target: string, isDirectory: boolean) => {
+        const slash = target.lastIndexOf('/');
+        const entries = folders.get(target.slice(0, slash));
+        const name = target.slice(slash + 1);
+
+        if (!entries) throw new Error('Markloom does not have access to that location');
+
+        if (entries.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) return 'exists';
+
+        entries.push({ name, isDirectory });
+
+        if (isDirectory) folders.set(target, []);
+        else files.set(target, { text: '', mtimeMs: 1 });
+
+        return 'created';
+      };
+
       const listen = <T,>(name: string, callback: (detail: T) => void) => {
         const listener = (event: Event) => {
           if (event instanceof CustomEvent) callback(event.detail);
@@ -81,6 +104,16 @@ async function installDesktopBridge(page: Page): Promise<void> {
 
             const writes = JSON.parse(localStorage.getItem('e2e-writes') ?? '[]');
             localStorage.setItem('e2e-writes', JSON.stringify([...writes, { path: filePath, text }]));
+          },
+          createFile: async (filePath: string) => {
+            record('createFile', filePath);
+
+            return addEntry(filePath, false);
+          },
+          createFolder: async (dirPath: string) => {
+            record('createFolder', dirPath);
+
+            return addEntry(dirPath, true);
           },
           printToPdf: async () => new Uint8Array(),
           updateWindowPrefs: async () => ({ minimizeToTray: false, closeToTray: false }),
@@ -157,4 +190,28 @@ test('the session keeps its documents but not the desktop folder @desktop @docum
       })
     )
     .toMatchObject({ rootName: null, paths: [`desktop:${ROOT}/a.md`] });
+});
+
+function createCalls(page: Page): Promise<{ call: string; path: string }[]> {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('e2e-creates') ?? '[]'));
+}
+
+test('New file creates a document through the bridge and opens it @desktop @documents', async ({ app, page }) => {
+  await page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: 'New file', exact: true }).click();
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Name' }).fill('c');
+  await page.getByRole('dialog').getByRole('button', { name: 'Create', exact: true }).click();
+
+  await expect.poll(() => createCalls(page)).toEqual([{ call: 'createFile', path: `${ROOT}/c.md` }]);
+  await expect(app.treeItem('c.md')).toBeVisible();
+  await expect(app.tab('c.md')).toHaveAttribute('aria-selected', 'true');
+});
+
+test('New folder from a folder row creates inside it @desktop @documents', async ({ app, page }) => {
+  await app.treeItem('sub').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'New folder…' }).click();
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Name' }).fill('more');
+  await page.getByRole('dialog').getByRole('button', { name: 'Create', exact: true }).click();
+
+  await expect.poll(() => createCalls(page)).toEqual([{ call: 'createFolder', path: `${ROOT}/sub/more` }]);
+  await expect(app.treeItem('sub').locator('xpath=following-sibling::*').getByRole('button', { name: 'more', exact: true })).toBeVisible();
 });

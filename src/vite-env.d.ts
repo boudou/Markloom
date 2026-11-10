@@ -27,6 +27,10 @@ interface Window {
     readFile: (filePath: string) => Promise<{ bytes: Uint8Array; mtimeMs: number }>;
     statFile: (filePath: string) => Promise<{ mtimeMs: number; size: number }>;
     writeFile: (filePath: string, data: string | Uint8Array) => Promise<void>;
+    /** Creates an empty document; 'exists' when the name is taken, never overwrites */
+    createFile: (filePath: string) => Promise<'created' | 'exists'>;
+    /** Creates a folder inside an existing one; 'exists' when the name is taken */
+    createFolder: (dirPath: string) => Promise<'created' | 'exists'>;
     // Inline import() types: a top-level import would turn this global script into a module
     printToPdf: (
       html: string,

@@ -56,6 +56,9 @@ const canRead = (file) => DOCUMENT_EXTENSIONS.test(file) || IMAGE_EXTENSIONS.tes
 const canWrite = (file) =>
   DOCUMENT_EXTENSIONS.test(file) ||
   (IMAGE_EXTENSIONS.test(file) && path.basename(path.dirname(file)).toLowerCase() === 'assets');
+// New entries from the file tree: documents and folders, never hidden ones (the tree leaves those out)
+const canCreateFile = (file) => DOCUMENT_EXTENSIONS.test(file) && !path.basename(file).startsWith('.');
+const canCreateFolder = (dir) => !path.basename(dir).startsWith('.');
 
 // Serve the production build from a secure custom scheme so browser APIs that
 // require a secure context (File System Access API, IndexedDB, etc.) keep working.
@@ -343,6 +346,35 @@ ipcMain.handle('write-file', async (event, filePath, data) => {
   const target = await assertTrusted(filePath, canWrite);
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
   await fs.promises.writeFile(target, data);
+});
+
+// The two below report a taken name as 'exists' rather than throwing: a thrown message reaches
+// the page prefixed with "Error invoking remote method…", which can't be shown to the user.
+
+// Creates an empty document; never overwrites (wx). 'exists' when the name is taken by a file or folder
+ipcMain.handle('create-file', async (event, filePath) => {
+  assertFromApp(event);
+  const target = await assertTrusted(filePath, canCreateFile);
+  try {
+    await fs.promises.writeFile(target, '', { flag: 'wx' });
+  } catch (error) {
+    if (error.code === 'EEXIST') return 'exists';
+    throw error;
+  }
+  return 'created';
+});
+
+// Creates one folder; a missing parent fails instead of creating a chain
+ipcMain.handle('create-folder', async (event, dirPath) => {
+  assertFromApp(event);
+  const target = await assertTrusted(dirPath, canCreateFolder);
+  try {
+    await fs.promises.mkdir(target);
+  } catch (error) {
+    if (error.code === 'EEXIST') return 'exists';
+    throw error;
+  }
+  return 'created';
 });
 
 // ---------------------------------------------------------------------------

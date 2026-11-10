@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('markloomDesktop', {
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   statFile: (filePath) => ipcRenderer.invoke('stat-file', filePath),
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
+  /** Creates an empty document: 'created', or 'exists' when the name is taken (never overwrites) */
+  createFile: (filePath) => ipcRenderer.invoke('create-file', filePath),
+  /** Creates a folder inside an existing one: 'created', or 'exists' when the name is taken */
+  createFolder: (dirPath) => ipcRenderer.invoke('create-folder', dirPath),
 
   /** Renders static HTML to a PDF with Chromium's print engine */
   printToPdf: (html, options) => ipcRenderer.invoke('print-pdf', html, options),
