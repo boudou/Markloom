@@ -83,6 +83,8 @@
     "remark-math": "^6.0.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
+    "turndown": "^7.2.5",
+    "turndown-plugin-gfm": "^1.0.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "wait-on": "^9.5.1",
