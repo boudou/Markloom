@@ -27,7 +27,8 @@ const EMPTY_HEADING = /^#{1,6}$/;
 // Starts a definition inside an uncovered run of lines; `[^…]:` is a footnote definition
 const DEFINITION_START = /^ {0,3}\[/;
 
-const FOOTNOTE_DEFINITION = /^ {0,3}\[\^/;
+// Starts a footnote definition; a line that only starts with a reference (`[^1] is cited`) doesn't
+const FOOTNOTE_DEFINITION = /^ {0,3}\[\^[^\]\s]+\]:/;
 
 const keyCache = new Map<string, string>();
 
@@ -48,10 +49,14 @@ function blockKey(text: string): string {
 
 /**
  * A definition's key: a link definition by what it defines, since rich text normalizes how it is
- * written (`[guide]:   <url>` comes back as `[guide]: url`); a footnote definition by its text.
+ * written (`[guide]:   <url>` comes back as `[guide]: url`); a footnote definition by its rendered
+ * text, label included (`*a*` comes back as `_a_`), unless it also reads as a link definition,
+ * which renders nothing.
  */
 function definitionKey(text: string): string {
-  if (FOOTNOTE_DEFINITION.test(text)) return `definition\0${text}`;
+  const rendered = FOOTNOTE_DEFINITION.test(text) ? blockKey(text) : '';
+
+  if (rendered) return `definition\0${rendered}`;
 
   const env: DefinitionEnv = {};
   comparer.parse(text, env);
@@ -61,10 +66,11 @@ function definitionKey(text: string): string {
 }
 
 /**
- * Splits uncovered lines (link reference and footnote definitions) into one block per
- * definition, so each can be matched on its own.
+ * Splits lines into one block per definition, so each can be matched on its own: uncovered lines
+ * (link reference and footnote definitions) at every `[`, a paragraph of footnote definitions only
+ * where the next definition starts, since its other lines are continuation text.
  */
-function definitionBlocks(lines: string[], from: number, to: number): Block[] {
+function definitionBlocks(lines: string[], from: number, to: number, definitionStart = DEFINITION_START): Block[] {
   const blocks: Block[] = [];
   let start = -1;
 
@@ -78,7 +84,7 @@ function definitionBlocks(lines: string[], from: number, to: number): Block[] {
 
   for (let line = from; line < to; line++) {
     if (!lines[line].trim()) close(line);
-    else if (start < 0 || DEFINITION_START.test(lines[line])) {
+    else if (start < 0 || definitionStart.test(lines[line])) {
       close(line);
       start = line;
     }
@@ -89,7 +95,13 @@ function definitionBlocks(lines: string[], from: number, to: number): Block[] {
   return blocks;
 }
 
-/** Top-level blocks with their exact source text, including the definitions between them. */
+/**
+ * Top-level blocks with their exact source text, including the definitions between them. Rich
+ * text has one top-level node for each: a markdown-it block, or a link or footnote definition.
+ * The comparer knows no footnotes, so it reads adjacent footnote definitions as one paragraph when
+ * the first one isn't also a valid link definition; those are split here, one block per
+ * definition, so an edit to one leaves its neighbours' text as written (#220).
+ */
 function splitBlocks(lines: string[], markdown: string): Block[] {
   const tokens = comparer.parse(markdown, {});
   const blocks: Block[] = [];
@@ -103,7 +115,12 @@ function splitBlocks(lines: string[], markdown: string): Block[] {
     const text = lines.slice(start, token.map[1]).join('\n').replace(/\s+$/, '');
 
     // markdown-it counts a list's trailing blank line as part of the list; measure the real text
-    if (text) blocks.push({ text, key: blockKey(text), start, end: start + text.split('\n').length });
+    if (!text) continue;
+
+    const end = start + text.split('\n').length;
+
+    if (FOOTNOTE_DEFINITION.test(text)) blocks.push(...definitionBlocks(lines, start, end, FOOTNOTE_DEFINITION));
+    else blocks.push({ text, key: blockKey(text), start, end });
   }
 
   blocks.push(...definitionBlocks(lines, covered, lines.length));
@@ -111,18 +128,9 @@ function splitBlocks(lines: string[], markdown: string): Block[] {
   return blocks;
 }
 
-/**
- * The source lines [start, end) of each top-level block, 0-based. Rich text has one top-level
- * node for each: a markdown-it block, or a link or footnote definition. The comparer knows no
- * footnotes, so it reads adjacent footnote definitions as one paragraph when the first one isn't
- * also a valid link definition; those are split here, one block per definition.
- */
+/** The source lines [start, end) of each top-level block, 0-based: one per rich-text top-level node */
 export function sourceBlocks(markdown: string): Array<{ start: number; end: number }> {
-  const lines = markdown.split('\n');
-
-  return splitBlocks(lines, markdown).flatMap((block) =>
-    (FOOTNOTE_DEFINITION.test(block.text) ? definitionBlocks(lines, block.start, block.end) : [block]).map(({ start, end }) => ({ start, end }))
-  );
+  return splitBlocks(markdown.split('\n'), markdown).map(({ start, end }) => ({ start, end }));
 }
 
 /**
@@ -147,24 +155,44 @@ export function preserveUnchangedBlocks(original: string, serialized: string): s
   const entries = splitBlocks(serialized.split('\n'), serialized).map((block) => {
     const index = available.get(block.key)?.shift();
 
-    return { text: index !== undefined ? originalBlocks[index].text : block.text, index };
+    return { text: index !== undefined ? originalBlocks[index].text : block.text, index, footnote: FOOTNOTE_DEFINITION.test(block.text) };
+  });
+
+  const kept = new Set(entries.flatMap(({ index }) => (index === undefined ? [] : [index])));
+
+  // Where each serialized block stands in the original: the block it keeps, or for an edited block
+  // between two kept ones that are one original block apart, the edited one's place
+  const places = entries.map(({ index }, i) => {
+    if (index !== undefined) return index;
+
+    const place = (i > 0 ? (entries[i - 1].index ?? -2) : -1) + 1;
+    const next = entries[i + 1];
+    const fits = next ? next.index === place + 1 : place === originalBlocks.length - 1;
+
+    return place >= 0 && fits && !kept.has(place) ? place : undefined;
   });
 
   let output = '';
-  let previousOriginal = -2;
-  entries.forEach(({ text, index }, i) => {
+  entries.forEach(({ text, index, footnote }, i) => {
+    const place = places[i];
+    const previous = places[i - 1];
+
     if (i > 0) {
-      // Consecutive untouched blocks: reuse the exact gap between them
-      output +=
-        index !== undefined && index === previousOriginal + 1
-          ? '\n' + originalLines.slice(originalBlocks[previousOriginal].end, originalBlocks[index].start).map((l) => `${l}\n`).join('')
-          : '\n\n';
+      // Consecutive untouched blocks reuse the exact gap between them, and so do two footnote
+      // definitions in their original places, one of them edited: adjacent definitions stay
+      // adjacent, and a definition always starts a new one
+      const before = entries[i - 1];
+      const bothKept = index !== undefined && before.index !== undefined;
+      const sameGap = place !== undefined && previous !== undefined && place === previous + 1 && (bothKept || (footnote && before.footnote));
+
+      output += sameGap
+        ? '\n' + originalLines.slice(originalBlocks[previous].end, originalBlocks[place].start).map((l) => `${l}\n`).join('')
+        : '\n\n';
     }
 
     // remark writes an emptied heading as a bare `#`, and splitBlocks trims an original `# `
     // to `#` too; write `# ` either way, as Markdown mode does
     output += text.replace(EMPTY_HEADING, '$& ');
-    previousOriginal = index ?? -2;
   });
 
   return output + (endsWithNewline ? '\n' : '');

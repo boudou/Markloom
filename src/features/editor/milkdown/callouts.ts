@@ -162,9 +162,11 @@ function caretOf(view: EditorView): number | undefined {
 
 // Backspace never deletes the hidden marker or its line break, which would undo the callout
 // unseen. It shows the marker instead, with the caret after it, so a second Backspace edits it.
-// A DOM handler, so it runs before the keymaps' joinBackward.
+// A DOM handler, so it runs before the keymaps' joinBackward. With a modifier too: Ctrl+Backspace
+// (Alt+ or Cmd+ on macOS) deletes a word or a line backward, which would take the marker just the
+// same, and in the marker-paragraph form join the body into the hidden marker paragraph (#220).
 function revealMarkerOnBackspace(view: EditorView, event: KeyboardEvent): boolean {
-  if (event.key !== 'Backspace' || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return false;
+  if (event.key !== 'Backspace') return false;
   const caret = caretOf(view);
   const callout = caret === undefined ? undefined : hiddenMarkerBefore(view.state, caret);
 

@@ -138,6 +138,9 @@ Paragraph 59 of the footnotes fixture, long enough to fill a line of the preview
 
 Paragraph 60 of the footnotes fixture, long enough to fill a line of the preview.
 
+[^1] opens this paragraph, which wraps
+[onto a line](https://example.com/wrap) that starts with a link.
+
 [^1]: First.
 [^c]: From the callout.
 [^t]: From the table. **Bold**, `code` and a [link](https://example.com/note).

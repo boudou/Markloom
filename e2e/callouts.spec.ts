@@ -126,11 +126,16 @@ test('saving callouts without edits leaves the file byte-identical @rich-text', 
   expect(await app.readFile('callouts.md')).toBe(seedText('callouts.md'));
 });
 
-for (const { kind, marker, body } of [
-  { kind: 'note', marker: '[!NOTE]', body: 'Note body.' },
-  { kind: 'caution', marker: '[!CAUTION]', body: 'Caution body, the marker on a paragraph of its own.' },
+// With a modifier, Backspace deletes a word (Ctrl, Alt on macOS) or to the line start (Cmd): it must
+// show the marker all the same (#220)
+for (const { kind, marker, body, key } of [
+  { kind: 'note', marker: '[!NOTE]', body: 'Note body.', key: 'Backspace' },
+  { kind: 'caution', marker: '[!CAUTION]', body: 'Caution body, the marker on a paragraph of its own.', key: 'Backspace' },
+  { kind: 'note', marker: '[!NOTE]', body: 'Note body.', key: 'ControlOrMeta+Backspace' },
+  { kind: 'caution', marker: '[!CAUTION]', body: 'Caution body, the marker on a paragraph of its own.', key: 'ControlOrMeta+Backspace' },
+  { kind: 'caution', marker: '[!CAUTION]', body: 'Caution body, the marker on a paragraph of its own.', key: 'Alt+Backspace' },
 ]) {
-  test(`Backspace at the start of a ${kind} body shows the marker instead of deleting it @rich-text`, async ({ app, page }) => {
+  test(`${key} at the start of a ${kind} body shows the marker instead of deleting it @rich-text`, async ({ app, page }) => {
     test.skip(app.editorMode !== 'wysiwyg', 'the marker is hidden only in rich text; in Markdown Backspace joins two visible lines');
     const box = app.rendered().locator(`blockquote[data-callout="${kind}"]`);
     const before = await app.fileModified('callouts.md');
@@ -152,7 +157,7 @@ for (const { kind, marker, body } of [
 
       throw new Error(`no text starts with "${text}"`);
     }, body);
-    await page.keyboard.press('Backspace');
+    await page.keyboard.press(key);
 
     // The hidden marker and its line break are still there, now shown as text with the box in place
     // Body first: a Backspace on a stale caret at the end of the body shows up here as a lost last character

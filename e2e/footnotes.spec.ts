@@ -1,11 +1,12 @@
 // Footnotes (#203): the preview numbers [^1] references and lists the notes at the end with links
 // back, exports and Copy as rich text carry them styled, and rich text styles its own footnote
 // nodes. folder/footnotes.md has a definition mid-document, references in a paragraph, a callout's
-// first line, a list and a table, and a "## fn1" heading that must keep its id. Word export
+// first line, a list, a table and the start of a paragraph, and a "## fn1" heading that must keep
+// its id. Word export
 // (#204) writes them as Word footnotes.
 import JSZip from 'jszip';
 import type { Page } from '@playwright/test';
-import { test, expect, downloadOf, expectNoPreviewInRichText, type SavedFile } from './fixtures';
+import { test, expect, downloadOf, expectNoPreviewInRichText, seedText, type SavedFile } from './fixtures';
 
 declare global {
   interface Window {
@@ -35,7 +36,7 @@ test('references show as superscripts and notes as a styled block @parity', asyn
     const references = rendered.locator('sup[data-type="footnote_reference"]');
     const definitions = rendered.locator('dl[data-type="footnote_definition"]');
 
-    await expect(references).toHaveText(['1', 'note', 'c', '1', 't']);
+    await expect(references).toHaveText(['1', 'note', 'c', '1', 't', '1']);
     await expect(definitions).toHaveCount(NOTES.length);
     await expect(definitions.first()).toContainText('Second, defined mid-document.');
 
@@ -46,7 +47,7 @@ test('references show as superscripts and notes as a styled block @parity', asyn
     return;
   }
 
-  await expect(rendered.locator('sup.footnote-ref')).toHaveText(['1', '2', '3', '1', '4']);
+  await expect(rendered.locator('sup.footnote-ref')).toHaveText(['1', '2', '3', '1', '4', '1']);
   await expect(rendered.locator('section.footnotes li')).toHaveCount(NOTES.length);
 
   for (const [index, note] of NOTES.entries()) {
@@ -94,8 +95,8 @@ test.describe('preview links', () => {
     await expect(calloutRef).toHaveAttribute('href', '#fn-3');
     await expect(rendered.locator('li#fn-3 a.footnote-backref')).toHaveAttribute('href', '#fnref-3');
 
-    // The second reference to note 1 gets its own back-link
-    await expect(rendered.locator('li#fn-1 a.footnote-backref')).toHaveCount(2);
+    // Each later reference to note 1 gets its own back-link
+    await expect(rendered.locator('li#fn-1 a.footnote-backref')).toHaveCount(3);
     await expect(rendered.locator('[id="fnref-1:1"]')).toHaveText('1');
   });
 
@@ -202,7 +203,7 @@ test('Word writes real footnotes, with an edit made just before export @export',
   // Each reference is a footnote mark; the repeated [^1] points at the same footnote
   const marks = Array.from(body.matchAll(/<w:footnoteReference w:id="(\d+)"\/>/g), (match) => match[1]);
 
-  expect(marks).toEqual(['1', '2', '3', '1', '4']);
+  expect(marks).toEqual(['1', '2', '3', '1', '4', '1']);
 
   // The notes are in Word's footnote area, not left as paragraphs at the end of the body
   const notes = new Map(
@@ -227,4 +228,37 @@ test('Word writes real footnotes, with an edit made just before export @export',
   expect(table).toMatch(/w:ascii="Consolas"[\s\S]*?<w:t[^>]*>code<\/w:t>/);
   expect(table).toMatch(/<w:hyperlink [^>]*r:id="[^"]+"[^>]*>[\s\S]*?<w:t[^>]*>link<\/w:t>/);
   expect(await read('word/_rels/footnotes.xml.rels')).toContain('Target="https://example.com/note"');
+});
+
+// The definitions at the end of the fixture are on adjacent lines; rich text writes each as a block
+// of its own, and saving keeps the untouched ones and the lines between them as written (#220)
+for (const { edited, line } of [
+  { edited: 'First.', line: '[^1]: First.\n' },
+  { edited: 'From the callout.', line: '[^c]: From the callout.\n' },
+]) {
+  test(`editing the adjacent definition "${edited}" leaves the others as written @parity @rich-text`, async ({ app, page }) => {
+    await app.placeCursorAfter(edited);
+    await page.keyboard.type(' Edited');
+    await app.save();
+
+    const expected = seedText('footnotes.md').replace(line, line.replace('\n', ' Edited\n'));
+
+    expect(expected).not.toBe(seedText('footnotes.md'));
+    expect(await app.readFile('footnotes.md')).toBe(expected);
+  });
+}
+
+// A paragraph that starts with a reference is no definition: editing its wrapped line, which starts
+// with a link, keeps it one paragraph (#220)
+test('editing a paragraph that starts with a reference keeps it whole @parity @rich-text', async ({ app, page }) => {
+  const line = '[onto a line](https://example.com/wrap) that starts with a link.\n';
+
+  await app.placeCursorAfter('starts with a link.');
+  await page.keyboard.type(' Edited');
+  await app.save();
+
+  const expected = seedText('footnotes.md').replace(line, line.replace('\n', ' Edited\n'));
+
+  expect(expected).not.toBe(seedText('footnotes.md'));
+  expect(await app.readFile('footnotes.md')).toBe(expected);
 });
