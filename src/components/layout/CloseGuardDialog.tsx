@@ -3,6 +3,7 @@ import { Modal, ModalFooter, Button } from '@/components/ui';
 import { useTabsStore } from '@/features/tabs';
 import { useUiStore } from '@/stores/uiStore';
 import { saveTab } from '@/lib/documentActions';
+import { hasDiskConflict } from '@/lib/diskChanges';
 
 /** "Save changes?" before closing tabs that have unsaved work. */
 export function CloseGuardDialog() {
@@ -32,7 +33,12 @@ export function CloseGuardDialog() {
     try {
       for (const tab of dirty) {
         // Stop at the first cancel or failure so nothing unsaved gets closed
-        if (!(await saveTab(tab.id))) return;
+        if (!(await saveTab(tab.id))) {
+          // Another program changed the file: its dialog asks, alone; the tab stays open
+          if (hasDiskConflict(tab.id)) setPending(null);
+
+          return;
+        }
       }
 
       closeTabs(pending);

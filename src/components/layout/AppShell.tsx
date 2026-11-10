@@ -8,6 +8,7 @@ import { TitleBar } from './TitleBar';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { CloseGuardDialog } from './CloseGuardDialog';
+import { DiskChangeDialog } from './DiskChangeDialog';
 import { CommandPalette } from './CommandPalette';
 import { ConsentBar } from './ConsentBar';
 import { Toaster } from '@/components/ui';
@@ -27,6 +28,7 @@ import { commandForKey } from '@/lib/appCommands';
 import { isDesktop } from '@/lib/shortcuts';
 import { initSession } from '@/lib/session';
 import { startAutoSave } from '@/features/auto-save';
+import { startDiskChecks } from '@/lib/diskChanges';
 import { loadHighlighter } from '@/features/syntax-highlight';
 import { initDesktopFiles } from '@/lib/desktopFiles';
 import { initLaunchedFiles } from '@/lib/launchedFiles';
@@ -46,6 +48,7 @@ export function AppShell() {
     // Session first, so files handed over by the OS become the new session rather than being replaced by it
     void initSession().then(initDesktopFiles).then(initLaunchedFiles);
     startAutoSave();
+    startDiskChecks();
     showWhatsNewAfterUpdate();
     // Fetch code highlighting once the window is up and idle (it's off the startup path)
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 300));
@@ -145,6 +148,7 @@ export function AppShell() {
         <SettingsModal {...dialogProps('settings')} />
         <WhatsNewModal {...dialogProps('whatsNew')} />
         <CloseGuardDialog />
+        <DiskChangeDialog />
         <CommandPalette />
         <Toaster />
       </div>
