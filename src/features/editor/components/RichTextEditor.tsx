@@ -38,6 +38,7 @@ import { useEditorFocusRequest } from '../hooks/useEditorFocusRequest';
 import { useImageDrop } from '@/features/image-drop';
 import { codeBlockMetaSchema, codeBlockView, diagramErrorMarks, headingIds, imageSchemaFix, imageView, inlineCodeSpellcheck, linkSchemaFix, taskToggle } from '../milkdown/plugins';
 import { htmlLayout, htmlView } from '../milkdown/html';
+import { smartTyping } from '../milkdown/smartTyping';
 import { math } from '../milkdown/math';
 import { references } from '../milkdown/references';
 import { escapeMathOpeners } from '../milkdown/mathMarkdown';
@@ -203,6 +204,7 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
         .use(taskToggle)
         .use(searchPlugin)
         .use(focusPlugin)
+        .use(smartTyping)
         .use(
           // Tell the toolbar what applies at the cursor, and the status bar what is selected
           $prose(
