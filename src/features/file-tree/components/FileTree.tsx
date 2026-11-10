@@ -1,10 +1,18 @@
-import { useCallback, useEffect } from 'react';
-import { FolderOpen, RefreshCw, AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { FolderOpen, RefreshCw, AlertCircle, FilePlus, FolderPlus } from 'lucide-react';
 import { m } from 'framer-motion';
-import { IconButton, Tooltip } from '@/components/ui';
+import { Button, IconButton, Input, Modal, ModalFooter, Tooltip } from '@/components/ui';
 import { useFileTreeStore } from '../stores/fileTreeStore';
 import { useAppStore } from '@/stores/appStore';
-import { readDirectory, isFileSystemSupported, documentName } from '../api/fileSystem';
+import {
+  readDirectory,
+  isFileSystemSupported,
+  documentName,
+  createEntry,
+  documentFileName,
+  entryNameProblem,
+  type EntryKind,
+} from '../api/fileSystem';
 import { openFolder, openPath } from '@/lib/documentActions';
 import { notify } from '@/stores/uiStore';
 import { TreeNode } from './TreeNode';
@@ -17,6 +25,12 @@ let latestLoad = 0;
 // Module-level, so the memo'd TreeNodes get the same callback on every render
 function openFromTree(path: string): void {
   void openPath(path);
+}
+
+/** A new file or folder waiting for its name */
+interface CreateRequest {
+  folder: string;
+  kind: EntryKind;
 }
 
 export function FileTree() {
@@ -73,6 +87,52 @@ export function FileTree() {
     }
   }, [rootPath, rootId, loadDirectory]);
 
+  const [creating, setCreating] = useState<CreateRequest | null>(null);
+  // Stable, so the memo'd TreeNodes don't all re-render
+  const requestCreate = useCallback((folder: string, kind: EntryKind) => setCreating({ folder, kind }), []);
+
+  // Creates the entry, shows it in the tree and opens a new file. Returns the message to show, or null on success.
+  const createInFolder = useCallback(
+    async ({ folder, kind }: CreateRequest, rawName: string): Promise<string | null> => {
+      const root = useFileTreeStore.getState().rootId;
+      const name = kind === 'file' ? documentFileName(rawName) : rawName.trim();
+      const path = `${folder}/${name}`;
+      let result: 'created' | 'exists';
+
+      try {
+        result = await createEntry(path, kind);
+      } catch (error) {
+        return `Couldn't create ${name}: ${errorMessage(error)}`;
+      }
+
+      if (result === 'exists') return `${name} already exists in ${documentName(folder)}`;
+
+      const tree = useFileTreeStore.getState();
+
+      // Another folder opened meanwhile: its tree has nothing to show
+      if (tree.rootId !== root) return null;
+
+      if (folder === useAppStore.getState().rootPath) {
+        void loadDirectory(folder, root);
+      } else {
+        // Unloading an expanded folder makes its TreeNode read it again
+        tree.updateNode(folder, { children: undefined, loadError: undefined });
+
+        if (!tree.expandedPaths.has(folder)) tree.toggleExpanded(folder);
+      }
+
+      if (kind === 'file') {
+        tree.setSelected(path);
+        void openPath(path);
+      }
+
+      return null;
+    },
+    [loadDirectory]
+  );
+
+  const closeDialog = useCallback(() => setCreating(null), []);
+
   // Show browser compatibility warning
   if (!isSupported) {
     return (
@@ -103,6 +163,20 @@ export function FileTree() {
           {rootPath ? documentName(rootPath) : 'Files'}
         </h2>
         <div className="flex items-center gap-0.5 shrink-0">
+          {rootPath && (
+            <>
+              <Tooltip content="New file">
+                <IconButton variant="ghost" size="sm" onClick={() => requestCreate(rootPath, 'file')}>
+                  <FilePlus className="w-4 h-4" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip content="New folder">
+                <IconButton variant="ghost" size="sm" onClick={() => requestCreate(rootPath, 'folder')}>
+                  <FolderPlus className="w-4 h-4" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
           <Tooltip content="Open another folder">
             <IconButton variant="ghost" size="sm" onClick={() => void openFolder()}>
               <FolderOpen className="w-4 h-4" />
@@ -147,11 +221,99 @@ export function FileTree() {
                 node={node}
                 depth={0}
                 onFileSelect={openFromTree}
+                onCreate={requestCreate}
               />
             ))}
           </div>
         )}
       </div>
+
+      <NewEntryDialog request={creating} onClose={closeDialog} onCreate={createInFolder} />
     </div>
+  );
+}
+
+interface NewEntryDialogProps {
+  request: CreateRequest | null;
+  onClose: () => void;
+  /** Resolves to the message to show, or null once the entry exists */
+  onCreate: (request: CreateRequest, name: string) => Promise<string | null>;
+}
+
+/** Asks for the name of a new file or folder; stays open with the reason when it can't be created */
+function NewEntryDialog({ request, onClose, onCreate }: NewEntryDialogProps) {
+  const [name, setName] = useState('');
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (request) {
+      setName('');
+      setFailure(null);
+      setBusy(false);
+    }
+  }, [request]);
+
+  const isFile = request?.kind === 'file';
+  const problem = request ? entryNameProblem(name, request.kind) : null;
+  // An empty field says nothing yet; Create stays disabled
+  const message = (name.trim() ? problem : null) ?? failure;
+  const fileName = isFile && !problem ? documentFileName(name) : null;
+
+  const submit = async (target: CreateRequest) => {
+    setBusy(true);
+    const result = await onCreate(target, name);
+
+    setBusy(false);
+
+    if (result === null) onClose();
+    else setFailure(result);
+  };
+
+  return (
+    <Modal
+      open={!!request}
+      onOpenChange={(open) => !open && onClose()}
+      title={isFile ? 'New file' : 'New folder'}
+      description={request ? `In ${documentName(request.folder)}` : undefined}
+      size="sm"
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+
+          if (request && !problem && !busy) void submit(request);
+        }}
+        className="space-y-4"
+      >
+        <label className="block text-sm">
+          <span className="text-text-secondary">Name</span>
+          <Input
+            data-autofocus
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setFailure(null);
+            }}
+            placeholder={isFile ? 'notes.md' : 'drafts'}
+            className="mt-1.5"
+          />
+        </label>
+        {fileName && fileName !== name.trim() && <p className="text-xs text-text-muted">Creates {fileName}</p>}
+        {message && (
+          <p role="alert" className="text-xs text-error-text">
+            {message}
+          </p>
+        )}
+        <ModalFooter>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!!problem || busy}>
+            Create
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

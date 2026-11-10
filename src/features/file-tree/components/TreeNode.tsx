@@ -1,20 +1,27 @@
 import { memo, useCallback, useEffect } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
+import * as ContextMenu from '@radix-ui/react-context-menu';
 import { cn, errorMessage, isMarkdownFile, isMermaidFile } from '@/lib/utils';
+import { useMenuHighlight } from '@/components/ui/useMenuHighlight';
 import { FileIcon } from './FileIcon';
 import { useFileTreeStore } from '../stores/fileTreeStore';
-import { readDirectory } from '../api/fileSystem';
+import { readDirectory, type EntryKind } from '../api/fileSystem';
 import type { FileNode } from '../types';
+
+const menuItemClass =
+  'relative flex items-center px-2 py-1.5 text-sm text-text-primary rounded-[7px] cursor-default outline-hidden';
 
 interface TreeNodeProps {
   node: FileNode;
   depth: number;
   onFileSelect: (path: string) => void;
+  /** Asks for a name for a new file or folder in `folderPath` */
+  onCreate: (folderPath: string, kind: EntryKind) => void;
 }
 
 // Memoized with narrow selections: expanding one folder or selecting one file re-renders only the nodes it changes
-export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: TreeNodeProps) {
+export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect, onCreate }: TreeNodeProps) {
   const isExpanded = useFileTreeStore((s) => s.expandedPaths.has(node.path));
   const isSelected = useFileTreeStore((s) => s.selectedPath === node.path);
   const toggleExpanded = useFileTreeStore((s) => s.toggleExpanded);
@@ -70,49 +77,73 @@ export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: Tr
     }
   }, [node, onFileSelect]);
 
+  // A folder's entries are created inside it, a file's beside it
+  const targetFolder = node.isDirectory ? node.path : node.path.slice(0, node.path.lastIndexOf('/'));
+  const { onFocusCapture, highlight } = useMenuHighlight();
+
   return (
     <div>
-      <button
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        className={cn(
-          'w-full flex items-center gap-1.5 py-1 px-2 text-left text-sm',
-          'rounded-md transition-colors duration-150',
-          'hover:bg-wash/70',
-          isSelected && 'bg-accent-primary/20 text-text-primary',
-          !isSelected && 'text-text-secondary'
-        )}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-      >
-        {/* Expand/collapse chevron for directories */}
-        {node.isDirectory ? (
-          <m.div
-            initial={false}
-            animate={{ rotate: isExpanded ? 90 : 0 }}
-            transition={{ duration: 0.15 }}
-            className="w-4 h-4 flex items-center justify-center"
+      {/* Only the row is the trigger: a child's row sits outside it, so a right-click opens the innermost row's menu */}
+      <ContextMenu.Root>
+        <ContextMenu.Trigger asChild>
+          <button
+            onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
+            className={cn(
+              'w-full flex items-center gap-1.5 py-1 px-2 text-left text-sm',
+              'rounded-md transition-colors duration-150',
+              'hover:bg-wash/70',
+              isSelected && 'bg-accent-primary/20 text-text-primary',
+              !isSelected && 'text-text-secondary'
+            )}
+            style={{ paddingLeft: `${depth * 12 + 8}px` }}
           >
-            <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
-          </m.div>
-        ) : (
-          <div className="w-4" />
-        )}
+            {/* Expand/collapse chevron for directories */}
+            {node.isDirectory ? (
+              <m.div
+                initial={false}
+                animate={{ rotate: isExpanded ? 90 : 0 }}
+                transition={{ duration: 0.15 }}
+                className="w-4 h-4 flex items-center justify-center"
+              >
+                <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
+              </m.div>
+            ) : (
+              <div className="w-4" />
+            )}
 
-        {/* File/folder icon */}
-        <FileIcon
-          name={node.name}
-          isDirectory={node.isDirectory}
-          isExpanded={isExpanded}
-        />
+            {/* File/folder icon */}
+            <FileIcon
+              name={node.name}
+              isDirectory={node.isDirectory}
+              isExpanded={isExpanded}
+            />
 
-        {/* File/folder name */}
-        <span className="truncate flex-1">{node.name}</span>
+            {/* File/folder name */}
+            <span className="truncate flex-1">{node.name}</span>
 
-        {/* Loading indicator */}
-        {isLoading && (
-          <div className="w-3 h-3 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
-        )}
-      </button>
+            {/* Loading indicator */}
+            {isLoading && (
+              <div className="w-3 h-3 border-2 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
+            )}
+          </button>
+        </ContextMenu.Trigger>
+
+        <ContextMenu.Portal>
+          <ContextMenu.Content
+            onFocusCapture={onFocusCapture}
+            className="ml-surface ml-float [--ml-origin:var(--radix-context-menu-content-transform-origin)] relative z-50 min-w-[170px] p-1 outline-hidden"
+          >
+            {highlight}
+            <ContextMenu.Item className={menuItemClass} onSelect={() => onCreate(targetFolder, 'file')}>
+              New file…
+            </ContextMenu.Item>
+            <ContextMenu.Item className={menuItemClass} onSelect={() => onCreate(targetFolder, 'folder')}>
+              New folder…
+            </ContextMenu.Item>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
 
       {/* Children */}
       <AnimatePresence>
@@ -130,6 +161,7 @@ export const TreeNode = memo(function TreeNode({ node, depth, onFileSelect }: Tr
                 node={child}
                 depth={depth + 1}
                 onFileSelect={onFileSelect}
+                onCreate={onCreate}
               />
             ))}
           </m.div>
