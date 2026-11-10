@@ -28,6 +28,7 @@ import { setSelectedText } from '@/features/word-count';
 import { codeSpellcheck } from '../codemirror/codeSpellcheck';
 import { focusEditing } from '../codemirror/focus';
 import { usePreservedEditorState } from '../codemirror/documentStates';
+import { htmlHasText, htmlPaste } from '../codemirror/htmlPaste';
 
 interface SplitViewEditorProps {
   onCommands: (commands: EditorCommands | null) => void;
@@ -95,6 +96,7 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       markdownKeymap,
       linkUrlStep,
       editingKeymap,
+      htmlPaste,
       highlightSelectionMatches(),
       sourceAttributes,
       diagramErrorLines,
@@ -180,7 +182,10 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          onPaste={handlePaste}
+          onPaste={(e) => {
+            // Word and Excel put a picture of the selection beside its HTML; htmlPaste takes the text
+            if (!htmlHasText(e.clipboardData.getData('text/html'))) void handlePaste(e);
+          }}
         >
           <AnimatePresence>
             {isDragging && (
