@@ -144,6 +144,69 @@ test.describe('keys right after a click', () => {
     await app.save();
     expect(await app.readFile('math.md')).toBe(seedText('math.md').replace('Escaped \\$y$ stays text.\n', 'Escaped \\$y$ stays text.\n\nNext\n'));
   });
+
+  // The HTML plugin's own Enter handler opens a selected node's source; it must see the click first
+  test('Enter after clicking away from a selected HTML block splits the clicked paragraph (#220) @rich-text', async ({ app, page }) => {
+    test.skip(app.editorMode !== 'wysiwyg', 'Raw HTML is a node of its own only in rich text');
+    await app.openFile('html.md');
+    await app.rendered().locator('.rt-html').filter({ hasText: 'More' }).click();
+
+    const source = app.rendered().locator('textarea.rt-html-source');
+
+    await expect(source).toBeFocused();
+    // Closes the source and leaves the HTML block selected, where Enter would reopen it
+    await source.press('Escape');
+    await expect(source).toBeHidden();
+    await expect(app.rendered().locator('.rt-html.ProseMirror-selectednode')).toHaveCount(1);
+
+    const paragraph = app.rendered().locator('p', { hasText: 'After the HTML.' });
+    const box = await paragraph.boundingBox();
+
+    if (!box) throw new Error('The paragraph is not laid out');
+    await paragraph.click({ position: { x: box.width - 2, y: box.height / 2 } });
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Next');
+    await expect(source).toBeHidden();
+    await app.save();
+    expect(await app.readFile('html.md')).toBe(seedText('html.md').replace('After the HTML.\n', 'After the HTML.\n\nNext\n'));
+  });
+
+  // The math plugin turns `$$` alone in a paragraph into a display formula on Enter, reading the caret
+  test('Enter right after clicking at the end of a lone `$$` makes a display formula (#220) @rich-text @math', async ({ app, page }) => {
+    test.skip(app.editorMode !== 'wysiwyg', 'Only rich text turns `$$` and Enter into a formula');
+    await app.openFile('math.md');
+    // Formulas above draw once KaTeX loads, which moves the paragraph
+    await expect(app.rendered().locator('.rt-math .katex').first()).toBeVisible();
+    // The caret in the paragraph before, where the editor knows it (End syncs it)
+    await app.placeCursorAfter('A lone');
+
+    const paragraph = app.rendered().locator('p').filter({ hasText: /^\$\$$/ });
+    const box = await paragraph.boundingBox();
+
+    if (!box) throw new Error('The paragraph is not laid out');
+
+    // At the end of the text, not the line: the paragraph spans the page and `$$` is two characters
+    const textEnd = await paragraph.evaluate((element) => {
+      const range = document.createRange();
+
+      range.selectNodeContents(element);
+
+      return range.getBoundingClientRect().right - element.getBoundingClientRect().left;
+    });
+
+    await paragraph.click({ position: { x: textEnd + 1, y: box.height / 2 } });
+    await page.keyboard.press('Enter');
+
+    const source = page.getByRole('textbox', { name: 'Math TeX source' });
+
+    await expect(source).toBeFocused();
+    await source.fill('z^2');
+    await source.press('ControlOrMeta+Enter');
+    await expect(source).toBeHidden();
+    await app.save();
+    // A function, since `$$` in a replacement string writes one `$`
+    expect(await app.readFile('math.md')).toBe(seedText('math.md').replace('A lone\n\n$$\n\nstays text.', () => 'A lone\n\n$$\nz^2\n$$\n\nstays text.'));
+  });
 });
 
 // What Chrome does when a key arrives while the editor shows a selected node: it moves its hidden

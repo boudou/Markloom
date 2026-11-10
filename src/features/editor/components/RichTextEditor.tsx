@@ -167,7 +167,8 @@ function MilkdownSurface({ tabId, active, onCommands, onFormatState }: RichTextE
           ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => commit(markdown));
         })
         // First: ProseMirror runs DOM event handlers in plugin order, and every plugin with its own
-        // keydown or mousedown handler (math, callouts, HTML) must see the selection caretSync updates
+        // keydown or mousedown handler (math, callouts, HTML) must see the selection caretSync updates.
+        // The "keys right after a click" tests in e2e/rich-text.spec.ts fail when it moves later
         .use(caretSync)
         .use(nodeClipboard)
         // Our headingIds numbers repeated headings like the preview; Milkdown's own sync would not.
