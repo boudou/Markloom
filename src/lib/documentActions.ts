@@ -14,6 +14,7 @@ import {
   documentName,
 } from '@/features/file-tree/api/fileSystem';
 import { forgetHandle } from '@/features/file-tree/api/handleStore';
+import { diskAllowsSave, pauseDiskChecks } from '@/lib/diskChanges';
 import { errorMessage } from '@/lib/utils';
 
 function suggestedFileName(name: string): string {
@@ -127,10 +128,21 @@ export async function saveTab(
   if (!tab) return false;
 
   if (tab.path && !options.saveAs) {
+    const path = tab.path;
+
     try {
-      await writeFile(tab.path, content);
-      // The user may have kept typing during the write: only what was written counts as saved
-      tabs.markTabSaved(tabId, content);
+      const written = await pauseDiskChecks(tabId, async () => {
+        // Another program changed the file: the disk-change dialog asks instead, so it is the message
+        if (!(await diskAllowsSave(tabId, path, tab.originalContent, content))) return false;
+
+        await writeFile(path, content);
+        // The user may have kept typing during the write: only what was written counts as saved
+        tabs.markTabSaved(tabId, content);
+
+        return true;
+      });
+
+      if (!written) return false;
 
       if (!options.quiet) notify({ tone: 'success', title: `Saved ${tab.name}` });
 
