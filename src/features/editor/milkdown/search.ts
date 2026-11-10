@@ -13,6 +13,16 @@ interface HighlightMeta {
 
 const key = new PluginKey<DecorationSet>('markloom-search');
 
+function highlightMeta(tr: Transaction): HighlightMeta | undefined {
+  // SAFETY: only setHighlights below sets meta under `key`, always a HighlightMeta.
+  return tr.getMeta(key) as HighlightMeta | undefined;
+}
+
+/** The matches `tr` highlights, when it sets them (code highlighting cuts its runs at their edges) */
+export function highlightedMatches(tr: Transaction): SearchMatch[] | undefined {
+  return highlightMeta(tr)?.matches;
+}
+
 const docChanges = createDocChangeListeners<EditorView>();
 
 export const searchPlugin = $prose(
@@ -22,8 +32,7 @@ export const searchPlugin = $prose(
       state: {
         init: () => DecorationSet.empty,
         apply(tr, decorations) {
-          // SAFETY: only setHighlights below sets meta under `key`, always a HighlightMeta.
-          const meta = tr.getMeta(key) as HighlightMeta | undefined;
+          const meta = highlightMeta(tr);
 
           if (meta) {
             return DecorationSet.create(
