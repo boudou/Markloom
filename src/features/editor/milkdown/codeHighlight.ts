@@ -23,6 +23,8 @@ interface HighlightState {
   stale: boolean;
   /** The find matches on screen, whose edges cut the runs */
   matches: MatchRange[];
+  /** Built before the grammars loaded, so every block is plain */
+  plain: boolean;
 }
 
 const codeHighlightKey = new PluginKey<HighlightState>('markloom-code-highlight');
@@ -97,7 +99,13 @@ function fullPass(doc: ProseNode, matches: MatchRange[]): HighlightState {
     return false;
   });
 
-  return { decorations: DecorationSet.create(doc, decorations), runs: decorations.length, stale: false, matches };
+  return {
+    decorations: DecorationSet.create(doc, decorations),
+    runs: decorations.length,
+    stale: false,
+    matches,
+    plain: !isHighlighterReady(),
+  };
 }
 
 /** Matches follow an edit as their highlights do: inline decorations, so neither end grows */
@@ -131,7 +139,13 @@ export const codeHighlight = $prose(
 
           if (previous.runs <= DEFER_ABOVE_RUNS) return fullPass(tr.doc, matches);
 
-          return { decorations: previous.decorations.map(tr.mapping, tr.doc), runs: previous.runs, stale: true, matches };
+          return {
+            decorations: previous.decorations.map(tr.mapping, tr.doc),
+            runs: previous.runs,
+            stale: true,
+            matches,
+            plain: previous.plain,
+          };
         },
       },
       props: {
@@ -140,8 +154,9 @@ export const codeHighlight = $prose(
       view: (view) => {
         const refresh = () => view.dispatch(view.state.tr.setMeta(codeHighlightKey, true));
         let timer: number | undefined;
-        // Already loaded: init coloured everything
-        const stopWaiting = isHighlighterReady() ? () => {} : onHighlighterReady(refresh);
+        // Milkdown makes the state, then the view a few steps later: grammars that arrived in
+        // between found no view to redraw, so what counts is whether the state was coloured (#219)
+        const stopWaiting = codeHighlightKey.getState(view.state)?.plain ? onHighlighterReady(refresh) : () => {};
 
         return {
           update: () => {

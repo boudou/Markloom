@@ -402,6 +402,9 @@ test.describe('fixture.md', () => {
   });
 
   test('portable Markdown embeds images and diagrams @export @diagrams @images', async ({ page }) => {
+    // Reads every image and draws every diagram for the file
+    test.slow();
+
     const dialog = await openExport(page, 'Markdown');
     const file = await downloadOf(page, () => dialog.getByRole('button', { name: 'Export Markdown' }).click());
     const text = file.bytes.toString('utf8');

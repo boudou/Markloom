@@ -48,8 +48,14 @@ export class MarkloomApp {
 
   /** Opens the test folder with the Open folder shortcut (the picker is stubbed); the sidebar shows it */
   async openFolder(): Promise<void> {
-    await this.page.keyboard.press('ControlOrMeta+Shift+O');
-    await expect(this.page.getByRole('heading', { name: FOLDER_NAME, exact: true })).toBeVisible();
+    const heading = this.page.getByRole('heading', { name: FOLDER_NAME, exact: true });
+
+    // Right after the page loads, the app may not listen for shortcuts yet and the key is lost
+    // (#219), so press again until the folder shows; opening the same folder twice is harmless
+    await expect(async () => {
+      await this.page.keyboard.press('ControlOrMeta+Shift+O');
+      await expect(heading).toBeVisible({ timeout: 2_000 });
+    }).toPass();
   }
 
   /** Opens a file from the tree by its exact name (names can be substrings of each other) */

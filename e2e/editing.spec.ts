@@ -269,6 +269,33 @@ function caretOffCentre(page: Page): Promise<number> {
   });
 }
 
+/**
+ * Where `locator` sits once it has stayed put for five frames in a row. The editors scroll in
+ * their measure pass, a frame or more after the key or click that caused it; under load a
+ * single reading can land between two of those scrolls (#219).
+ */
+function settledTop(locator: Locator): Promise<number> {
+  return locator.evaluate(
+    (element) =>
+      new Promise<number>((resolve) => {
+        let top = element.getBoundingClientRect().top;
+        let still = 0;
+
+        const check = () => {
+          const now = element.getBoundingClientRect().top;
+
+          still = now === top ? still + 1 : 0;
+          top = now;
+
+          if (still === 5) resolve(top);
+          else requestAnimationFrame(check);
+        };
+
+        requestAnimationFrame(check);
+      })
+  );
+}
+
 test('focus mode keeps the cursor line at mid-screen; clicks do not scroll (#206) @editing', async ({ app, page }) => {
   await app.placeCursorAfter('The last paragraph');
   await page.keyboard.press('ControlOrMeta+Shift+Enter');
@@ -284,11 +311,10 @@ test('focus mode keeps the cursor line at mid-screen; clicks do not scroll (#206
 
   // A click places the cursor where the text is, without scrolling it
   const target = block(app, 'Line 13');
-  const before = await target.boundingBox();
+  const before = await settledTop(target);
 
   await target.click();
-  await page.waitForTimeout(300);
-  expect((await target.boundingBox())?.y).toBe(before?.y);
+  expect(await settledTop(target)).toBe(before);
 
   // Leaving focus mode takes its padding away without losing the line being written
   await page.keyboard.press('Escape');
