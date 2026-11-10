@@ -70,6 +70,42 @@ test('nested scopes take the innermost colour, as in the preview @code', async (
   expect(await color(include.locator('.hljs-keyword'))).toBe(SYMBOL);
 });
 
+test('a find match inside a nested token keeps the token colour (#277) @code @editing', async ({ app, page }) => {
+  const template = block(app, 'const call');
+  // `${count + ` is one run in two scopes, the substitution inside the string
+  const subst = template.locator('.hljs-subst');
+
+  await expect(subst.first()).toContainText('count');
+  await app.editingSurface().click();
+  await page.keyboard.press('ControlOrMeta+f');
+
+  const bar = page.getByRole('search', { name: 'Find in document' });
+
+  await expect(bar.getByRole('textbox', { name: 'Find' })).toBeFocused();
+  await page.keyboard.type('count');
+  await expect(bar).toContainText('1 of 1');
+
+  const match = app.editingSurface().locator(app.editorMode === 'split' ? '.cm-searchMatch' : '.rt-find-match');
+
+  await expect(match).toHaveText('count');
+
+  // Every piece of the run, the match's included, keeps the substitution nested in the string
+  for (const piece of await subst.all()) {
+    expect(await piece.evaluate((element) => element.parentElement?.closest('.hljs-string') !== null)).toBe(true);
+    expect(await color(piece)).toBe(SYMBOL);
+  }
+
+  if (app.editorMode === 'wysiwyg') {
+    // The match is painted, and its word is a substitution piece of its own, in the symbol colour
+    expect(await match.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+
+    const word = subst.filter({ hasText: /^count$/ });
+
+    await expect(word).toHaveCount(1);
+    expect(await color(word)).toBe(SYMBOL);
+  }
+});
+
 test('unlabelled and unknown-language blocks stay plain @code', async ({ app }) => {
   // Wait for the grammars, so plain means "not coloured", not "not loaded yet"
   await expect(block(app, 'interface Owl').locator('.hljs-keyword')).toHaveText('interface');
