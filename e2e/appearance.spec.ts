@@ -3,12 +3,24 @@
 // Dialogs, menus and toasts take their edges, backdrops and status colours from the theme (#229).
 // The source editors, the preview and rich text follow it too, without losing undo history (#230).
 // Mermaid diagrams are drawn in a dark palette and redraw on a switch; exports keep light ones (#231).
-// Settings > Appearance and a palette command choose the theme, every fixture is dark, and the
-// title-bar logo turns white (#233).
+// Every fixture is dark and the title-bar logo turns white (#233). Choosing the theme in Settings,
+// the palette and across tabs is in settings-sync.spec.ts.
 import JSZip from 'jszip';
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, downloadOf, expectNoPreviewInRichText, type MarkloomApp } from './fixtures';
-import { background, borderColor, color, contrastRatio, paintedBehind, startWith, type Appearance } from './colours';
+import {
+  background,
+  bodyBackground,
+  borderColor,
+  color,
+  colorScheme,
+  contrastRatio,
+  DARK_CANVAS,
+  isDark,
+  paintedBehind,
+  startWith,
+  type Appearance,
+} from './colours';
 
 interface FirstPaint {
   dark: boolean;
@@ -21,8 +33,6 @@ declare global {
   }
 }
 
-const DARK_CANVAS = 'rgb(23, 25, 28)';
-
 const WHITE = 'rgb(255, 255, 255)';
 
 /** Mermaid writes its palette into each SVG's <style>: the text colour tells the palettes apart */
@@ -32,18 +42,6 @@ const DARK_DIAGRAM_TEXT = '#E8EAED';
 
 function hasColour(css: string, colour: string): boolean {
   return css.toUpperCase().includes(colour);
-}
-
-async function isDark(page: Page): Promise<boolean> {
-  return page.evaluate(() => document.documentElement.classList.contains('dark'));
-}
-
-async function colorScheme(page: Page): Promise<string> {
-  return page.evaluate(() => document.documentElement.style.colorScheme);
-}
-
-async function bodyBackground(page: Page): Promise<string> {
-  return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 }
 
 const WINDOW_CALLS_KEY = 'e2e-window-prefs-calls';
@@ -199,6 +197,9 @@ test('a Web page exported in dark mode stays light @appearance @export', async (
 });
 
 test('a Word document exported in dark mode keeps the light diagram (#231) @appearance @export @diagrams', async ({ app }) => {
+  // Reloads into dark mode and renders the diagram twice: in the app and for Word
+  test.slow();
+
   const { page } = app;
 
   await startWith(page, 'dark');
@@ -917,6 +918,9 @@ const DARK_ACCENT = 'rgb(110, 168, 254)';
 const DARK_FIXTURES = ['callouts.md', 'footnotes.md', 'math.md', 'night-diagrams.md', 'front-matter.md'];
 
 test('dark mode covers every fixture and still exports light @appearance @math @diagrams @rich-text @export', async ({ app, context }) => {
+  // Six documents, an export and a second page: under parallel load its teardown alone took 30 s (#219)
+  test.slow();
+
   const { page } = app;
 
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -947,118 +951,6 @@ test('dark mode covers every fixture and still exports light @appearance @math @
   await viewer.setContent(file.bytes.toString('utf8'));
   expect(await bodyBackground(viewer)).toBe(WHITE);
   await viewer.close();
-});
-
-function themeSelect(page: Page): Locator {
-  return page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Theme' });
-}
-
-/** Opens Settings on its Appearance section */
-async function openAppearance(page: Page): Promise<Locator> {
-  await page.keyboard.press('ControlOrMeta+Comma');
-
-  const dialog = page.getByRole('dialog', { name: 'Settings' });
-
-  await dialog.getByRole('tab', { name: 'Appearance' }).click();
-  await expect(themeSelect(page)).toBeVisible();
-
-  return themeSelect(page);
-}
-
-test('Settings > Appearance switches the theme at once and keeps it @appearance @settings', async ({ app }) => {
-  const { page } = app;
-
-  await page.emulateMedia({ colorScheme: 'light' });
-  await page.reload();
-
-  const select = await openAppearance(page);
-
-  await expect(select).toHaveValue('system');
-  await select.selectOption({ label: 'Dark' });
-  await expect.poll(() => isDark(page)).toBe(true);
-  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
-
-  await page.reload();
-  expect(await isDark(page)).toBe(true);
-  await expect(await openAppearance(page)).toHaveValue('dark');
-
-  // Light no longer follows the OS
-  await themeSelect(page).selectOption({ label: 'Light' });
-  await expect.poll(() => isDark(page)).toBe(false);
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await expect.poll(() => colorScheme(page)).toBe('light');
-  expect(await isDark(page)).toBe(false);
-});
-
-// #239: another tab of the same app picks up a settings change without a reload
-test('a theme or page width chosen in one tab reaches the other tabs at once @appearance @settings', async ({ app, context }) => {
-  const { page } = app;
-  const other = await context.newPage();
-
-  await page.emulateMedia({ colorScheme: 'light' });
-  await other.emulateMedia({ colorScheme: 'light' });
-  await other.goto('/');
-
-  for (const tab of [page, other]) {
-    await tab.keyboard.press('Alt+N');
-    await expect(tab.locator('[data-page-width]')).toBeVisible();
-  }
-
-  expect(await isDark(other)).toBe(false);
-
-  await (await openAppearance(page)).selectOption({ label: 'Dark' });
-  await expect.poll(() => isDark(page)).toBe(true);
-  await expect.poll(() => isDark(other)).toBe(true);
-  expect(await bodyBackground(other)).toBe(DARK_CANVAS);
-
-  const dialog = page.getByRole('dialog', { name: 'Settings' });
-
-  await dialog.getByRole('tab', { name: 'Editor' }).click();
-  await dialog.getByRole('combobox', { name: 'Page width' }).selectOption({ label: 'Wide' });
-  await expect(other.locator('[data-page-width="wide"]')).toBeVisible();
-
-  // The other tab's own change comes back the same way, and the first tab keeps it
-  await (await openAppearance(other)).selectOption({ label: 'Light' });
-  await expect.poll(() => isDark(page)).toBe(false);
-  await expect.poll(() => storedAppearance(page)).toBe('light');
-  expect(await isDark(other)).toBe(false);
-
-  await other.close();
-});
-
-async function storedAppearance(page: Page): Promise<string | undefined> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('markloom-settings') ?? '{}').state?.appearance);
-}
-
-/** Runs the palette's theme command, checking that its label names `next` first */
-async function runThemeCommand(page: Page, next: string): Promise<void> {
-  await page.keyboard.press('ControlOrMeta+Shift+p');
-  await page.getByRole('combobox', { name: 'Command' }).fill('Theme:');
-
-  const option = page.getByRole('listbox', { name: 'Commands' }).getByRole('option');
-
-  await expect(option).toHaveCount(1);
-  await expect(option).toContainText(`Theme: ${next}`);
-  await page.keyboard.press('Enter');
-}
-
-test('the palette cycles the theme and names the next one @appearance @palette', async ({ app }) => {
-  const { page } = app;
-
-  await page.emulateMedia({ colorScheme: 'light' });
-  await page.reload();
-
-  await runThemeCommand(page, 'Light');
-  await expect.poll(() => storedAppearance(page)).toBe('light');
-  expect(await isDark(page)).toBe(false);
-
-  await runThemeCommand(page, 'Dark');
-  await expect.poll(() => storedAppearance(page)).toBe('dark');
-  await expect.poll(() => isDark(page)).toBe(true);
-
-  await runThemeCommand(page, 'System');
-  await expect.poll(() => storedAppearance(page)).toBe('system');
-  await expect.poll(() => isDark(page)).toBe(false);
 });
 
 async function logoFilter(page: Page): Promise<string> {

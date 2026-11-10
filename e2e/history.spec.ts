@@ -19,7 +19,8 @@ async function openSettingsHistory(page: Page): Promise<Locator> {
 
 async function closeSettings(page: Page): Promise<void> {
   await page.keyboard.press('Escape');
-  await expect(settingsDialog(page)).toBeHidden();
+  // Closed once Radix marks it so; its exit animation can outlast an expect under load (#219)
+  await expect(settingsDialog(page).and(page.locator('[data-state="open"]'))).toHaveCount(0);
 }
 
 async function openHistory(page: Page): Promise<Locator> {

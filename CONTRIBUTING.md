@@ -30,7 +30,7 @@ npm run test:e2e            # build, serve and run all tests headless
 npm run test:e2e -- --ui    # pick and watch tests in Playwright's UI
 ```
 
-The build is served on port 4173, and a second build with a test Google Analytics ID on port 5173; set `E2E_PORT` to move both (the second one is `E2E_PORT` + 1000). A test for a known gap is marked with the issue that tracks it and is expected to fail until that issue is fixed.
+The build is served on port 4173, and a second build with a test Google Analytics ID on port 6173; set `E2E_PORT` to move both (the second one is `E2E_PORT` + 2000, or `E2E_ANALYTICS_PORT`). With `CI=1` the run stops at once if either port is taken, naming it. `E2E_PREBUILT=1` serves the `dist/` and `dist-analytics/` an earlier run built instead of building again. On CI a failed test is retried once; one that passes on the retry is reported as flaky. A test for a known gap is marked with the issue that tracks it and is expected to fail until that issue is fixed.
 
 What the tests cover, one file per area:
 
@@ -50,7 +50,8 @@ What the tests cover, one file per area:
 | `footnotes.spec.ts` | Footnotes: numbering, links and back-links, unique ids, scroll sync past a mid-document definition, exports, Copy as rich text, rich-text styling |
 | `front-matter.spec.ts` | Front matter: one collapsed block with its keys in both editors, the Contents panel, saved byte for byte from rich text, left out of Web page and Word exports |
 | `diagrams.spec.ts` | Mermaid renders and follows edits; an error names its document line and Show line goes there |
-| `appearance.spec.ts` | Dark mode: applied before first paint, System follows the OS live, Settings and the palette command, dark colours in both editors and the preview, Mermaid in dark with readable labels (including author fills), redraw from the cache, the white logo, the desktop window told the theme, exports stay light, settings changed in another tab |
+| `appearance.spec.ts` | Dark mode: applied before first paint, System follows the OS live, dark colours in both editors and the preview, Mermaid in dark with readable labels (including author fills), redraw from the cache, the white logo, the desktop window told the theme, exports stay light |
+| `settings-sync.spec.ts` | Choosing the theme in Settings and with the palette command, and a theme or page width chosen in one tab reaching the others |
 | `status-colours.spec.ts` | Word-goal, version-history diff and export preflight colours in dark and light |
 | `export.spec.ts` | Word, PDF (print stubbed), Web page, portable Markdown, Image (one page, a .zip, or one long image), the preflight warnings, Copy as rich text |
 | `settings.spec.ts` | The Settings window and each editor preference |

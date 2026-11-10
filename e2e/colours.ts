@@ -1,7 +1,36 @@
-// Computed-colour helpers shared by the dark-mode specs (appearance, status colours).
-import type { Locator, Page } from '@playwright/test';
+// Computed-colour and theme helpers shared by the dark-mode specs (appearance, settings sync,
+// status colours).
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export type Appearance = 'system' | 'light' | 'dark';
+
+/** The writing surface in dark mode */
+export const DARK_CANVAS = 'rgb(23, 25, 28)';
+
+export async function isDark(page: Page): Promise<boolean> {
+  return page.evaluate(() => document.documentElement.classList.contains('dark'));
+}
+
+export async function colorScheme(page: Page): Promise<string> {
+  return page.evaluate(() => document.documentElement.style.colorScheme);
+}
+
+export async function bodyBackground(page: Page): Promise<string> {
+  return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+}
+
+export function themeSelect(page: Page): Locator {
+  return page.getByRole('dialog', { name: 'Settings' }).getByRole('combobox', { name: 'Theme' });
+}
+
+/** Opens Settings on its Appearance section and returns the Theme select */
+export async function openAppearance(page: Page): Promise<Locator> {
+  await page.keyboard.press('ControlOrMeta+Comma');
+  await page.getByRole('dialog', { name: 'Settings' }).getByRole('tab', { name: 'Appearance' }).click();
+  await expect(themeSelect(page)).toBeVisible();
+
+  return themeSelect(page);
+}
 
 /** Stores `appearance` in markloom-settings and reloads, so the app starts with it */
 export async function startWith(page: Page, appearance: Appearance): Promise<void> {

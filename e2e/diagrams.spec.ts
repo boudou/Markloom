@@ -82,16 +82,22 @@ test('an error names its document line and Show line goes there @diagrams', asyn
   await expect.poll(() => caretLine(app)).toBe(BROKEN_LINE);
 });
 
-test('Show line in a .mmd diagram moves the source cursor (#218) @diagrams', async ({ app }) => {
-  test.skip(app.editorMode !== 'split', 'A .mmd file opens in its own diagram editor, whatever the mode');
-  knownGap(app, 'split', 218,'the .mmd preview offers no Show line');
-  await app.treeItem('flow.mmd').click();
+test.describe(() => {
+  // A known gap has to fail at its assertion: a timeout under load, even while the page loads, is
+  // not the expected failure (#219), so the longer timeout covers the fixtures and hooks too
+  test.slow();
 
-  const card = app.page.getByRole('status').filter({ hasText: 'Diagram error' });
+  test('Show line in a .mmd diagram moves the source cursor (#218) @diagrams', async ({ app }) => {
+    test.skip(app.editorMode !== 'split', 'A .mmd file opens in its own diagram editor, whatever the mode');
+    knownGap(app, 'split', 218, 'the .mmd preview offers no Show line');
+    await app.treeItem('flow.mmd').click();
 
-  await expect(card).toContainText('Line 4');
-  await card.getByRole('button', { name: 'Show line 4' }).click({ timeout: 3_000 });
-  await expect.poll(() => caretLine(app)).toBe(BROKEN_LINE);
+    const card = app.page.getByRole('status').filter({ hasText: 'Diagram error' });
+
+    await expect(card).toContainText('Line 4');
+    await card.getByRole('button', { name: 'Show line 4' }).click({ timeout: 3_000 });
+    await expect.poll(() => caretLine(app)).toBe(BROKEN_LINE);
+  });
 });
 
 interface FlowchartEdges {
