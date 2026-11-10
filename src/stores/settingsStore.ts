@@ -117,6 +117,12 @@ interface SettingsState {
   /** Curly quotes, dashes and © in the preview and exports; off renders text as typed */
   smartTypography: boolean;
 
+  /** Typing (, [ or { also inserts the closer, in both editors */
+  autoPairs: boolean;
+
+  /** Typing " or ' writes curly quotes into the document text (unlike smartTypography, which only renders them) */
+  curlyQuotes: boolean;
+
   /** Usage statistics on the web version (#210): 'unset' until the visitor answers the consent bar */
   analyticsConsent: AnalyticsConsent;
 
@@ -139,6 +145,8 @@ interface SettingsState {
   setExportPageSize: (size: PageSize) => void;
   setExportOrientation: (orientation: Orientation) => void;
   setSmartTypography: (on: boolean) => void;
+  setAutoPairs: (on: boolean) => void;
+  setCurlyQuotes: (on: boolean) => void;
   setAnalyticsConsent: (consent: AnalyticsConsent) => void;
   setAppearance: (appearance: Appearance) => void;
 
@@ -155,7 +163,7 @@ interface SettingsState {
 
 type PersistedSettings = Pick<
   SettingsState,
-  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt' | 'exportPageSize' | 'exportOrientation' | 'smartTypography' | 'analyticsConsent' | 'appearance'
+  'editor' | 'autoSave' | 'autoSaveInterval' | 'syncScroll' | 'splitRatio' | 'pageWidth' | 'lastSession' | 'recentFiles' | 'recentFolders' | 'wordGoals' | 'historyLimit' | 'lastSeenVersion' | 'lastUpdateCheckAt' | 'exportPageSize' | 'exportOrientation' | 'smartTypography' | 'autoPairs' | 'curlyQuotes' | 'analyticsConsent' | 'appearance'
 >;
 
 type KeptTopLevelSettings = Partial<Omit<PersistedSettings, 'editor'>>;
@@ -193,6 +201,8 @@ const KEPT_TOP_LEVEL_KEYS = [
   'exportPageSize',
   'exportOrientation',
   'smartTypography',
+  'autoPairs',
+  'curlyQuotes',
   'analyticsConsent',
   'appearance',
 ] as const;
@@ -247,6 +257,8 @@ export const useSettingsStore = create<SettingsState>()(
       exportPageSize: 'A4',
       exportOrientation: 'portrait',
       smartTypography: true,
+      autoPairs: true,
+      curlyQuotes: false,
       analyticsConsent: 'unset',
       // public/appearance.js and electron/main.cjs (DEFAULT_APPEARANCE) assume the same default; change all three together
       appearance: 'system',
@@ -346,6 +358,16 @@ export const useSettingsStore = create<SettingsState>()(
           state.smartTypography = on;
         }),
 
+      setAutoPairs: (on) =>
+        set((state) => {
+          state.autoPairs = on;
+        }),
+
+      setCurlyQuotes: (on) =>
+        set((state) => {
+          state.curlyQuotes = on;
+        }),
+
       setAnalyticsConsent: (consent) =>
         set((state) => {
           state.analyticsConsent = consent;
@@ -421,6 +443,8 @@ export const useSettingsStore = create<SettingsState>()(
         exportPageSize: state.exportPageSize,
         exportOrientation: state.exportOrientation,
         smartTypography: state.smartTypography,
+        autoPairs: state.autoPairs,
+        curlyQuotes: state.curlyQuotes,
         analyticsConsent: state.analyticsConsent,
         appearance: state.appearance,
       }),
@@ -469,6 +493,12 @@ export const selectExportOrientation = (s: SettingsState): Orientation =>
 
 // Only an explicit false turns it off
 export const selectSmartTypography = (s: SettingsState): boolean => s.smartTypography !== false;
+
+// On unless explicitly false
+export const selectAutoPairs = (s: SettingsState): boolean => s.autoPairs !== false;
+
+// Off unless explicitly true
+export const selectCurlyQuotes = (s: SettingsState): boolean => s.curlyQuotes === true;
 
 // A hand-edited value counts as no answer, so the consent bar asks again
 export const selectAnalyticsConsent = (s: SettingsState): AnalyticsConsent =>

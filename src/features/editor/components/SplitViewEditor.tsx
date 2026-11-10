@@ -9,7 +9,7 @@ import { ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useResizeDrag } from '@/lib/useResizeDrag';
 import { useActiveContent, useActivePath, useSetActiveContent, useTabsStore } from '@/features/tabs';
-import { SPLIT_RATIO, useSettingsStore } from '@/stores/settingsStore';
+import { SPLIT_RATIO, selectAutoPairs, useSettingsStore } from '@/stores/settingsStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useAppStore } from '@/stores/appStore';
 import { MarkdownPreview } from './MarkdownPreview';
@@ -29,6 +29,7 @@ import { codeSpellcheck } from '../codemirror/codeSpellcheck';
 import { focusEditing } from '../codemirror/focus';
 import { usePreservedEditorState } from '../codemirror/documentStates';
 import { htmlHasText, htmlPaste } from '../codemirror/htmlPaste';
+import { curlyQuoteTyping, markdownPairs } from '../codemirror/smartTyping';
 
 interface SplitViewEditorProps {
   onCommands: (commands: EditorCommands | null) => void;
@@ -45,7 +46,7 @@ const sourceAttributes = EditorView.contentAttributes.of({
 });
 
 // Kept stable: @uiw/react-codemirror reconfigures the whole editor whenever this object changes
-const basicSetupFor = (lineNumbers: boolean) => ({
+const basicSetupFor = (lineNumbers: boolean, autoPairs: boolean) => ({
   lineNumbers,
   highlightActiveLineGutter: true,
   highlightActiveLine: true,
@@ -54,7 +55,9 @@ const basicSetupFor = (lineNumbers: boolean) => ({
   allowMultipleSelections: true,
   indentOnInput: true,
   bracketMatching: true,
-  closeBrackets: false,
+  // "Close brackets as you type"; markdownPairs limits both to ()[]{}
+  closeBrackets: autoPairs,
+  closeBracketsKeymap: autoPairs,
   autocompletion: false,
   rectangularSelection: true,
   crosshairCursor: false,
@@ -74,9 +77,10 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
   const setSplitRatio = useSettingsStore((s) => s.setSplitRatio);
   const wordWrap = useSettingsStore((s) => s.editor.wordWrap);
   const lineNumbers = useSettingsStore((s) => s.editor.lineNumbers);
+  const autoPairs = useSettingsStore(selectAutoPairs);
   // Focus mode shows the source alone
   const focusMode = useAppStore((s) => s.focusMode);
-  const basicSetup = useMemo(() => basicSetupFor(lineNumbers), [lineNumbers]);
+  const basicSetup = useMemo(() => basicSetupFor(lineNumbers, autoPairs), [lineNumbers, autoPairs]);
   const [view, setView] = useState<EditorView | null>(null);
   // Reopen with the text, selection and undo history this document had when it was last shown
   const initialState = usePreservedEditorState(content, view);
@@ -97,6 +101,8 @@ export function SplitViewEditor({ onCommands, onFormatState }: SplitViewEditorPr
       linkUrlStep,
       editingKeymap,
       htmlPaste,
+      markdownPairs,
+      curlyQuoteTyping,
       highlightSelectionMatches(),
       sourceAttributes,
       diagramErrorLines,

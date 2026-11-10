@@ -23,6 +23,8 @@ import {
   PAGE_WIDTHS,
   formatInterval,
   selectAppearance,
+  selectAutoPairs,
+  selectCurlyQuotes,
   useSettingsStore,
 } from '@/stores/settingsStore';
 import { UpdatesSection } from './UpdatesSection';
@@ -118,12 +120,16 @@ function SelectRow({ label, hint, value, onChange, children }: SelectRowProps) {
 function EditorSection() {
   const wordWrap = useSettingsStore((s) => s.editor.wordWrap);
   const lineNumbers = useSettingsStore((s) => s.editor.lineNumbers);
+  const autoPairs = useSettingsStore(selectAutoPairs);
+  const curlyQuotes = useSettingsStore(selectCurlyQuotes);
   const syncScroll = useSettingsStore((s) => s.syncScroll);
   const pageWidth = useSettingsStore((s) => s.pageWidth);
   const autoSave = useSettingsStore((s) => s.autoSave);
   const interval = useSettingsStore((s) => s.autoSaveInterval);
   const setWordWrap = useSettingsStore((s) => s.setWordWrap);
   const setLineNumbers = useSettingsStore((s) => s.setLineNumbers);
+  const setAutoPairs = useSettingsStore((s) => s.setAutoPairs);
+  const setCurlyQuotes = useSettingsStore((s) => s.setCurlyQuotes);
   const setSyncScroll = useSettingsStore((s) => s.setSyncScroll);
   const setPageWidth = useSettingsStore((s) => s.setPageWidth);
   const setAutoSaveInterval = useSettingsStore((s) => s.setAutoSaveInterval);
@@ -149,6 +155,18 @@ function EditorSection() {
         <h3 className="pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Writing</h3>
         <CheckboxRow label="Wrap long lines" hint="Markdown editor" checked={wordWrap} onChange={setWordWrap} autoFocus />
         <CheckboxRow label="Line numbers" hint="Markdown editor" checked={lineNumbers} onChange={setLineNumbers} />
+        <CheckboxRow
+          label="Close brackets as you type"
+          hint="Typing (, [ or { adds the closing bracket, in both editors"
+          checked={autoPairs}
+          onChange={setAutoPairs}
+        />
+        <CheckboxRow
+          label="Curly quotes as you type"
+          hint={`Typing " or ' writes “ ” or ‘ ’ into the document, except in code, links and math`}
+          checked={curlyQuotes}
+          onChange={setCurlyQuotes}
+        />
         <CheckboxRow
           label="Scroll panes together"
           hint="Markdown editor: the preview follows the source"
