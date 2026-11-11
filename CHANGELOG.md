@@ -13,7 +13,6 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 - **New file and New folder** in the file tree, from the Files header or a row's context menu. A name without an extension gets `.md`, and an existing file is never overwritten (#15).
 - **Close brackets as you type** in both editors: an opening bracket or quote gets its closer, wraps a selection, and Backspace removes an empty pair. **Curly quotes as you type** is an option in Settings, off by default (#12).
 - A sample document, "A tour of Markloom": on the start screen and at `?sample` in the address, it shows diagrams, callouts, math and exports in a file you can edit
-- A website: a landing page, guides and the user manual as pages search engines can read "A tour of Markloom": on the start screen and at `?sample` in the address, it shows diagrams, callouts, math and exports in a file you can edit
 - A website: a landing page, guides and the user manual as pages search engines can read
 
 ### Changed
