@@ -241,7 +241,7 @@ for (const { edited, line } of [
     await page.keyboard.type(' Edited');
     await app.save();
 
-    const expected = seedText('footnotes.md').replace(line, line.replace('\n', ' Edited\n'));
+    const expected = seedText('footnotes.md').replace(line, line.replace(/\n$/, ' Edited\n'));
 
     expect(expected).not.toBe(seedText('footnotes.md'));
     expect(await app.readFile('footnotes.md')).toBe(expected);
@@ -257,7 +257,7 @@ test('editing a paragraph that starts with a reference keeps it whole @parity @r
   await page.keyboard.type(' Edited');
   await app.save();
 
-  const expected = seedText('footnotes.md').replace(line, line.replace('\n', ' Edited\n'));
+  const expected = seedText('footnotes.md').replace(line, line.replace(/\n$/, ' Edited\n'));
 
   expect(expected).not.toBe(seedText('footnotes.md'));
   expect(await app.readFile('footnotes.md')).toBe(expected);
