@@ -38,6 +38,10 @@ What the tests cover, one file per area:
 | --- | --- |
 | `documents.spec.ts` | New document, open from the file tree, edit and save, closing with unsaved changes, tabs, Quick open, folder search, a file tree of documents only, recent files and folders on the start screen, session restore |
 | `editing.spec.ts` | Toolbar formatting and its pressed state, find and replace, the command palette, focus mode, page width, smart typography |
+| `disk-changes.spec.ts` | A file changed by another program: a clean tab reloads (on focus and on its own), unsaved changes ask with Compare, Reload from disk and Keep my version, saving over a changed file asks, the app's own saves don't count |
+| `file-tree.spec.ts` | New file and New folder from the header and the context menu, beside a file or inside a folder; taken and invalid names are refused |
+| `paste.spec.ts` | Paste as Markdown: Google Docs and Word content with bold, links, nested lists and tables; plain HTML, Rich text copies, `Ctrl+Shift+V` and code blocks paste plain text |
+| `smart-typing.spec.ts` | Close brackets as you type (closer, step over, wrap a selection, Backspace in an empty pair), curly quotes and where they're skipped, both settings remembered |
 | `focus.spec.ts` | The focus ring on the writing surface; a new document from a template takes the focus |
 | `insert.spec.ts` | Insert menu blocks land after the current block (tables, code, dividers), one undo per insert, the Link button and `Ctrl+K` |
 | `typography.spec.ts` | Smart typography on by default; turned off, the preview and every export show the text as typed |

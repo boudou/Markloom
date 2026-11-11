@@ -46,6 +46,10 @@ It has no plugins, sync or graph view.
 - **Quick open** (`Ctrl+P`) to jump to any file in the open folder, and **search across files** (`Ctrl+Shift+F`) with results grouped by file and line
 - **Find & replace** that works in both editors, plus a command palette (`Ctrl+Shift+P`)
 - **Image drop and paste**: images are saved to `assets/` beside the document
+- **Paste as Markdown**: content from a web page, Word or Google Docs arrives as Markdown, tables included
+- **Reload when changed on disk**: an open file another program changed reloads, or asks when you have unsaved changes, with a side-by-side compare
+- **New file and New folder** from the file tree
+- **Close brackets as you type** in both editors, and optional curly quotes
 - **Syntax highlighting** in both editors, with a copy button on every code block, templates, version history, native spell check
 - **Synced scrolling** between source and preview
 - **Private by design**: no accounts, no uploads; Markdown is sanitized and Mermaid runs in strict mode
