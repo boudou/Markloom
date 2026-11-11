@@ -4,15 +4,31 @@ Notable changes to Markloom. The format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-11
+
 ### Added
 
+- **Paste as Markdown**: content pasted from a web page, Word or Google Docs arrives as Markdown, with headings, emphasis, links, lists and tables. A Word or Excel paste no longer adds a picture of the selection. `Ctrl+Shift+V` still pastes plain text (#7).
+- **Reload when changed on disk**: when another program changes an open file, a document with no unsaved changes reloads, and one with unsaved changes asks you to reload, keep your version or compare the two. Saving over a file that changed on disk asks first (#16).
+- **New file and New folder** in the file tree, from the Files header or a row's context menu. A name without an extension gets `.md`, and an existing file is never overwritten (#15).
+- **Close brackets as you type** in both editors: an opening bracket or quote gets its closer, wraps a selection, and Backspace removes an empty pair. **Curly quotes as you type** is an option in Settings, off by default (#12).
 - A sample document, "A tour of Markloom": on the start screen and at `?sample` in the address, it shows diagrams, callouts, math and exports in a file you can edit
+- A website: a landing page, guides and the user manual as pages search engines can read "A tour of Markloom": on the start screen and at `?sample` in the address, it shows diagrams, callouts, math and exports in a file you can edit
 - A website: a landing page, guides and the user manual as pages search engines can read
 
 ### Changed
 
 - The web version moved to [boudou.github.io/Markloom/app/](https://boudou.github.io/Markloom/app/). An app installed from the old address still opens and sends you to the new one; install it again to get offline use and "Open with" back
 - The User manual link now opens the website's copy of the manual
+
+### Fixed
+
+- A find match inside coloured code in rich text keeps the code's colours (#277).
+- Images in the preview and in rich text load again after Save As or a move: an image the new folder has shows, and one it lacks shows the missing-image box (#273).
+- In rich text (#220):
+  - `Ctrl+Backspace` at the start of a callout shows its marker instead of deleting it unseen.
+  - Editing one of two footnote definitions on adjacent lines leaves the other exactly as written.
+  - Enter on a just-clicked HTML block, and `$$` then Enter right after a click, act where you clicked.
 
 ## [0.10.0] - 2026-11-04
 
@@ -251,7 +267,8 @@ First public release.
 - Installers for Windows, macOS and Linux, built by CI and attached to each release.
 - [Wiki](https://github.com/boudou/Markloom/wiki) with a user manual and shortcut reference.
 
-[Unreleased]: https://github.com/boudou/Markloom/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/boudou/Markloom/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/boudou/Markloom/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/boudou/Markloom/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/boudou/Markloom/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/boudou/Markloom/compare/v0.7.0...v0.8.0
