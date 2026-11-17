@@ -12,6 +12,7 @@ import {
   readFile,
   writeFile,
   documentName,
+  type DetachedDocuments,
 } from '@/features/file-tree/api/fileSystem';
 import { forgetHandle } from '@/features/file-tree/api/handleStore';
 import { diskAllowsSave, pauseDiskChecks } from '@/lib/diskChanges';
@@ -51,12 +52,17 @@ function showDocument(path: string, content: string): void {
   useSettingsStore.getState().addRecentFile({ path, name: documentName(path) });
 }
 
+/** The paths of the open documents, which opening a folder may detach from the folder it replaces */
+export function openDocumentPaths(): string[] {
+  return useTabsStore.getState().tabs.flatMap((t) => (t.path ? [t.path] : []));
+}
+
 export async function openFolder(): Promise<void> {
   const recentKeys = useSettingsStore.getState().recentFolders.map((f) => f.key);
-  const folder = await openFolderDialog(recentKeys);
+  const folder = await openFolderDialog(recentKeys, openDocumentPaths());
 
   if (!folder) return;
-  showFolder(folder.name);
+  showFolder(folder.name, folder.detached);
   addRecentFolder(folder.key, folder.name);
 }
 
@@ -78,10 +84,10 @@ function addRecentFolder(key: string, name: string): void {
  * the browser may need to ask for access again.
  */
 export async function reopenFolder(key: string): Promise<void> {
-  const result = await openRecentFolder(key);
+  const result = await openRecentFolder(key, openDocumentPaths());
 
   if (result.status === 'opened') {
-    showFolder(result.name);
+    showFolder(result.name, result.detached);
     addRecentFolder(key, result.name);
 
     return;
@@ -100,8 +106,23 @@ export async function reopenFolder(key: string): Promise<void> {
   notify({ tone: 'info', title: `Access to ${name} wasn't granted` });
 }
 
-/** Shows a just-opened folder in the sidebar. Used by Open Folder and by restoring the last session. */
-export function showFolder(name: string): void {
+/**
+ * Shows a just-opened folder in the sidebar. Used by Open Folder and by restoring the last session.
+ * Tabs of the folder it replaced move to the paths in `detached`, so they keep their own files (#291);
+ * a tab whose file is gone keeps its text, unsaved, with no file.
+ */
+export function showFolder(name: string, detached: DetachedDocuments = new Map()): void {
+  const tabs = useTabsStore.getState();
+
+  for (const tab of tabs.tabs) {
+    if (!tab.path || !detached.has(tab.path)) continue;
+
+    const path = detached.get(tab.path);
+
+    if (path) tabs.setTabPath(tab.id, path);
+    else tabs.forgetTabFile(tab.id);
+  }
+
   // rootPath is only the folder's name: the new rootId makes even a folder with the same name a new one,
   // which the FileTree reads, dropping whatever reads of the previous folder still return
   useFileTreeStore.getState().openRoot();

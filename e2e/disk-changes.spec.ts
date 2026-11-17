@@ -126,6 +126,60 @@ test('saving over a file changed on disk asks and writes nothing @documents @dis
   expect(await app.readFile('notes.md')).toBe(REWRITTEN);
 });
 
+const OTHER_NOTES = '# Other notes\n\nFrom the other folder.\n';
+
+/** Makes Open folder pick a second folder that has the test folder's name, with its own notes.md and other.md */
+async function pickSameNameFolder(page: Page): Promise<void> {
+  await page.evaluate(
+    async ([folderName, notes]) => {
+      const parent = await (await navigator.storage.getDirectory()).getDirectoryHandle('elsewhere', { create: true });
+      const folder = await parent.getDirectoryHandle(folderName, { create: true });
+
+      for (const [name, text] of [['notes.md', notes], ['other.md', notes]]) {
+        const writable = await (await folder.getFileHandle(name, { create: true })).createWritable();
+
+        await writable.write(text);
+        await writable.close();
+      }
+
+      Object.defineProperty(window, 'showDirectoryPicker', { configurable: true, value: async () => folder });
+    },
+    [FOLDER_NAME, OTHER_NOTES] as const
+  );
+}
+
+test('a tab stays on its own file when another folder with the same name opens (#291) @documents @disk-changes', async ({ app, page }) => {
+  await pickSameNameFolder(page);
+  await page.keyboard.press('ControlOrMeta+Shift+O');
+  await expect(app.treeItem('other.md')).toBeVisible();
+
+  // Longer than the poll of the active tab, then a focus check of every tab
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2500)));
+  await focusWindow(page);
+  await expect(app.rendered()).toContainText('Bravo charlie delta.');
+  await expect(app.rendered()).not.toContainText('From the other folder.');
+
+  await app.placeCursorAfter('The last paragraph of notes.');
+  await page.keyboard.type(TYPED);
+  await app.save();
+  expect(await app.readFile('notes.md')).toBe(TYPED_VERSION);
+  expect(await page.evaluate(async (folderName) => {
+    const parent = await (await navigator.storage.getDirectory()).getDirectoryHandle('elsewhere');
+    const file = await (await (await parent.getDirectoryHandle(folderName)).getFileHandle('notes.md')).getFile();
+
+    return file.text();
+  }, FOLDER_NAME)).toBe(OTHER_NOTES);
+
+  // The next launch reopens the tab on the same file, beside the folder now open
+  await expect
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('markloom-settings') ?? '{}').state?.lastSession?.paths ?? []))
+    .toEqual([expect.stringMatching(/^file:\/\/.+\/notes\.md$/)]);
+  await page.reload();
+  await expect(app.tab('notes.md')).toHaveAttribute('aria-selected', 'true');
+  await expect(app.rendered()).toContainText('Typed words.');
+  await expect(app.treeItem('other.md')).toBeVisible();
+});
+
 test('the app’s own save is not taken for a change on disk @documents @disk-changes', async ({ app, page }) => {
   await app.placeCursorAfter('The last paragraph of notes.');
   await page.keyboard.type(TYPED);

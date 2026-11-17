@@ -4,7 +4,7 @@ import { useTabsStore, selectActiveTab, selectTabContent, type Tab } from '@/fea
 import { useAppStore } from '@/stores/appStore';
 import { useSettingsStore, type LastSession } from '@/stores/settingsStore';
 import { notify } from '@/stores/uiStore';
-import { showFolder } from '@/lib/documentActions';
+import { openDocumentPaths, showFolder } from '@/lib/documentActions';
 import { isDesktopPath, readFile, restoreRememberedFolder } from '@/features/file-tree/api/fileSystem';
 import { ROOT_KEY, hasPermission, recallDirectoryHandle } from '@/features/file-tree/api/handleStore';
 import { deleteDrafts, listDrafts, saveDraftsNow, startDraftTracking, type Draft } from '@/lib/drafts';
@@ -117,10 +117,10 @@ export async function restoreLastSession(): Promise<void> {
     let folderOk = true;
 
     if (session.rootName) {
-      const name = await restoreRememberedFolder();
-      folderOk = !!name;
+      const folder = await restoreRememberedFolder(openDocumentPaths());
+      folderOk = !!folder;
 
-      if (name) showFolder(name);
+      if (folder) showFolder(folder.name, folder.detached);
     }
 
     const tabs = useTabsStore.getState();

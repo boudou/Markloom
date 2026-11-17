@@ -33,6 +33,8 @@ interface TabsState {
   closeTabs: (tabIds: string[]) => void;
   /** Points a tab at a new file location, e.g. after "Save as" */
   setTabPath: (tabId: string, path: string) => void;
+  /** Unbinds a tab from a file it can no longer reach: it keeps its name and text, all of it unsaved */
+  forgetTabFile: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   updateTabContent: (tabId: string, content: string) => void;
   loadFileIntoTab: (tabId: string, path: string, content: string) => void;
@@ -141,6 +143,18 @@ export const useTabsStore = create<TabsState>()(
         if (tab) {
           tab.path = path;
           tab.name = documentName(path);
+        }
+      });
+    },
+
+    forgetTabFile: (tabId) => {
+      set((state) => {
+        const tab = selectTab(state, tabId);
+
+        if (tab) {
+          tab.path = null;
+          tab.originalContent = '';
+          tab.isDirty = selectTabContent(state, tabId) !== '';
         }
       });
     },

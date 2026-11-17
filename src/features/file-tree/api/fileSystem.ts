@@ -15,7 +15,8 @@ import {
 // - "desktop:C:/Users/me/notes/plan.md": a file the OS handed to the desktop app, or a file in a folder handed
 //   to it (the folder itself is then the open root, "desktop:C:/Users/me/notes"), read through the Electron bridge
 // - "file://<id>/plan.md": a file opened on its own (Open file, Save as, or handed to the installed web app by the OS; see standalonePathFor)
-// - "<open folder name>/sub/plan.md": a file inside the open folder
+// - "<open folder name>/sub/plan.md": a file inside the open folder. Only the open folder's documents keep such
+//   paths: opening another folder, which may have the same name, detaches the previous one's (see openRoot)
 const DESKTOP_PREFIX = 'desktop:';
 
 const STANDALONE_PREFIX = 'file://';
@@ -39,8 +40,52 @@ export function isFileSystemSupported(): boolean {
   return 'showOpenFilePicker' in window && 'showDirectoryPicker' in window;
 }
 
-function openRoot(handle: FileSystemDirectoryHandle): void {
+/**
+ * Where documents of a folder that is no longer open now live: folder path → standalone path, or null
+ * when the file is gone. Their folder paths would name files of the new folder when it has the same name.
+ */
+export type DetachedDocuments = Map<string, string | null>;
+
+/**
+ * Makes `handle` the open folder. When it replaces another folder, the documents in `openPaths` that
+ * belong to that folder are detached from it (see DetachedDocuments); the same folder again keeps them.
+ * Call it last, with nothing awaited after it: the caller repoints its tabs before anything reads them.
+ */
+async function openRoot(handle: FileSystemDirectoryHandle, openPaths: readonly string[]): Promise<DetachedDocuments> {
+  const previous = openFolder?.handle;
+  const replaced = !!previous && !(await previous.isSameEntry(handle));
+  const detached: DetachedDocuments = replaced ? await detachDocuments(previous, openPaths) : new Map();
+
   openFolder = { handle, folders: new Map() };
+
+  return detached;
+}
+
+// Each document of `folder` gets the standalone path of the same file, so it stays readable and writable
+async function detachDocuments(folder: FileSystemDirectoryHandle, paths: readonly string[]): Promise<DetachedDocuments> {
+  const detached: DetachedDocuments = new Map();
+
+  for (const path of paths) {
+    if (isDesktopPath(path) || path.startsWith(STANDALONE_PREFIX)) continue;
+
+    const parts = path.split('/').filter(Boolean);
+    const name = parts.pop();
+
+    if (parts.shift() !== folder.name || !name) continue;
+
+    try {
+      let dir = folder;
+
+      for (const part of parts) dir = await dir.getDirectoryHandle(part);
+
+      detached.set(path, await adoptFileHandle(await dir.getFileHandle(name)));
+    } catch {
+      // Deleted or moved outside Markloom, or access withdrawn
+      detached.set(path, null);
+    }
+  }
+
+  return detached;
 }
 
 // The pickers reject with an AbortError when the user cancels them
@@ -48,10 +93,11 @@ function isAbortError(error: unknown): error is DOMException {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
-/** A folder just opened: its name and the key its handle is remembered under (see openRecentFolder) */
+/** A folder just opened: its name, the key its handle is remembered under (see openRecentFolder), and the documents it detached */
 export interface OpenedFolder {
   name: string;
   key: string;
+  detached: DetachedDocuments;
 }
 
 /**
@@ -68,19 +114,22 @@ async function folderKeyFor(handle: FileSystemDirectoryHandle, recentKeys: reado
   return `${FOLDER_KEY_PREFIX}${nanoid(8)}`;
 }
 
-/** Asks for a folder and opens it. `recentKeys` are the recent folders' keys, so a folder picked again keeps its key. */
-export async function openFolderDialog(recentKeys: readonly string[]): Promise<OpenedFolder | null> {
+/**
+ * Asks for a folder and opens it. `recentKeys` are the recent folders' keys, so a folder picked again keeps its key;
+ * `openPaths` are the paths of the open documents (see openRoot).
+ */
+export async function openFolderDialog(recentKeys: readonly string[], openPaths: readonly string[]): Promise<OpenedFolder | null> {
   try {
     const handle = await window.showDirectoryPicker({
       mode: 'readwrite',
     });
 
-    openRoot(handle);
     void rememberHandle(ROOT_KEY, handle);
     const key = await folderKeyFor(handle, recentKeys);
     void rememberHandle(key, handle);
+    const detached = await openRoot(handle, openPaths);
 
-    return { name: handle.name, key };
+    return { name: handle.name, key, detached };
   } catch (error) {
     if (!isAbortError(error)) {
       console.error('Error opening folder:', error);
@@ -91,15 +140,16 @@ export async function openFolderDialog(recentKeys: readonly string[]): Promise<O
 }
 
 export type RememberedFolderResult =
-  | { status: 'opened'; name: string; handle: FileSystemDirectoryHandle }
+  | { status: 'opened'; name: string; handle: FileSystemDirectoryHandle; detached: DetachedDocuments }
   | { status: 'missing' | 'denied' };
 
 /**
  * Opens the folder whose handle is remembered under `key`. Call it straight from a click, with no
  * await before it: the browser may need to ask for access again. 'missing' when no handle is stored
  * or the folder can't be listed (deleted or moved on disk), 'denied' when access wasn't granted.
+ * `openPaths` are the paths of the open documents (see openRoot).
  */
-async function openRememberedFolder(key: string): Promise<RememberedFolderResult> {
+async function openRememberedFolder(key: string, openPaths: readonly string[]): Promise<RememberedFolderResult> {
   const handle = await recallDirectoryHandle(key);
 
   if (!handle) return { status: 'missing' };
@@ -113,14 +163,14 @@ async function openRememberedFolder(key: string): Promise<RememberedFolderResult
     return { status: 'missing' };
   }
 
-  openRoot(handle);
+  const detached = await openRoot(handle, openPaths);
 
-  return { status: 'opened', name: handle.name, handle };
+  return { status: 'opened', name: handle.name, handle, detached };
 }
 
 /** Reopens a recent folder (see openRememberedFolder) and makes it the folder the next launch restores. */
-export async function openRecentFolder(key: string): Promise<RememberedFolderResult> {
-  const result = await openRememberedFolder(key);
+export async function openRecentFolder(key: string, openPaths: readonly string[]): Promise<RememberedFolderResult> {
+  const result = await openRememberedFolder(key, openPaths);
 
   if (result.status === 'opened') void rememberHandle(ROOT_KEY, result.handle);
 
@@ -359,13 +409,15 @@ async function standaloneHandle(path: string): Promise<FileSystemFileHandle> {
 
 /**
  * Reopens the folder from the last session. Must run from a user gesture (a click)
- * when the browser needs to ask for permission again. Returns the folder name, or null
- * when access wasn't granted or the folder is gone.
+ * when the browser needs to ask for permission again. Null when access wasn't granted
+ * or the folder is gone. `openPaths` are the paths of the open documents (see openRoot).
  */
-export async function restoreRememberedFolder(): Promise<string | null> {
-  const result = await openRememberedFolder(ROOT_KEY);
+export async function restoreRememberedFolder(
+  openPaths: readonly string[]
+): Promise<{ name: string; detached: DetachedDocuments } | null> {
+  const result = await openRememberedFolder(ROOT_KEY, openPaths);
 
-  return result.status === 'opened' ? result.name : null;
+  return result.status === 'opened' ? { name: result.name, detached: result.detached } : null;
 }
 
 // ---------------------------------------------------------------------------
