@@ -845,6 +845,24 @@ test.describe('images after Save As (#273)', () => {
   });
 });
 
+test("a document's HTML can't set the app's image markers (#287) @rich-text @images", async ({ app }) => {
+  await app.openFile('marked-image.md');
+
+  const rendered = app.rendered();
+
+  // Each marker points elsewhere: the image shows the file its src and srcset name
+  for (const alt of ['Marked image', 'Marked srcset image']) {
+    const image = rendered.getByRole('img', { name: alt, exact: true });
+
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(rendered.getByRole('img', { name: `Image not found: ${alt}`, exact: true })).toHaveCount(0);
+  }
+
+  await expect(rendered.getByRole('img', { name: 'Marked image', exact: true })).toHaveAttribute('data-markdown-src', 'assets/pic.png');
+  await expect(rendered.locator('[data-document-srcset*="elsewhere"]')).toHaveCount(0);
+});
+
 /** Copies a file of the test folder to another path in it, as another app would */
 async function copyFolderFile(page: Page, from: string, to: string): Promise<void> {
   await page.evaluate(

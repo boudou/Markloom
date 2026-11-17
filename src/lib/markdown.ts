@@ -4,6 +4,7 @@ import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
 import DOMPurify from 'dompurify';
 import { CALLOUT_MARKER, calloutTitleHtml, type CalloutKind } from './callouts';
 import { highlightCode } from '@/features/syntax-highlight';
+import { IMAGE_MARKER_ATTRIBUTES } from '@/features/editor/utils/documentImages';
 
 // Real HTML element names; anything else in angle brackets is treated as literal text
 const KNOWN_HTML_TAGS = new Set(
@@ -555,11 +556,13 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
  * HTML made safe to insert into the app. Raw HTML in documents is allowed for formatting, but
  * scripts, event handlers and javascript: URLs are stripped: an opened file must never be able
  * to run code with access to the user's folder. The preview and rich text's raw HTML share it.
+ * The app's own image markers go too: both editors add them after this, from the attributes left.
  */
 export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['style', 'form'],
+    FORBID_ATTR: IMAGE_MARKER_ATTRIBUTES,
   });
 }
 

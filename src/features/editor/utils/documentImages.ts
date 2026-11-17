@@ -9,6 +9,20 @@ import { clearImageMissing, isImageMarkedMissing, markImageMissing, NO_FOLDER_HI
 import { markMissingOnFailedLoad } from './documentMedia';
 
 /**
+ * The attributes the app keeps on a document's images and media: the address as written (here), the
+ * path being read (previewImages.ts), and the values as written and the pending read (documentMedia.ts).
+ * sanitizeHtml strips them from a document's own HTML, so raw HTML can't choose which file shows.
+ */
+export const IMAGE_MARKER_ATTRIBUTES = [
+  'data-markdown-src',
+  'data-image-path',
+  'data-document-src',
+  'data-document-srcset',
+  'data-document-poster',
+  'data-media-pending',
+];
+
+/**
  * Shows a document image in an img: a relative `src` loads from the folder of `docPath` (through the
  * image cache), anything else as written. An image that can't be shown is hidden beside a box that
  * names `label`. The img needs a parent.
